@@ -149,6 +149,34 @@ class TestViewModel @Inject constructor(
         }
     }
 
+    fun startGame(roomId: String) {
+        viewModelScope.launch {
+            val token = _accessToken.value
+            if (token == null) {
+                addLog("Cannot start game: Not logged in.")
+                return@launch
+            }
+            if (roomId.isBlank()) {
+                addLog("Cannot start game: Room ID is empty.")
+                return@launch
+            }
+
+            addLog("Sending start game command for room $roomId...")
+            try {
+                val response = apiClient.client.post("http://194.169.160.6:8080/rooms/$roomId/start") {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                }
+                if (response.status == HttpStatusCode.OK) {
+                    addLog("Game start command sent successfully!")
+                } else {
+                    addLog("Failed to start game: ${response.status}")
+                }
+            } catch (e: Exception) {
+                addLog("Error starting game: ${e.message}")
+            }
+        }
+    }
+
     fun connectWebSocket(roomId: String) {
         viewModelScope.launch {
             val token = _accessToken.value
@@ -178,7 +206,7 @@ class TestViewModel @Inject constructor(
 
                             // Десериализуем и обрабатываем по типам
                             try {
-                                when (val message = Json.decodeFromString<OutgoingMessage>(messageJson)) {
+                                when (val message = AppJson.decodeFromString<OutgoingMessage>(messageJson)) {
                                     is OutgoingMessage.GameStateUpdate -> {
                                         _gameState.value = message.state
                                         addLog("GameState Updated: Stage ${message.state.stage}, Pot ${message.state.pot}")
@@ -228,6 +256,7 @@ class TestViewModel @Inject constructor(
     fun sendFold() = sendAction(IncomingMessage.Fold())
     fun sendCheck() = sendAction(IncomingMessage.Check())
     fun sendBet(amount: Long) = sendAction(IncomingMessage.Bet(amount))
+    fun sendCall() = sendAction(IncomingMessage.Call())
 
     private fun sendAction(action: IncomingMessage) {
         viewModelScope.launch {
