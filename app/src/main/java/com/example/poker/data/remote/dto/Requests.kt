@@ -17,10 +17,7 @@ data class CreateRoomRequest(
     val gameMode: GameMode,
     val maxPlayers: Int,
     val initialStack: Long,
-    // Поля для кэш-игры
     val smallBlind: Long?,
     val bigBlind: Long?,
-    // Поля для турнира
-    val levelDurationMinutes: Int?
-    // todo Сюда же можно будет добавить структуру блайндов для турнира
+    val blindStructureType: BlindStructureType? = null
 )

@@ -3,6 +3,7 @@ package com.example.poker.ui.createroom
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.poker.data.remote.dto.BlindStructureType
 import com.example.poker.data.remote.dto.CreateRoomRequest
 import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.repository.GameRepository
@@ -29,7 +30,8 @@ class CreateRoomViewModel @Inject constructor(
     private val _initialStack = MutableStateFlow("1000")
     val initialStack = _initialStack.asStateFlow()
 
-    // ... можно добавить состояния и для других полей (блайнды, длительность)
+    private val _blindStructureType = MutableStateFlow(BlindStructureType.STANDARD)
+    val blindStructureType = _blindStructureType.asStateFlow()
 
     private val _navigateBackEvent = MutableSharedFlow<Unit>()
     val navigateBackEvent = _navigateBackEvent.asSharedFlow()
@@ -37,6 +39,7 @@ class CreateRoomViewModel @Inject constructor(
     fun onRoomNameChange(name: String) { _roomName.value = name }
     fun onGameModeChange(mode: GameMode) { _gameMode.value = mode }
     fun onStackChange(stack: String) { _initialStack.value = stack }
+    fun onBlindStructureChange(type: BlindStructureType) { _blindStructureType.value = type }
 
     fun onCreateClick() {
         viewModelScope.launch {
@@ -47,7 +50,7 @@ class CreateRoomViewModel @Inject constructor(
                 initialStack = initialStack.value.toLongOrNull() ?: 1000L,
                 smallBlind = 10, // TODO: брать из полей UI
                 bigBlind = 20,
-                levelDurationMinutes = 10
+                blindStructureType = if (gameMode.value == GameMode.TOURNAMENT) blindStructureType.value else null
             )
             val result = gameRepository.createRoom(request)
             when(result) {

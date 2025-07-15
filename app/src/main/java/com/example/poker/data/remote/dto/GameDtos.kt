@@ -11,10 +11,18 @@ enum class GameMode {
 }
 
 @Serializable
+enum class BlindStructureType {
+    STANDARD,
+    FAST,
+    TURBO
+}
+
+@Serializable
 data class BlindLevel(
     val level: Int,
     val smallBlind: Long,
-    val bigBlind: Long
+    val bigBlind: Long,
+    val ante: Long = 0L
 )
 
 @Serializable
@@ -25,8 +33,8 @@ data class GameRoom(
     val players: List<Player>,
     val maxPlayers: Int = 9,
     val ownerId: String,
-    val blindStructure: List<BlindLevel>? = null,
-    val levelDurationMinutes: Int? = null,
+    val blindStructureType: BlindStructureType? = null,
+    val blindStructure: List<BlindLevel>? = null
 )
 
 @Serializable
