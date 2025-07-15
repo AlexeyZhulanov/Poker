@@ -62,6 +62,9 @@ sealed interface OutgoingMessage {
     @Serializable
     @SerialName("out.social_action_broadcast")
     data class SocialActionBroadcast(val fromPlayerId: String, val action: SocialAction) : OutgoingMessage
+    @Serializable
+    @SerialName("out.lobby_update")
+    data class LobbyUpdate(val rooms: List<GameRoom>) : OutgoingMessage
 }
 
 

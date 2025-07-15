@@ -8,9 +8,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.poker.navigation.Screen
-import com.example.poker.ui.AuthViewModel
+import com.example.poker.ui.auth.AuthViewModel
 import com.example.poker.ui.auth.LoginScreen
 import com.example.poker.ui.auth.RegisterScreen
+import com.example.poker.ui.lobby.LobbyScreen
+import com.example.poker.ui.lobby.LobbyViewModel
+import com.example.poker.ui.settings.SettingsScreen
+import com.example.poker.ui.settings.SettingsViewModel
 import com.example.poker.ui.theme.PokerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -55,7 +59,17 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable(Screen.Lobby.route) {
-                        // TODO: Здесь будет экран Лобби
+                        val viewModel: LobbyViewModel = hiltViewModel()
+                        LobbyScreen {  }
+                    }
+                    composable(Screen.Settings.route) {
+                        val viewModel: SettingsViewModel = hiltViewModel()
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            onLogout = {
+                                navController.navigate(Screen.Login.route) { popUpTo(0) }
+                            }
+                        )
                     }
                 }
             }

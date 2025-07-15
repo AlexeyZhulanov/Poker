@@ -7,7 +7,6 @@ import kotlinx.serialization.modules.subclass
 
 // Создаем наш настроенный экземпляр Json
 val AppJson = Json {
-    // Говорим ему игнорировать неизвестные ключи (полезно, как мы уже выяснили)
     ignoreUnknownKeys = true
 
     // Это самый важный блок. Здесь мы регистрируем все наши "запечатанные" иерархии.
@@ -24,6 +23,7 @@ val AppJson = Json {
             subclass(OutgoingMessage.BlindsUp::class)
             subclass(OutgoingMessage.OfferRunItMultipleTimes::class)
             subclass(OutgoingMessage.SocialActionBroadcast::class)
+            subclass(OutgoingMessage.LobbyUpdate::class)
         }
         // Регистрируем иерархию для IncomingMessage
         polymorphic(IncomingMessage::class) {
@@ -33,8 +33,7 @@ val AppJson = Json {
             subclass(IncomingMessage.SelectRunCount::class)
             subclass(IncomingMessage.PerformSocialAction::class)
         }
-        // ... и так далее для ВСЕХ sealed-классов/интерфейсов, которые вы сериализуете.
-        // Например, SocialAction и OutsInfo
+
         polymorphic(SocialAction::class) {
             subclass(SocialAction.ShowSticker::class)
             subclass(SocialAction.DrawLine::class)

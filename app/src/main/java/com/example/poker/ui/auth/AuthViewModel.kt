@@ -1,10 +1,11 @@
-package com.example.poker.ui
+package com.example.poker.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.remote.dto.LoginRequest
 import com.example.poker.data.remote.dto.RegisterRequest
-import com.example.poker.data.repository.*
+import com.example.poker.data.repository.AuthRepository
+import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,7 +50,13 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            val result = authRepository.register(RegisterRequest(username.value, email.value, password.value))
+            val result = authRepository.register(
+                RegisterRequest(
+                    username.value,
+                    email.value,
+                    password.value
+                )
+            )
             when(result) {
                 is Result.Success -> {
                     appSettings.saveAccessToken(result.data.accessToken)
