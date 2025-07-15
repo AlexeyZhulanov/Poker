@@ -1,0 +1,77 @@
+package com.example.poker.ui.createroom
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.example.poker.data.remote.dto.GameMode
+
+@Composable
+fun CreateRoomScreen(
+    viewModel: CreateRoomViewModel,
+    onNavigateBack: () -> Unit
+) {
+    // Состояния для полей формы
+    val roomName by viewModel.roomName.collectAsState()
+    val gameMode by viewModel.gameMode.collectAsState()
+    val initialStack by viewModel.initialStack.collectAsState()
+
+    // Слушаем событие навигации
+    LaunchedEffect(Unit) {
+        viewModel.navigateBackEvent.collect {
+            onNavigateBack()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Create New Room", style = MaterialTheme.typography.headlineLarge)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedTextField(value = roomName, onValueChange = viewModel::onRoomNameChange, label = { Text("Room Name") })
+
+        // Переключатель режима игры
+        Row(Modifier.padding(vertical = 16.dp)) {
+            Text("Cash")
+            Switch(checked = gameMode == GameMode.TOURNAMENT, onCheckedChange = { isTournament ->
+                viewModel.onGameModeChange(if (isTournament) GameMode.TOURNAMENT else GameMode.CASH)
+            })
+            Text("Tournament")
+        }
+
+        OutlinedTextField(value = initialStack, onValueChange = viewModel::onStackChange)
+
+        // Условное отображение полей
+        if (gameMode == GameMode.CASH) {
+            // TODO: Поля для кэш-игры (блайнды, стек)
+            OutlinedTextField(value = "", onValueChange = {}, label = { Text("Small Blind") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        } else {
+            // TODO: Поля для турнира (интервал, стек)
+            OutlinedTextField(value = "", onValueChange = {}, label = { Text("Level Duration (min)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Button(onClick = { viewModel.onCreateClick() }) {
+            Text("Create")
+        }
+    }
+}

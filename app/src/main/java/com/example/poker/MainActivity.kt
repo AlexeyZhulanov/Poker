@@ -11,6 +11,8 @@ import com.example.poker.navigation.Screen
 import com.example.poker.ui.auth.AuthViewModel
 import com.example.poker.ui.auth.LoginScreen
 import com.example.poker.ui.auth.RegisterScreen
+import com.example.poker.ui.createroom.CreateRoomScreen
+import com.example.poker.ui.createroom.CreateRoomViewModel
 import com.example.poker.ui.lobby.LobbyScreen
 import com.example.poker.ui.lobby.LobbyViewModel
 import com.example.poker.ui.settings.SettingsScreen
@@ -60,7 +62,11 @@ class MainActivity : ComponentActivity() {
                     }
                     composable(Screen.Lobby.route) {
                         val viewModel: LobbyViewModel = hiltViewModel()
-                        LobbyScreen {  }
+                        LobbyScreen(
+                            viewModel = viewModel,
+                            onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                            onNavigateToCreateRoom = { navController.navigate(Screen.CreateRoom.route) }
+                        )
                     }
                     composable(Screen.Settings.route) {
                         val viewModel: SettingsViewModel = hiltViewModel()
@@ -69,6 +75,13 @@ class MainActivity : ComponentActivity() {
                             onLogout = {
                                 navController.navigate(Screen.Login.route) { popUpTo(0) }
                             }
+                        )
+                    }
+                    composable(Screen.CreateRoom.route) {
+                        val viewModel: CreateRoomViewModel = hiltViewModel()
+                        CreateRoomScreen(
+                            viewModel = viewModel,
+                            onNavigateBack = { navController.popBackStack() }
                         )
                     }
                 }
