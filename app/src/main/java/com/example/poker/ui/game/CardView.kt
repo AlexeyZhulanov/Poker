@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,12 +84,16 @@ fun CardFace(card: Card) {
                     Column(Modifier.align(Alignment.TopStart), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = rank.value.toString(), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
-                            modifier = Modifier.size(12.dp).offset(0.5.dp, 0.dp))
+                            modifier = Modifier
+                                .size(10.dp)
+                                .offset(0.5.dp, 0.dp))
                     }
                     when(rank) {
                         Rank.TWO -> {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 5.dp),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -105,14 +110,440 @@ fun CardFace(card: Card) {
                                 )
                             }
                         }
-                        Rank.THREE -> TODO()
-                        Rank.FOUR -> TODO()
-                        Rank.FIVE -> TODO()
-                        Rank.SIX -> TODO()
-                        Rank.SEVEN -> TODO()
-                        Rank.EIGHT -> TODO()
-                        Rank.NINE -> TODO()
-                        Rank.TEN -> TODO()
+                        Rank.THREE -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                        }
+                        Rank.FOUR -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                        }
+                        Rank.FIVE -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Box(
+                                Modifier.align(Alignment.Center)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                            }
+                        }
+                        Rank.SIX -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                        }
+                        Rank.SEVEN -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Box(
+                                Modifier.align(BiasAlignment(0f, -0.4f))
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                            }
+                        }
+                        Rank.EIGHT -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 28.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                        }
+                        Rank.NINE -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 5.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(0.dp, 5.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                )
+                            }
+                            Box(
+                                Modifier.align(Alignment.Center)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor
+                                )
+                            }
+                        }
+                        Rank.TEN -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(0.4f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = BiasAlignment.Horizontal(-0.4f)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(0.dp, 23.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                )
+                            }
+                        }
                         else -> {}
                     }
 
@@ -122,7 +553,9 @@ fun CardFace(card: Card) {
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = rank.value.toString(), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
-                            modifier = Modifier.size(12.dp).offset(0.5.dp, 0.dp))
+                            modifier = Modifier
+                                .size(10.dp)
+                                .offset(0.5.dp, 0.dp))
                     }
                 }
             }
@@ -133,7 +566,7 @@ fun CardFace(card: Card) {
 @Composable
 @Preview
 fun Test() {
-    CardFace(Card(Rank.TWO, Suit.CLUBS))
+    CardFace(Card(Rank.TEN, Suit.DIAMONDS))
 }
 
 // Главный Composable, который решает, что показать

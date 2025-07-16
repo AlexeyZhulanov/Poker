@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
 object CardSuits {
-    val Heart : ImageVector = Builder(name = "Heart", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 1560.769f, viewportHeight = 1529.3243f).apply {
+    val Heart : ImageVector = Builder(name = "Heart", defaultWidth = 18.dp, defaultHeight = 18.dp, viewportWidth = 1560.769f, viewportHeight = 1529.3243f).apply {
         path(fill = SolidColor(Color.Red)) {
             moveToRelative(781.5163f, 1529.3243f)
             curveToRelative(-2.08f, -2.5569f, -3.6917f, -3.8785f, -4.4387f, -5.5448f)
@@ -43,7 +43,7 @@ object CardSuits {
         }
     }.build()
 
-    val Diamond: ImageVector= Builder(name = "Diamond", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 1493.278f, viewportHeight = 1606.643f).apply {
+    val Diamond: ImageVector= Builder(name = "Diamond", defaultWidth = 18.dp, defaultHeight = 18.dp, viewportWidth = 1493.278f, viewportHeight = 1606.643f).apply {
         path(fill = SolidColor(Color.Red)) {
             moveToRelative(0f, 806.2747f)
             curveToRelative(2.6024f, -2.6901f, 3.3919f, -4.0352f, 4.5615f, -4.62f)
@@ -75,7 +75,7 @@ object CardSuits {
         }
     }.build()
 
-    val Club: ImageVector = Builder(name = "Club", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 1522.8937f, viewportHeight = 1520.1464f).apply {
+    val Club: ImageVector = Builder(name = "Club", defaultWidth = 18.dp, defaultHeight = 18.dp, viewportWidth = 1522.8937f, viewportHeight = 1520.1464f).apply {
         path(fill = SolidColor(Color.Black)) {
             moveToRelative(538.8838f, 653.35724f)
             curveToRelative(-13.3126f, -17.6895f, -27.1145f, -35.0402f, -39.8388f, -53.1499f)
@@ -151,7 +151,7 @@ object CardSuits {
         }
     }.build()
 
-    val Spade: ImageVector = Builder(name = "Spade", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 1539.3993f, viewportHeight = 1630.0413f).apply {
+    val Spade: ImageVector = Builder(name = "Spade", defaultWidth = 18.dp, defaultHeight = 18.dp, viewportWidth = 1539.3993f, viewportHeight = 1630.0413f).apply {
         path(fill = SolidColor(Color.Black)) {
             moveToRelative(807.2171f, 1194.3616f)
             curveToRelative(-2.5889f, 14.7483f, 1.8327f, 26.0001f, 3.6362f, 37.374f)
