@@ -1,7 +1,9 @@
 package com.example.poker.ui.game
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -36,21 +40,52 @@ import com.example.poker.ui.theme.GreenCard
 import com.example.poker.ui.theme.OswaldFontFamily
 
 @Composable
-fun CardBack(isRed: Boolean) {
-    val id = if(isRed) R.drawable.ic_red_back else R.drawable.ic_blue_back
+fun CardBack() {
+    val backColor = Color(0xFF1D4ED8) // Насыщенный синий
+    val patternColor = Color(0xFF3B82F6) // Более светлый синий для узора
+
     Card(
         modifier = Modifier
             .width(80.dp)
             .height(120.dp),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color.Black)
+        border = BorderStroke(4.dp, Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Image(
-            painter = painterResource(id = id),
-            contentDescription = "Card Back",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backColor)
+                .padding(4.dp) // Внутренний отступ, чтобы узор не заходил на рамку
+        ) {
+            // Узор
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val strokeWidth = 2.dp.toPx()
+                val step = 10.dp.toPx()
+
+                // Диагональные линии слева направо
+                for (i in -size.height.toInt()..size.width.toInt() step step.toInt()) {
+                    drawLine(
+                        color = patternColor,
+                        start = Offset(x = i.toFloat(), y = 0f),
+                        end = Offset(x = i.toFloat() + size.height, y = size.height),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Диагональные линии справа налево
+                for (i in 0..(size.width.toInt() + size.height.toInt()) step step.toInt()) {
+                    drawLine(
+                        color = patternColor,
+                        start = Offset(x = i.toFloat(), y = 0f),
+                        end = Offset(x = i.toFloat() - size.height, y = size.height),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -636,15 +671,15 @@ private fun getCardName(rank: Rank): String {
 @Composable
 @Preview
 fun Test() {
-    CardFace(Card(Rank.ACE, Suit.DIAMONDS), true)
-    //CardBack(false)
+    //CardFace(Card(Rank.SIX, Suit.CLUBS), true)
+    CardBack()
 }
 
 @Composable
-fun PokerCard(card: Card, isFaceUp: Boolean, isRedBack: Boolean, isFourColorMode: Boolean) {
+fun PokerCard(card: Card, isFaceUp: Boolean, isFourColorMode: Boolean) {
     if (isFaceUp) {
         CardFace(card = card, isFourColorMode)
     } else {
-        CardBack(isRedBack)
+        CardBack()
     }
 }
