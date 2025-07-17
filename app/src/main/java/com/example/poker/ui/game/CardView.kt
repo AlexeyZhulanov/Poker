@@ -1,6 +1,7 @@
 package com.example.poker.ui.game
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,33 +22,41 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.domain.model.Rank
 import com.example.poker.domain.model.Suit
 import com.example.poker.ui.theme.OswaldFontFamily
 
 @Composable
-fun CardBack() {
+fun CardBack(isRed: Boolean) {
+    val id = if(isRed) R.drawable.ic_red_back else R.drawable.ic_blue_back
     Card(
         modifier = Modifier
             .width(80.dp)
             .height(120.dp),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color.Black),
-        colors = CardDefaults.cardColors(containerColor = Color.Blue)
+        border = BorderStroke(1.dp, Color.Black)
     ) {
-        // Здесь можно добавить узор для рубашки
+        Image(
+            painter = painterResource(id = id),
+            contentDescription = "Card Back",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
     }
 }
 
 @Composable
 fun CardFace(card: Card) {
-    val rank = card.rank // "ACE", "KING", "TEN", "NINE"
-    val suit = card.suit // "SPADES", "HEARTS"
+    val rank = card.rank
+    val suit = card.suit
 
     val suitVector = when(suit) {
         Suit.HEARTS -> CardSuits.Heart
@@ -66,29 +75,77 @@ fun CardFace(card: Card) {
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         when (rank) {
-            Rank.JACK, Rank.QUEEN, Rank.KING, Rank.ACE -> {
-                // ПОКАЗЫВАЕМ ГОТОВУЮ КАРТИНКУ
-                // Вам нужно будет создать логику для выбора правильного drawable
-                // Например, по имени "face_card_${rank.lowercase()}_of_${suit.lowercase()}"
-                // Image(painter = painterResource(id = R.drawable.your_face_card_image), ...)
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = rank.value.toString(), fontSize = 32.sp, color = suitColor)
+            Rank.JACK, Rank.QUEEN, Rank.KING -> {
+                when (rank) {
+                    Rank.JACK -> {
+                        val drawableId = when(suit) {
+                            Suit.DIAMONDS -> R.drawable.jack_diamonds
+                            Suit.HEARTS -> R.drawable.jack_hearts
+                            Suit.CLUBS -> R.drawable.jack_clubs
+                            Suit.SPADES -> R.drawable.jack_spades
+                        }
+                        Image(
+                            painter = painterResource(id = drawableId),
+                            contentDescription = "Card Jack",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.FillBounds
+                        )
+                    }
+                    Rank.QUEEN -> {
+                        val drawableId = when(suit) {
+                            Suit.DIAMONDS -> R.drawable.queen_diamonds
+                            Suit.HEARTS -> R.drawable.queen_hearts
+                            Suit.CLUBS -> R.drawable.queen_clubs
+                            Suit.SPADES -> R.drawable.queen_spades
+                        }
+                        Image(
+                            painter = painterResource(id = drawableId),
+                            contentDescription = "Card Queen",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.FillBounds
+                        )
+                    }
+                    Rank.KING -> {
+                        val drawableId = when(suit) {
+                            Suit.DIAMONDS -> R.drawable.king_diamonds
+                            Suit.HEARTS -> R.drawable.king_hearts
+                            Suit.CLUBS -> R.drawable.king_clubs
+                            Suit.SPADES -> R.drawable.king_spades
+                        }
+                        Image(
+                            painter = painterResource(id = drawableId),
+                            contentDescription = "Card King",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.FillBounds
+                        )
+                    }
+                    else -> {}
                 }
             }
             else -> {
-                // РИСУЕМ ЦИФРОВУЮ КАРТУ
                 Box(modifier = Modifier
                     .fillMaxSize()
                     .padding(4.dp)) {
-                    // Уголки карты
                     Column(Modifier.align(Alignment.TopStart), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = rank.value.toString(), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
+                        Text(text = getCardName(rank), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
                             modifier = Modifier
                                 .size(10.dp)
                                 .offset(0.5.dp, 0.dp))
                     }
                     when(rank) {
+                        Rank.ACE -> {
+                            Box(
+                                Modifier.align(Alignment.Center)
+                            ) {
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
                         Rank.TWO -> {
                             Column(
                                 modifier = Modifier
@@ -546,12 +603,11 @@ fun CardFace(card: Card) {
                         }
                         else -> {}
                     }
-
                     Column(Modifier
                         .align(Alignment.BottomEnd)
                         .graphicsLayer(rotationZ = 180f),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = rank.value.toString(), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
+                        Text(text = getCardName(rank), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
                             modifier = Modifier
                                 .size(10.dp)
@@ -563,18 +619,22 @@ fun CardFace(card: Card) {
     }
 }
 
+private fun getCardName(rank: Rank): String {
+    return if(rank.value < 11) rank.value.toString() else "A"
+}
+
 @Composable
 @Preview
 fun Test() {
-    CardFace(Card(Rank.TEN, Suit.DIAMONDS))
+    CardFace(Card(Rank.ACE, Suit.DIAMONDS))
+    //CardBack(false)
 }
 
-// Главный Composable, который решает, что показать
 @Composable
-fun PokerCard(card: Card, isFaceUp: Boolean) {
+fun PokerCard(card: Card, isFaceUp: Boolean, isRedBack: Boolean) {
     if (isFaceUp) {
         CardFace(card = card)
     } else {
-        CardBack()
+        CardBack(isRedBack)
     }
 }
