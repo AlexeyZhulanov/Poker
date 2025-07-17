@@ -32,6 +32,7 @@ import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.domain.model.Rank
 import com.example.poker.domain.model.Suit
+import com.example.poker.ui.theme.GreenCard
 import com.example.poker.ui.theme.OswaldFontFamily
 
 @Composable
@@ -54,7 +55,7 @@ fun CardBack(isRed: Boolean) {
 }
 
 @Composable
-fun CardFace(card: Card) {
+fun CardFace(card: Card, isFourColorMode: Boolean) {
     val rank = card.rank
     val suit = card.suit
 
@@ -64,7 +65,16 @@ fun CardFace(card: Card) {
         Suit.CLUBS -> CardSuits.Club
         else -> CardSuits.Spade
     }
-    val suitColor = if (suit == Suit.HEARTS || suit == Suit.DIAMONDS) Color.Red else Color.Black
+    val suitColor = if(isFourColorMode) {
+        when(suit) {
+            Suit.HEARTS -> Color.Red
+            Suit.SPADES -> Color.Black
+            Suit.DIAMONDS -> Color.Blue
+            Suit.CLUBS -> GreenCard // #00aa00
+        }
+    } else {
+        if (suit == Suit.HEARTS || suit == Suit.DIAMONDS) Color.Red else Color.Black
+    }
 
     Card(
         modifier = Modifier
@@ -79,9 +89,9 @@ fun CardFace(card: Card) {
                 when (rank) {
                     Rank.JACK -> {
                         val drawableId = when(suit) {
-                            Suit.DIAMONDS -> R.drawable.jack_diamonds
+                            Suit.DIAMONDS -> if(isFourColorMode) R.drawable.jack_diamonds_fc else R.drawable.jack_diamonds
                             Suit.HEARTS -> R.drawable.jack_hearts
-                            Suit.CLUBS -> R.drawable.jack_clubs
+                            Suit.CLUBS -> if(isFourColorMode) R.drawable.jack_clubs_fc else R.drawable.jack_clubs
                             Suit.SPADES -> R.drawable.jack_spades
                         }
                         Image(
@@ -93,9 +103,9 @@ fun CardFace(card: Card) {
                     }
                     Rank.QUEEN -> {
                         val drawableId = when(suit) {
-                            Suit.DIAMONDS -> R.drawable.queen_diamonds
+                            Suit.DIAMONDS -> if(isFourColorMode) R.drawable.queen_diamonds_fc else R.drawable.queen_diamonds
                             Suit.HEARTS -> R.drawable.queen_hearts
-                            Suit.CLUBS -> R.drawable.queen_clubs
+                            Suit.CLUBS -> if(isFourColorMode) R.drawable.queen_clubs_fc else R.drawable.queen_clubs
                             Suit.SPADES -> R.drawable.queen_spades
                         }
                         Image(
@@ -107,9 +117,9 @@ fun CardFace(card: Card) {
                     }
                     Rank.KING -> {
                         val drawableId = when(suit) {
-                            Suit.DIAMONDS -> R.drawable.king_diamonds
+                            Suit.DIAMONDS -> if(isFourColorMode) R.drawable.king_diamonds_fc else R.drawable.king_diamonds
                             Suit.HEARTS -> R.drawable.king_hearts
-                            Suit.CLUBS -> R.drawable.king_clubs
+                            Suit.CLUBS -> if(isFourColorMode) R.drawable.king_clubs_fc else R.drawable.king_clubs
                             Suit.SPADES -> R.drawable.king_spades
                         }
                         Image(
@@ -626,14 +636,14 @@ private fun getCardName(rank: Rank): String {
 @Composable
 @Preview
 fun Test() {
-    CardFace(Card(Rank.ACE, Suit.DIAMONDS))
+    CardFace(Card(Rank.ACE, Suit.DIAMONDS), true)
     //CardBack(false)
 }
 
 @Composable
-fun PokerCard(card: Card, isFaceUp: Boolean, isRedBack: Boolean) {
+fun PokerCard(card: Card, isFaceUp: Boolean, isRedBack: Boolean, isFourColorMode: Boolean) {
     if (isFaceUp) {
-        CardFace(card = card)
+        CardFace(card = card, isFourColorMode)
     } else {
         CardBack(isRedBack)
     }
