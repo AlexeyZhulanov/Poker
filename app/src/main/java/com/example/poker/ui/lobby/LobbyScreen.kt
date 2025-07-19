@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,9 +35,16 @@ import com.example.poker.data.remote.dto.GameRoom
 fun LobbyScreen(
     viewModel: LobbyViewModel,
     onNavigateToSettings: () -> Unit,
-    onNavigateToCreateRoom: () -> Unit
+    onNavigateToCreateRoom: () -> Unit,
+    onNavigateToGame: (roomId: String) -> Unit
 ) {
     val rooms by viewModel.rooms.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.navigateToGameEvent.collect { roomId ->
+            onNavigateToGame(roomId)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -57,7 +65,7 @@ fun LobbyScreen(
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
             items(rooms) { room ->
-                RoomItem(room = room, onJoinClick = { /* TODO */ })
+                RoomItem(room = room, onJoinClick = { viewModel.onJoinClick(room.roomId) })
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
         }

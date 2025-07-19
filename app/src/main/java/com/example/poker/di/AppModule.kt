@@ -27,7 +27,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(appSettings: AppSettings): HttpClient {
+    fun provideHttpClient(appSettings: AppSettings, authEventBus: AuthEventBus): HttpClient {
         return HttpClient(CIO) {
             install(ContentNegotiation) { json(AppJson) }
             install(WebSockets) { contentConverter =
@@ -54,7 +54,7 @@ object AppModule {
                         val refreshToken = appSettings.getRefreshToken() ?: return@refreshTokens null
 
                         // Делаем запрос на наш эндпоинт /auth/refresh
-                        val response = client.post("http://10.0.2.2:8080/auth/refresh") {
+                        val response = client.post("http://amessenger.ru/auth/refresh") {
                             header("Authorization", "Bearer $refreshToken")
                         }
 
@@ -64,6 +64,10 @@ object AppModule {
                             appSettings.saveRefreshToken(newTokens.refreshToken)
                             BearerTokens(newTokens.accessToken, newTokens.refreshToken)
                         } else {
+                            // Очищаем старые, невалидные токены
+                            appSettings.saveAccessToken(null)
+                            appSettings.saveRefreshToken(null)
+                            authEventBus.postEvent(AuthEvent.SessionExpired)
                             null
                         }
                     }

@@ -3,6 +3,7 @@ package com.example.poker.ui.createroom
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.dto.BlindStructureType
 import com.example.poker.data.remote.dto.CreateRoomRequest
 import com.example.poker.data.remote.dto.GameMode
@@ -33,8 +34,8 @@ class CreateRoomViewModel @Inject constructor(
     private val _blindStructureType = MutableStateFlow(BlindStructureType.STANDARD)
     val blindStructureType = _blindStructureType.asStateFlow()
 
-    private val _navigateBackEvent = MutableSharedFlow<Unit>()
-    val navigateBackEvent = _navigateBackEvent.asSharedFlow()
+    private val _navigationEvent = MutableSharedFlow<String?>()
+    val navigationEvent = _navigationEvent.asSharedFlow()
 
     fun onRoomNameChange(name: String) { _roomName.value = name }
     fun onGameModeChange(mode: GameMode) { _gameMode.value = mode }
@@ -45,7 +46,7 @@ class CreateRoomViewModel @Inject constructor(
         viewModelScope.launch {
             val request = CreateRoomRequest(
                 name = roomName.value,
-                gameMode = gameMode.value,
+                gameMode = GameMode.CASH, // todo gamemode.value (не работает пока что)
                 maxPlayers = 9,
                 initialStack = initialStack.value.toLongOrNull() ?: 1000L,
                 smallBlind = 10, // TODO: брать из полей UI
@@ -55,14 +56,14 @@ class CreateRoomViewModel @Inject constructor(
             val result = gameRepository.createRoom(request)
             when(result) {
                 is Result.Success -> {
-                    _navigateBackEvent.emit(Unit)
+                    GameRoomCache.currentRoom = result.data
+                    _navigationEvent.emit(result.data.roomId)
                 }
                 is Result.Error -> {
-                    // todo
                     Log.d("testError", result.message)
+                    _navigationEvent.emit(null) // Сигнал, что можно просто вернуться назад
                 }
             }
-
         }
     }
 }

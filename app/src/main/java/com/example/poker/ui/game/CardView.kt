@@ -6,10 +6,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -40,14 +43,12 @@ import com.example.poker.ui.theme.GreenCard
 import com.example.poker.ui.theme.OswaldFontFamily
 
 @Composable
-fun CardBack() {
+fun CardBack(modifier: Modifier) {
     val backColor = Color(0xFF1D4ED8) // Насыщенный синий
     val patternColor = Color(0xFF3B82F6) // Более светлый синий для узора
 
     Card(
-        modifier = Modifier
-            .width(80.dp)
-            .height(120.dp),
+        modifier = modifier.width(80.dp).height(120.dp),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(4.dp, Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -90,7 +91,7 @@ fun CardBack() {
 }
 
 @Composable
-fun CardFace(card: Card, isFourColorMode: Boolean) {
+fun CardFace(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
     val rank = card.rank
     val suit = card.suit
 
@@ -112,9 +113,7 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
     }
 
     Card(
-        modifier = Modifier
-            .width(80.dp)
-            .height(120.dp),
+        modifier = modifier,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Color.Gray),
         colors = CardDefaults.cardColors(containerColor = Color.White)
@@ -168,15 +167,28 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                 }
             }
             else -> {
-                Box(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(4.dp)) {
-                    Column(Modifier.align(Alignment.TopStart), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = getCardName(rank), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
+                BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(3.dp)) {
+                    val boxWithConstraintsScope = this
+                    val cornerFontSize = (boxWithConstraintsScope.maxHeight.value * 0.16f).sp
+                    val standardIconSize = boxWithConstraintsScope.maxHeight / 6.66f
+                    val aceIconSize = boxWithConstraintsScope.maxHeight / 5
+                    val paddingValue = boxWithConstraintsScope.maxHeight / 12
+                    val dpEqual28 = boxWithConstraintsScope.maxHeight / 4.28f
+                    val dpEqual23 = boxWithConstraintsScope.maxHeight / 5.2f
+                    val tenIconSize = boxWithConstraintsScope.maxHeight / 10
+
+                    Column(Modifier.align(Alignment.TopStart).width(IntrinsicSize.Min), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = getCardName(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                )
+                            )
+                        )
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
                             modifier = Modifier
-                                .size(10.dp)
-                                .offset(0.5.dp, 0.dp))
+                                .size(paddingValue))
+                                //.offset(0.5.dp, 0.dp))
                     }
                     when(rank) {
                         Rank.ACE -> {
@@ -187,7 +199,7 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(aceIconSize)
                                 )
                             }
                         }
@@ -195,20 +207,21 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                         }
@@ -216,25 +229,27 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                         }
@@ -242,39 +257,41 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                         }
@@ -282,39 +299,41 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Box(
@@ -323,7 +342,8 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                             }
                         }
@@ -331,95 +351,103 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 10.dp),
+                                    .padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                         }
                         Rank.SEVEN -> {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Box(
@@ -428,70 +456,76 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                             }
                         }
                         Rank.EIGHT -> {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 28.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, dpEqual28),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                         }
@@ -499,61 +533,65 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 5.dp),
+                                    .padding(0.dp, paddingValue / 2),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(0.dp, 5.dp),
+                                    .padding(0.dp, paddingValue / 2),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
                             ) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
-                                )
-                                Icon(
-                                    imageVector = suitVector,
-                                    contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
+                                )
+                                Icon(
+                                    imageVector = suitVector,
+                                    contentDescription = null,
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize).graphicsLayer(rotationZ = 180f)
                                 )
                             }
                             Box(
@@ -562,13 +600,14 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
-                                    tint = suitColor
+                                    tint = suitColor,
+                                    modifier = Modifier.size(standardIconSize)
                                 )
                             }
                         }
                         Rank.TEN -> {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(0.4f)
                             ) {
@@ -576,29 +615,29 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(tenIconSize)
                                 )
                             }
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 10.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, paddingValue),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = BiasAlignment.Horizontal(-0.4f)
                             ) {
@@ -606,29 +645,29 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(tenIconSize)
                                 )
                             }
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(0.dp, 23.dp),
+                                modifier = Modifier.fillMaxSize().padding(0.dp, dpEqual23),
                                 verticalArrangement = Arrangement.SpaceBetween,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -636,27 +675,31 @@ fun CardFace(card: Card, isFourColorMode: Boolean) {
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(tenIconSize)
                                 )
                                 Icon(
                                     imageVector = suitVector,
                                     contentDescription = null,
                                     tint = suitColor,
-                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(12.dp)
+                                    modifier = Modifier.graphicsLayer(rotationZ = 180f).size(tenIconSize)
                                 )
                             }
                         }
                         else -> {}
                     }
                     Column(Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(Alignment.BottomEnd).width(IntrinsicSize.Min)
                         .graphicsLayer(rotationZ = 180f),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = getCardName(rank), color = suitColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily)
+                        Text(text = getCardName(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                )
+                            ))
                         Icon(imageVector = suitVector, contentDescription = null, tint = suitColor,
-                            modifier = Modifier
-                                .size(10.dp)
-                                .offset(0.5.dp, 0.dp))
+                            modifier = Modifier.size(paddingValue))
+                                //.offset(0.5.dp, 0.dp))
                     }
                 }
             }
@@ -671,15 +714,13 @@ private fun getCardName(rank: Rank): String {
 @Composable
 @Preview
 fun Test() {
-    //CardFace(Card(Rank.SIX, Suit.CLUBS), true)
-    CardBack()
+    CardFace(Card(Rank.SEVEN, Suit.DIAMONDS), true, Modifier.width(40.dp).height(60.dp))
+    //CardBack(Modifier)
 }
 
 @Composable
-fun PokerCard(card: Card, isFaceUp: Boolean, isFourColorMode: Boolean) {
-    if (isFaceUp) {
-        CardFace(card = card, isFourColorMode)
-    } else {
-        CardBack()
-    }
+fun PokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier) {
+    card?.let {
+        CardFace(it, isFourColorMode, modifier)
+    } ?: CardBack(modifier)
 }

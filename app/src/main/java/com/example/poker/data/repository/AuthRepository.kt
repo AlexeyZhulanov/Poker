@@ -19,7 +19,7 @@ class AuthRepository @Inject constructor(
 ) {
     suspend fun login(request: LoginRequest): Result<AuthResponse> {
         return try {
-            val response = apiClient.client.post("http://194.169.160.6:8080/auth/login") {
+            val response = apiClient.client.post("http://amessenger.ru:8080/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
@@ -35,7 +35,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun register(request: RegisterRequest): Result<AuthResponse> {
         return try {
-            val response = apiClient.client.post("http://194.169.160.6:8080/auth/register") {
+            val response = apiClient.client.post("http://amessenger.ru:8080/auth/register") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }

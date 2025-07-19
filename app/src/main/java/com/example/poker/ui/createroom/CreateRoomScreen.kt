@@ -25,10 +25,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.poker.data.remote.dto.BlindStructureType
 import com.example.poker.data.remote.dto.GameMode
+import com.example.poker.data.remote.dto.GameRoom
 
 @Composable
 fun CreateRoomScreen(
     viewModel: CreateRoomViewModel,
+    onRoomCreated: (roomId: String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     // Состояния для полей формы
@@ -39,8 +41,12 @@ fun CreateRoomScreen(
 
     // Слушаем событие навигации
     LaunchedEffect(Unit) {
-        viewModel.navigateBackEvent.collect {
-            onNavigateBack()
+        viewModel.navigationEvent.collect { roomId ->
+            if (roomId != null) {
+                onRoomCreated(roomId)
+            } else {
+                onNavigateBack()
+            }
         }
     }
 
