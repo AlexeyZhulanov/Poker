@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
@@ -33,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
@@ -54,14 +53,19 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.data.remote.dto.GameState
+import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerState
 
 @Composable
@@ -75,45 +79,52 @@ fun GameScreen(viewModel: GameViewModel) {
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
 
-    Scaffold(
-        bottomBar = {
-            ActionPanel(
-                viewModel = viewModel,
-                isMyTurn = gameState != null && activePlayerId == myUserId,
-                playerState = myPlayerState,
-                gameState = gameState
-            )
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        val boxWithConstraintsScope = this
+        val width = boxWithConstraintsScope.maxWidth
+        val height = boxWithConstraintsScope.maxHeight
+
+        ActionPanel(
+            viewModel = viewModel,
+            isMyTurn = gameState != null && activePlayerId == myUserId,
+            playerState = myPlayerState,
+            gameState = gameState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
+        ///////
+        Box(Modifier.align(Alignment.TopCenter).background(Color.Gray).height(30.dp).fillMaxWidth()) {
+            Text("TopBar 30 dp", textAlign = TextAlign.Center, modifier = Modifier.fillMaxSize())
         }
-    ) { paddingValues ->
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFF004D40)), // Цвет сукна
-            contentAlignment = Alignment.Center
-        ) {
-            val boxWithConstraintsScope = this
-            val width = boxWithConstraintsScope.maxWidth
-            val height = boxWithConstraintsScope.maxHeight
-            // Отображаем стол
-            //PokerTable() // todo можно будет красиво сделать и вернуть
+        ////////
+
+        // todo нормально паддинги вписать как константы
+        Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).padding(3.dp).fillMaxSize()) {
+            val testStates = mutableListOf<PlayerState>()
+            for(i in 1..4) {
+                testStates += PlayerState(Player(i.toString(), "test", 1000))
+            }
 
             // ЗДЕСЬ ИГРОКОВ РИСУЕМ и РЕЖИМ
             // todo как-то получать игроков до старта игры
-//            val myPlayerIndex = state.playerStates.indexOfFirst { it.player.userId == myUserId }
-//
-//            state.playerStates.forEach { playerState ->
-//                PlayerDisplay(
-//                    playerState = playerState,
-//                    isMyPlayer = playerState.player.userId == myUserId,
-//                    isFourColorMode = true
-//                )
-//            }
-
-
+            // val myPlayerIndex = state.playerStates.indexOfFirst { it.player.userId == myUserId }
+            val alignments  = calculatePlayerPosition(testStates.size)
+            testStates.forEachIndexed { index, playerState ->
+                PlayerDisplay(
+                    modifier = Modifier.align(alignments[index]),
+                    playerState = playerState,
+                    isMyPlayer = playerState.player.userId == myUserId,
+                    isFourColorMode = true,
+                    scaleMultiplier = 1.2f // todo добавить кастомизацию
+                )
+            }
             gameState?.let {
                 CardsLayout(it, width)
-            } ?: Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            } ?: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(
+                Alignment.Center)) {
                 Text("Waiting for game to start...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -124,7 +135,71 @@ fun GameScreen(viewModel: GameViewModel) {
                 }
             }
         }
+
+        // Отображаем стол
+        //PokerTable() // todo можно будет красиво сделать и вернуть
+
     }
+}
+
+private fun calculatePlayerPosition(playersCount: Int): List<BiasAlignment> {
+    // 0.68 - центр
+    val list = mutableListOf(BiasAlignment(0f, 1f)) // first
+    when(playersCount) {
+        1 -> return list
+        2 -> list.add(BiasAlignment(0f, -1f))
+        3 -> {
+            list.add(BiasAlignment(-1f, -0.9f))
+            list.add(BiasAlignment(1f, -0.9f))
+        }
+        4 -> {
+            list.add(BiasAlignment(-1f, -0.5f))
+            list.add(BiasAlignment(0f, -1f))
+            list.add(BiasAlignment(1f, -0.5f))
+        }
+        5 -> {
+            list.add(BiasAlignment(-1f, 0.5f))
+            list.add(BiasAlignment(-1f, -0.9f))
+            list.add(BiasAlignment(1f, -0.9f))
+            list.add(BiasAlignment(1f, 0.5f))
+        }
+        6 -> {
+            list.add(BiasAlignment(-1f, 0.5f))
+            list.add(BiasAlignment(-1f, -0.5f))
+            list.add(BiasAlignment(0f, -1f))
+            list.add(BiasAlignment(1f, -0.5f))
+            list.add(BiasAlignment(1f, 0.5f))
+        }
+        7 -> {
+            list.add(BiasAlignment(-1f, 0.5f))
+            list.add(BiasAlignment(-1f, -0.5f))
+            list.add(BiasAlignment(-0.5f, -1f))
+            list.add(BiasAlignment(0.5f, -1f))
+            list.add(BiasAlignment(1f, -0.5f))
+            list.add(BiasAlignment(1f, 0.5f))
+        }
+        8 -> {
+            list.add(BiasAlignment(-1f, 0.5f))
+            list.add(BiasAlignment(-1f, -0.4f))
+            list.add(BiasAlignment(-1f, -0.85f))
+            list.add(BiasAlignment(0f, -1f))
+            list.add(BiasAlignment(1f, -0.85f))
+            list.add(BiasAlignment(1f, -0.4f))
+            list.add(BiasAlignment(1f, 0.5f))
+        }
+        9 -> {
+            list.add(BiasAlignment(-1f, 0.85f))
+            list.add(BiasAlignment(-1f, 0.4f))
+            list.add(BiasAlignment(-1f, -0.5f))
+            list.add(BiasAlignment(-0.5f, -1f))
+            list.add(BiasAlignment(0.5f, -1f))
+            list.add(BiasAlignment(1f, -0.5f))
+            list.add(BiasAlignment(1f, 0.4f))
+            list.add(BiasAlignment(1f, 0.85f))
+        }
+        else -> return listOf()
+    }
+    return list
 }
 
 @Composable
@@ -155,44 +230,45 @@ fun ActionPanel(
     viewModel: GameViewModel,
     isMyTurn: Boolean,
     playerState: PlayerState?, // Состояние текущего игрока
-    gameState: GameState? // Общее состояние игры
+    gameState: GameState?, // Общее состояние игры
+    modifier: Modifier
 ) {
     // Состояние для отображения/скрытия ползунка
     var showBetSlider by remember { mutableStateOf(false) }
 
     // Используем Box для наложения ползунка поверх панели
     Box(
-        contentAlignment = Alignment.BottomCenter,
-        modifier = Modifier
+        contentAlignment = Alignment.TopCenter,
+        modifier = modifier
+            .height(63.dp)
             .fillMaxWidth()
             .navigationBarsPadding()
+            .background(Color.Black)
     ) {
         // --- ОСНОВНАЯ ПАНЕЛЬ С ТРЕМЯ КНОПКАМИ ---
-        BottomAppBar {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 1. Кнопка FOLD
-                BottomButton(onClick = { viewModel.onFold() }, enabled = isMyTurn, text = "Fold")
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Кнопка FOLD
+            BottomButton(onClick = { viewModel.onFold() }, enabled = isMyTurn, text = "Fold", modifier = Modifier.weight(1f))
 
-                // 2. Динамическая кнопка CHECK / CALL
-                val amountToCall = gameState?.amountToCall ?: 0L
-                val myCurrentBet = playerState?.currentBet ?: 0L
+            // 2. Динамическая кнопка CHECK / CALL
+            val amountToCall = gameState?.amountToCall ?: 0L
+            val myCurrentBet = playerState?.currentBet ?: 0L
 
-                if (amountToCall == 0L || amountToCall == myCurrentBet) {
-                    // Если ставить не нужно, показываем CHECK
-                    BottomButton(onClick = { viewModel.onCheck() }, enabled = isMyTurn, text = "Check")
-                } else {
-                    // Если нужно коллировать, показываем CALL с суммой
-                    val callValue = minOf(playerState?.player?.stack ?: 0L, amountToCall - myCurrentBet)
-                    BottomButton(onClick = { viewModel.onCall() }, enabled = isMyTurn, text = "Call $callValue")
-                }
-
-                // 3. Кнопка BET / RAISE
-                BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn, text = "Bet / Raise")
+            if (amountToCall == 0L || amountToCall == myCurrentBet) {
+                // Если ставить не нужно, показываем CHECK
+                BottomButton(onClick = { viewModel.onCheck() }, enabled = isMyTurn, text = "Check", modifier = Modifier.weight(1f))
+            } else {
+                // Если нужно коллировать, показываем CALL с суммой
+                val callValue = minOf(playerState?.player?.stack ?: 0L, amountToCall - myCurrentBet)
+                BottomButton(onClick = { viewModel.onCall() }, enabled = isMyTurn, text = "Call $callValue", modifier = Modifier.weight(1f))
             }
+
+            // 3. Кнопка BET / RAISE
+            BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn, text = "Bet", modifier = Modifier.weight(1f))
         }
 
         // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
@@ -281,15 +357,18 @@ fun PokerTable() {
 }
 
 @Composable
-fun BottomButton(onClick: () -> Unit, enabled: Boolean, text: String) {
+fun BottomButton(onClick: () -> Unit, enabled: Boolean, text: String, modifier: Modifier) {
+    val color1 = if(enabled) Color.Red else Color(0xFF640D14)
+    val color2 = if(enabled) Color(0xFF640D14) else Color.Black
     FilledTonalButton(
+        modifier = modifier.height(60.dp).padding(1.dp, 0.dp),
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonColors(Color.Red.copy(alpha = 0.7f), Color.Black, Color.Gray, Color.Black),
-        border = BorderStroke(5.dp, Brush.radialGradient(listOf(Color.Red, Color(0xFF640D14)), radius = 150f))
+        colors = ButtonColors(Color.Red.copy(alpha = 0.7f), Color.Black, Color(0xFF38070B), Color.Black),
+        border = BorderStroke(5.dp, Brush.radialGradient(listOf(color1, color2), radius = 170f))
     ) {
-        Text(text)
+        Text(text, fontSize = 18.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -315,24 +394,25 @@ fun PlayerDisplay(
     playerState: PlayerState,
     isMyPlayer: Boolean,
     isFourColorMode: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scaleMultiplier: Float
 ) {
     Box(modifier = modifier
         .width(IntrinsicSize.Max)
-        .height(80.dp)
-        .padding(5.dp, 0.dp)) {
+        .height(80.dp * scaleMultiplier)
+        .padding(5.dp * scaleMultiplier, 0.dp)) {
         Icon(
             imageVector = Icons.Default.Person,
             contentDescription = "Player Avatar",
             tint = Color.White,
             modifier = Modifier
-                .size(60.dp)
+                .size(60.dp * scaleMultiplier)
                 .clip(CircleShape)
                 .background(Color.DarkGray)
                 .border(1.dp, Color.White, shape = CircleShape)
         )
         Row(
-            horizontalArrangement = Arrangement.spacedBy((-20).dp),
+            horizontalArrangement = Arrangement.spacedBy((-20).dp * scaleMultiplier),
             modifier = Modifier.align(Alignment.Center)
         ) {
             val (card1, card2) = if (isMyPlayer || playerState.cards.isNotEmpty()) {
@@ -344,16 +424,16 @@ fun PlayerDisplay(
                 card = card1,
                 isFourColorMode = isFourColorMode,
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(60.dp)
+                    .width(40.dp * scaleMultiplier)
+                    .height(60.dp * scaleMultiplier)
                     .graphicsLayer { rotationZ = -10f }
             )
             PokerCard(
                 card = card2,
                 isFourColorMode = isFourColorMode,
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(60.dp)
+                    .width(40.dp * scaleMultiplier)
+                    .height(60.dp * scaleMultiplier)
                     .graphicsLayer { rotationZ = 10f }
             )
         }
@@ -367,20 +447,38 @@ fun PlayerDisplay(
                 text = playerState.player.username,
                 color = Color.White,
                 fontWeight = FontWeight.Normal,
-                fontSize = 10.sp,
+                fontSize = 10.sp * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(0.dp, 1.dp)
+                    .padding(0.dp, 1.dp),
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(
+                        includeFontPadding = false
+                    ),
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both
+                    )
+                )
             )
             HorizontalDivider()
             Text(
                 text = playerState.player.stack.toString(),
                 color = Color.White,
                 fontWeight = FontWeight.Normal,
-                fontSize = 11.sp,
+                fontSize = 11.sp * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(0.dp, 1.dp)
+                    .padding(0.dp, 1.dp),
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(
+                        includeFontPadding = false
+                    ),
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both
+                    )
+                )
             )
         }
     }

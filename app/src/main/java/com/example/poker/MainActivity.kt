@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = Screen.Login.route // Начинаем с экрана входа
+                    startDestination = Screen.Game.createRoute("123") // todo поменять на лобби, пока тест
                 ) {
                     composable(Screen.Login.route) {
                         val viewModel: AuthViewModel = hiltViewModel()
@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
                     composable(
                         route = Screen.Game.route,
                         arguments = listOf(
-                            navArgument("room") { type = NavType.StringType }
+                            navArgument("roomId") { type = NavType.StringType }
                         )
                     ) {
                         val viewModel: GameViewModel = hiltViewModel()
