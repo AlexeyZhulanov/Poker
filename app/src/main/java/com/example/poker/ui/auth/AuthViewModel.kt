@@ -1,5 +1,6 @@
 package com.example.poker.ui.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.remote.dto.LoginRequest
@@ -78,6 +79,7 @@ class AuthViewModel @Inject constructor(
             val result = authRepository.login(LoginRequest(username.value, password.value))
             when(result) {
                 is Result.Success -> {
+                    Log.d("testLogin", result.toString())
                     appSettings.saveAccessToken(result.data.accessToken)
                     appSettings.saveRefreshToken(result.data.refreshToken)
                     _navigationEvent.emit(Screen.Lobby.route)

@@ -1,5 +1,6 @@
 package com.example.poker.di
 
+import android.util.Log
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
 import com.example.poker.data.remote.dto.AuthResponse
@@ -50,20 +51,36 @@ object AppModule {
 
                     // Блок, который Ktor вызовет сам, если получит ошибку 401 Unauthorized
                     refreshTokens {
-                        println("Ktor Auth: Refreshing tokens...")
-                        val refreshToken = appSettings.getRefreshToken() ?: return@refreshTokens null
-
-                        // Делаем запрос на наш эндпоинт /auth/refresh
-                        val response = client.post("http://amessenger.ru/auth/refresh") {
-                            header("Authorization", "Bearer $refreshToken")
+                        val refreshToken = appSettings.getRefreshToken()
+                        if(refreshToken == null) {
+                            Log.d("testRefreshToken", "Token is null")
+                            authEventBus.postEvent(AuthEvent.SessionExpired)
+                            return@refreshTokens null
+                        }
+                        // без отдельного клиента не будет работать (из-за плагина Auth)
+                        val refreshClient = HttpClient(CIO) {
+                            install(ContentNegotiation) { json(AppJson) }
                         }
 
-                        if (response.status == HttpStatusCode.OK) {
+                        val response = try {
+                            // Делаем запрос на наш эндпоинт /auth/refresh
+                            refreshClient.post("http://amessenger.ru:8080/auth/refresh") {
+                                header("Authorization", "Bearer $refreshToken")
+                            }
+                        } catch (e: Exception) {
+                            Log.d("testRefresh", "Except: ${e.message}")
+                            null
+                        } finally {
+                            refreshClient.close()
+                        }
+                        if (response?.status == HttpStatusCode.OK) {
+                            Log.d("testRefreshToken", "Done.")
                             val newTokens = response.body<AuthResponse>()
                             appSettings.saveAccessToken(newTokens.accessToken)
                             appSettings.saveRefreshToken(newTokens.refreshToken)
                             BearerTokens(newTokens.accessToken, newTokens.refreshToken)
                         } else {
+                            Log.d("testRefreshToken", "Http not completed: $response")
                             // Очищаем старые, невалидные токены
                             appSettings.saveAccessToken(null)
                             appSettings.saveRefreshToken(null)

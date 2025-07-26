@@ -1,5 +1,6 @@
 package com.example.poker.ui.game
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,8 @@ import com.example.poker.data.remote.dto.GameRoom
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.IncomingMessage
 import com.example.poker.data.remote.dto.OutgoingMessage
+import com.example.poker.data.remote.dto.Player
+import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
@@ -23,8 +26,11 @@ import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Base64
 import javax.inject.Inject
@@ -48,26 +54,34 @@ class GameViewModel @Inject constructor(
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
     val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
 
+    val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
+        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     private var session: DefaultClientWebSocketSession? = null
 
     init {
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
         val initialRoom = GameRoomCache.currentRoom
+        Log.d("testPlayers1", initialRoom?.players.toString())
         if (initialRoom != null) {
             _roomInfo.value = initialRoom
             GameRoomCache.currentRoom = null // Очищаем кэш
         }
         connectToGame()
-        //todo
-//        viewModelScope.launch {
-//            val updatedRoom = loadRoomDetails()
-//            if(updatedRoom != initialRoom) _roomInfo.value = updatedRoom
-//        }
+        viewModelScope.launch {
+            val updatedRoom = loadRoomDetails()
+            Log.d("testPlayers2", updatedRoom?.players.toString())
+            if(updatedRoom != initialRoom && updatedRoom != null) _roomInfo.value = updatedRoom
+        }
     }
 
-    //private fun loadRoomDetails(): GameRoom {
-        //todo
-    //}
+    private suspend fun loadRoomDetails(): GameRoom? {
+        return when (val result = gameRepository.getRoomDetails(roomId)) {
+            is Result.Success -> result.data
+            is Result.Error -> null
+        }
+    }
 
     private fun connectToGame() {
         viewModelScope.launch {
@@ -83,17 +97,31 @@ class GameViewModel @Inject constructor(
                         if (frame is Frame.Text) {
                             val messageJson = frame.readText()
                             when (val message = AppJson.decodeFromString<OutgoingMessage>(messageJson)) {
-                                is OutgoingMessage.GameStateUpdate -> _gameState.value = message.state
+                                is OutgoingMessage.GameStateUpdate -> {
+                                    Log.d("testNewState", message.state.toString())
+                                    _gameState.value = message.state
+                                }
                                 is OutgoingMessage.AllInEquityUpdate -> println("123") // todo
                                 is OutgoingMessage.BlindsUp -> println("123") // todo
                                 is OutgoingMessage.ErrorMessage -> println("123") // todo
                                 is OutgoingMessage.LobbyUpdate -> println("lobby update") // todo
                                 is OutgoingMessage.OfferRunItMultipleTimes -> println("123") // todo
-                                is OutgoingMessage.PlayerJoined -> println("player joined") // todo
-                                is OutgoingMessage.PlayerLeft -> println("player left") // todo
+                                is OutgoingMessage.PlayerJoined -> {
+                                    Log.d("testPlayerJoined", message.username)
+                                    _roomInfo.value = _roomInfo.value?.copy(
+                                        players = _roomInfo.value!!.players + Player(userId = message.username, username = message.username, stack = 0) //todo
+                                    )
+                                }
+                                is OutgoingMessage.PlayerLeft -> {
+                                    Log.d("testPlayerLeft", message.username)
+                                    _roomInfo.value = _roomInfo.value?.copy(
+                                        players = _roomInfo.value!!.players.filterNot { it.username == message.username }
+                                    )
+                                }
                                 is OutgoingMessage.RunItMultipleTimesResult -> println("123") // todo
                                 is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
                                 is OutgoingMessage.TournamentWinner -> println("123") // todo
+                                is OutgoingMessage.PlayerReadyUpdate -> println("123") // todo
                             }
                         }
                     }
@@ -109,19 +137,7 @@ class GameViewModel @Inject constructor(
     fun onCheck() = sendAction(IncomingMessage.Check())
     fun onCall() = sendAction(IncomingMessage.Call())
     fun onBet(amount: Long) = sendAction(IncomingMessage.Bet(amount))
-    fun onStartGameClick() {
-        viewModelScope.launch {
-            when (val result = gameRepository.startGame(roomId)) {
-                is Result.Success -> {
-                    println("Started successfully")
-                }
-                is Result.Error -> {
-                    // TODO: Показать ошибку пользователю
-                    println("Start error: ${result.message}")
-                }
-            }
-        }
-    }
+    fun onReadyClick(isReady: Boolean) = sendAction(IncomingMessage.SetReady(isReady))
 
     private fun sendAction(action: IncomingMessage) {
         viewModelScope.launch {

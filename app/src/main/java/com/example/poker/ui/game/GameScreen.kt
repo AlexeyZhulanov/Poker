@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -65,15 +66,14 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.data.remote.dto.GameState
-import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerState
 
 @Composable
 fun GameScreen(viewModel: GameViewModel) {
-    // todo сделать state условно playersList, в качестве initial вытягиваем его из GameRoom, а дальше уже из GameState
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
-    val gameRoom by viewModel.roomInfo.collectAsState()
+    val roomInfo by viewModel.roomInfo.collectAsState()
+    val playersOnTable by viewModel.playersOnTable.collectAsState()
     // todo можно по ready запускать комнату и неважно кто владелец
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
@@ -103,16 +103,17 @@ fun GameScreen(viewModel: GameViewModel) {
 
         // todo нормально паддинги вписать как константы
         Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).padding(3.dp).fillMaxSize()) {
-            val testStates = mutableListOf<PlayerState>()
-            for(i in 1..4) {
-                testStates += PlayerState(Player(i.toString(), "test", 1000))
+            val reorderedPlayers = remember(playersOnTable, myUserId) {
+                val myPlayerIndex = playersOnTable.indexOfFirst { it.player.userId == myUserId }
+                if (myPlayerIndex != -1) {
+                    // Создаем новый список, начиная с нашего игрока
+                    playersOnTable.subList(myPlayerIndex, playersOnTable.size) + playersOnTable.subList(0, myPlayerIndex)
+                } else {
+                    playersOnTable
+                }
             }
-
-            // ЗДЕСЬ ИГРОКОВ РИСУЕМ и РЕЖИМ
-            // todo как-то получать игроков до старта игры
-            // val myPlayerIndex = state.playerStates.indexOfFirst { it.player.userId == myUserId }
-            val alignments  = calculatePlayerPosition(testStates.size)
-            testStates.forEachIndexed { index, playerState ->
+            val alignments  = calculatePlayerPosition(reorderedPlayers.size)
+            reorderedPlayers.forEachIndexed { index, playerState ->
                 PlayerDisplay(
                     modifier = Modifier.align(alignments[index]),
                     playerState = playerState,
@@ -122,23 +123,26 @@ fun GameScreen(viewModel: GameViewModel) {
                 )
             }
             gameState?.let {
-                CardsLayout(it, width)
+                CardsLayout(it, width, Modifier.align(Alignment.Center))
             } ?: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(
                 Alignment.Center)) {
-                Text("Waiting for game to start...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
+                Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // TODO: Добавить проверку на владельца комнаты, как только будет готов GET /rooms/{roomId}
-                // if (myUserId == roomInfo?.ownerId)
-                Button(onClick = { viewModel.onStartGameClick() }) {
-                    Text("Start Game")
+                if (myPlayer != null) {
+                    Button(
+                        onClick = { viewModel.onReadyClick(!myPlayer.isReady) }, // Отправляем противоположный статус
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (myPlayer.isReady) Color.Gray else MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(if (myPlayer.isReady) "Cancel Ready" else "I'm Ready")
+                    }
                 }
             }
         }
-
         // Отображаем стол
         //PokerTable() // todo можно будет красиво сделать и вернуть
-
     }
 }
 
@@ -203,11 +207,12 @@ private fun calculatePlayerPosition(playersCount: Int): List<BiasAlignment> {
 }
 
 @Composable
-fun CardsLayout(state: GameState, w: Dp) {
+fun CardsLayout(state: GameState, w: Dp, modifier: Modifier) {
     val cardWidth = w / 5
     val cardHeight = cardWidth * 1.5f
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
     ) {
         Text("Pot: ${state.pot}", color = Color.White)
         Spacer(modifier = Modifier.height(8.dp))

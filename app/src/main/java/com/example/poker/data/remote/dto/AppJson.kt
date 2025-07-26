@@ -24,6 +24,7 @@ val AppJson = Json {
             subclass(OutgoingMessage.OfferRunItMultipleTimes::class)
             subclass(OutgoingMessage.SocialActionBroadcast::class)
             subclass(OutgoingMessage.LobbyUpdate::class)
+            subclass(OutgoingMessage.PlayerReadyUpdate::class)
         }
         // Регистрируем иерархию для IncomingMessage
         polymorphic(IncomingMessage::class) {
@@ -32,6 +33,7 @@ val AppJson = Json {
             subclass(IncomingMessage.Bet::class)
             subclass(IncomingMessage.SelectRunCount::class)
             subclass(IncomingMessage.PerformSocialAction::class)
+            subclass(IncomingMessage.SetReady::class)
         }
 
         polymorphic(SocialAction::class) {
