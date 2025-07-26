@@ -37,10 +37,10 @@ sealed interface OutgoingMessage {
     data class GameStateUpdate(val state: GameState?) : OutgoingMessage
     @Serializable
     @SerialName("out.player_joined")
-    data class PlayerJoined(val username: String) : OutgoingMessage
+    data class PlayerJoined(val player: Player) : OutgoingMessage
     @Serializable
     @SerialName("out.player_left")
-    data class PlayerLeft(val username: String) : OutgoingMessage
+    data class PlayerLeft(val userId: String) : OutgoingMessage
     @Serializable
     @SerialName("out.error_message")
     data class ErrorMessage(val message: String) : OutgoingMessage

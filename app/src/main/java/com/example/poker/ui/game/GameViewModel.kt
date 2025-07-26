@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Base64
 import javax.inject.Inject
@@ -100,6 +101,11 @@ class GameViewModel @Inject constructor(
                                 is OutgoingMessage.GameStateUpdate -> {
                                     Log.d("testNewState", message.state.toString())
                                     _gameState.value = message.state
+                                    if(message.state == null) {
+                                        _roomInfo.update { currentRoom ->
+                                            currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) })
+                                        }
+                                    }
                                 }
                                 is OutgoingMessage.AllInEquityUpdate -> println("123") // todo
                                 is OutgoingMessage.BlindsUp -> println("123") // todo
@@ -107,21 +113,34 @@ class GameViewModel @Inject constructor(
                                 is OutgoingMessage.LobbyUpdate -> println("lobby update") // todo
                                 is OutgoingMessage.OfferRunItMultipleTimes -> println("123") // todo
                                 is OutgoingMessage.PlayerJoined -> {
-                                    Log.d("testPlayerJoined", message.username)
-                                    _roomInfo.value = _roomInfo.value?.copy(
-                                        players = _roomInfo.value!!.players + Player(userId = message.username, username = message.username, stack = 0) //todo
-                                    )
+                                    Log.d("testPlayerJoined", message.player.toString())
+                                    _roomInfo.update { currentRoom ->
+                                        currentRoom?.copy(players = currentRoom.players + message.player)
+                                    }
                                 }
                                 is OutgoingMessage.PlayerLeft -> {
-                                    Log.d("testPlayerLeft", message.username)
-                                    _roomInfo.value = _roomInfo.value?.copy(
-                                        players = _roomInfo.value!!.players.filterNot { it.username == message.username }
-                                    )
+                                    Log.d("testPlayerLeft", message.userId)
+                                    _roomInfo.update { currentRoom ->
+                                        currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId })
+                                    }
                                 }
                                 is OutgoingMessage.RunItMultipleTimesResult -> println("123") // todo
                                 is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
                                 is OutgoingMessage.TournamentWinner -> println("123") // todo
-                                is OutgoingMessage.PlayerReadyUpdate -> println("123") // todo
+                                is OutgoingMessage.PlayerReadyUpdate -> {
+                                    Log.d("testPlayerReady", "id: ${message.userId}, isReady: ${message.isReady}")
+                                    _roomInfo.update { currentRoom ->
+                                        currentRoom?.copy(
+                                            players = currentRoom.players.map { player ->
+                                                if (player.userId == message.userId) {
+                                                    player.copy(isReady = message.isReady)
+                                                } else {
+                                                    player
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

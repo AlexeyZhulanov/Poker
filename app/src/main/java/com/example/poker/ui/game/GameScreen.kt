@@ -3,6 +3,7 @@ package com.example.poker.ui.game
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
@@ -47,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,9 +77,7 @@ import com.example.poker.data.remote.dto.PlayerState
 fun GameScreen(viewModel: GameViewModel) {
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
-    val roomInfo by viewModel.roomInfo.collectAsState()
     val playersOnTable by viewModel.playersOnTable.collectAsState()
-    // todo можно по ready запускать комнату и неважно кто владелец
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
@@ -87,14 +90,6 @@ fun GameScreen(viewModel: GameViewModel) {
         val width = boxWithConstraintsScope.maxWidth
         val height = boxWithConstraintsScope.maxHeight
 
-        ActionPanel(
-            viewModel = viewModel,
-            isMyTurn = gameState != null && activePlayerId == myUserId,
-            playerState = myPlayerState,
-            gameState = gameState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-
         ///////
         Box(Modifier.align(Alignment.TopCenter).background(Color.Gray).height(30.dp).fillMaxWidth()) {
             Text("TopBar 30 dp", textAlign = TextAlign.Center, modifier = Modifier.fillMaxSize())
@@ -102,7 +97,7 @@ fun GameScreen(viewModel: GameViewModel) {
         ////////
 
         // todo нормально паддинги вписать как константы
-        Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).padding(3.dp).fillMaxSize()) {
+        Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).fillMaxSize()) {
             val reorderedPlayers = remember(playersOnTable, myUserId) {
                 val myPlayerIndex = playersOnTable.indexOfFirst { it.player.userId == myUserId }
                 if (myPlayerIndex != -1) {
@@ -115,10 +110,11 @@ fun GameScreen(viewModel: GameViewModel) {
             val alignments  = calculatePlayerPosition(reorderedPlayers.size)
             reorderedPlayers.forEachIndexed { index, playerState ->
                 PlayerDisplay(
-                    modifier = Modifier.align(alignments[index]),
+                    modifier = Modifier.align(alignments[index]).padding(3.dp),
                     playerState = playerState,
                     isMyPlayer = playerState.player.userId == myUserId,
                     isFourColorMode = true,
+                    isGameStarted = gameState != null,
                     scaleMultiplier = 1.2f // todo добавить кастомизацию
                 )
             }
@@ -126,7 +122,7 @@ fun GameScreen(viewModel: GameViewModel) {
                 CardsLayout(it, width, Modifier.align(Alignment.Center))
             } ?: Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(
                 Alignment.Center)) {
-                val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
+                val myPlayer = playersOnTable.find { it.player.userId == myUserId }?.player
                 Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(16.dp))
                 if (myPlayer != null) {
@@ -143,6 +139,14 @@ fun GameScreen(viewModel: GameViewModel) {
         }
         // Отображаем стол
         //PokerTable() // todo можно будет красиво сделать и вернуть
+
+        ActionPanel(
+            viewModel = viewModel,
+            isMyTurn = gameState != null && activePlayerId == myUserId,
+            playerState = myPlayerState,
+            gameState = gameState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -275,9 +279,15 @@ fun ActionPanel(
             // 3. Кнопка BET / RAISE
             BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn, text = "Bet", modifier = Modifier.weight(1f))
         }
-
-        // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
-        if (showBetSlider && playerState != null && gameState != null) {
+    }
+    // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
+    if (showBetSlider && playerState != null && gameState != null) {
+        Box(
+            contentAlignment = Alignment.TopCenter,
+            modifier = modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
             BetControls(
                 minBet = (gameState.amountToCall - playerState.currentBet) + gameState.lastRaiseAmount,
                 maxBet = playerState.player.stack,
@@ -312,11 +322,22 @@ fun BetControls(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 80.dp, start = 16.dp, end = 16.dp), // Располагаем над основной панелью
+            .padding(bottom = 70.dp, start = 16.dp, end = 16.dp), // Располагаем над основной панелью
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Close bet controls",
+            tint = Color.White,
+            modifier = Modifier.align(Alignment.End)
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(Color.DarkGray)
+                .border(1.dp, Color.White, shape = CircleShape)
+                .clickable(onClick = onDismiss)
+        )
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp, 3.dp, 16.dp, 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Slider(
@@ -400,6 +421,7 @@ fun PlayerDisplay(
     isMyPlayer: Boolean,
     isFourColorMode: Boolean,
     modifier: Modifier = Modifier,
+    isGameStarted: Boolean,
     scaleMultiplier: Float
 ) {
     Box(modifier = modifier
@@ -420,27 +442,42 @@ fun PlayerDisplay(
             horizontalArrangement = Arrangement.spacedBy((-20).dp * scaleMultiplier),
             modifier = Modifier.align(Alignment.Center)
         ) {
-            val (card1, card2) = if (isMyPlayer || playerState.cards.isNotEmpty()) {
-                playerState.cards.getOrNull(0) to playerState.cards.getOrNull(1)
+            if (isGameStarted) {
+                val (card1, card2, isShow) = if (isMyPlayer || playerState.cards.isNotEmpty()) {
+                    Triple(playerState.cards.getOrNull(0), playerState.cards.getOrNull(1),true)
+                } else {
+                    if(playerState.hasFolded) {
+                        Triple(null, null, false)
+                    } else Triple(null, null, true)
+                }
+                if(isShow) {
+                    PokerCard(
+                        card = card1,
+                        isFourColorMode = isFourColorMode,
+                        modifier = Modifier
+                            .width(40.dp * scaleMultiplier)
+                            .height(60.dp * scaleMultiplier)
+                            .graphicsLayer { rotationZ = -10f }
+                    )
+                    PokerCard(
+                        card = card2,
+                        isFourColorMode = isFourColorMode,
+                        modifier = Modifier
+                            .width(40.dp * scaleMultiplier)
+                            .height(60.dp * scaleMultiplier)
+                            .graphicsLayer { rotationZ = 10f }
+                    )
+                }
             } else {
-                null to null
+                if(playerState.player.isReady) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Is ready",
+                        tint = Color.Green,
+                        modifier = Modifier.size(60.dp * scaleMultiplier).offset(0.dp, (-10).dp * scaleMultiplier)
+                    )
+                }
             }
-            PokerCard(
-                card = card1,
-                isFourColorMode = isFourColorMode,
-                modifier = Modifier
-                    .width(40.dp * scaleMultiplier)
-                    .height(60.dp * scaleMultiplier)
-                    .graphicsLayer { rotationZ = -10f }
-            )
-            PokerCard(
-                card = card2,
-                isFourColorMode = isFourColorMode,
-                modifier = Modifier
-                    .width(40.dp * scaleMultiplier)
-                    .height(60.dp * scaleMultiplier)
-                    .graphicsLayer { rotationZ = 10f }
-            )
         }
         Column(modifier = Modifier
             .fillMaxWidth()
