@@ -25,3 +25,6 @@ val OswaldFontFamily = FontFamily(
 val MerriWeatherFontFamily = FontFamily(
     Font(R.font.merriweather_24pt_semicondensed_semibold, FontWeight.SemiBold)
 )
+val CardCharactersFontFamily = FontFamily(
+    Font(R.font.cards_characters, FontWeight.Normal)
+)
