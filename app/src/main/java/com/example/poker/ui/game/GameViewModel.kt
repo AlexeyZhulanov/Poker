@@ -36,6 +36,12 @@ import kotlinx.coroutines.launch
 import java.util.Base64
 import javax.inject.Inject
 
+sealed interface RunItUiState {
+    data object Hidden : RunItUiState
+    data object AwaitingUnderdogChoice : RunItUiState
+    data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int) : RunItUiState
+}
+
 @HiltViewModel
 class GameViewModel @Inject constructor(
     private val apiClient: KtorApiClient,
@@ -54,6 +60,9 @@ class GameViewModel @Inject constructor(
 
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
     val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
+
+    private val _runItUiState = MutableStateFlow<RunItUiState>(RunItUiState.Hidden)
+    val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
 
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
         state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
@@ -107,11 +116,24 @@ class GameViewModel @Inject constructor(
                                         }
                                     }
                                 }
-                                is OutgoingMessage.AllInEquityUpdate -> println("123") // todo
+                                is OutgoingMessage.AllInEquityUpdate -> {
+                                    Log.d("testEquity", message.equities.toString())
+                                } // todo
+                                is OutgoingMessage.StartBoardRun -> {
+                                    Log.d("testStartRun", "Started")
+                                } // todo
                                 is OutgoingMessage.BlindsUp -> println("123") // todo
                                 is OutgoingMessage.ErrorMessage -> println("123") // todo
-                                is OutgoingMessage.LobbyUpdate -> println("lobby update") // todo
-                                is OutgoingMessage.OfferRunItMultipleTimes -> println("123") // todo
+                                is OutgoingMessage.LobbyUpdate -> {} // скипаем, это для другой страницы
+                                is OutgoingMessage.OfferRunItMultipleTimes -> {
+                                    _runItUiState.value = RunItUiState.AwaitingFavoriteConfirmation(
+                                        underdogId = message.underdogId,
+                                        times = message.times
+                                    )
+                                }
+                                is OutgoingMessage.OfferRunItForUnderdog -> {
+                                    _runItUiState.value = RunItUiState.AwaitingUnderdogChoice
+                                }
                                 is OutgoingMessage.PlayerJoined -> {
                                     Log.d("testPlayerJoined", message.player.toString())
                                     _roomInfo.update { currentRoom ->
@@ -124,7 +146,9 @@ class GameViewModel @Inject constructor(
                                         currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId })
                                     }
                                 }
-                                is OutgoingMessage.RunItMultipleTimesResult -> println("123") // todo
+                                is OutgoingMessage.RunItMultipleTimesResult -> {
+                                    Log.d("testRunMulRes", message.results.toString())
+                                } // todo
                                 is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
                                 is OutgoingMessage.TournamentWinner -> println("123") // todo
                                 is OutgoingMessage.PlayerReadyUpdate -> {
@@ -134,6 +158,20 @@ class GameViewModel @Inject constructor(
                                             players = currentRoom.players.map { player ->
                                                 if (player.userId == message.userId) {
                                                     player.copy(isReady = message.isReady)
+                                                } else {
+                                                    player
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                                is OutgoingMessage.PlayerStatusUpdate -> {
+                                    Log.d("testUpdateStatus", message.status.toString())
+                                    _roomInfo.update { currentRoom ->
+                                        currentRoom?.copy(
+                                            players = currentRoom.players.map { player ->
+                                                if (player.userId == message.userId) {
+                                                    player.copy(status = message.status)
                                                 } else {
                                                     player
                                                 }
@@ -157,6 +195,17 @@ class GameViewModel @Inject constructor(
     fun onCall() = sendAction(IncomingMessage.Call())
     fun onBet(amount: Long) = sendAction(IncomingMessage.Bet(amount))
     fun onReadyClick(isReady: Boolean) = sendAction(IncomingMessage.SetReady(isReady))
+    fun onRunItChoice(times: Int) {
+        sendAction(IncomingMessage.SelectRunCount(times))
+        _runItUiState.value = RunItUiState.Hidden
+    }
+    fun onRunItConfirmation(accepted: Boolean) {
+        sendAction(IncomingMessage.AgreeRunCount(accepted))
+        _runItUiState.value = RunItUiState.Hidden
+    }
+    fun onSitAtTableClick(buyIn: Long) {
+        sendAction(IncomingMessage.SitAtTable(buyIn))
+    }
 
     private fun sendAction(action: IncomingMessage) {
         viewModelScope.launch {

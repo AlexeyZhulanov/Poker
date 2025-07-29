@@ -1,5 +1,6 @@
 package com.example.poker.ui.game
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,12 +73,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.PlayerState
+import com.example.poker.data.remote.dto.PlayerStatus
 
 @Composable
 fun GameScreen(viewModel: GameViewModel) {
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
     val playersOnTable by viewModel.playersOnTable.collectAsState()
+    val runItState by viewModel.runItUiState.collectAsState()
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
@@ -147,6 +150,33 @@ fun GameScreen(viewModel: GameViewModel) {
             gameState = gameState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val state = runItState) {
+                is RunItUiState.Hidden -> {}
+                is RunItUiState.AwaitingUnderdogChoice -> {
+                    UnderdogChoiceUi(onChoice = { times -> viewModel.onRunItChoice(times) })
+                }
+                is RunItUiState.AwaitingFavoriteConfirmation -> {
+                    FavoriteConfirmationUi(
+                        underdogId = state.underdogId,
+                        times = state.times,
+                        onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) }
+                    )
+                }
+            }
+            val myPlayer = playersOnTable.find { it.player.userId == myUserId }
+            if (myPlayer?.player?.status == PlayerStatus.SPECTATING) {
+                Button(onClick = {
+                    viewModel.onSitAtTableClick(buyIn = 1000L)
+                }) {
+                    Text("Sit at Table")
+                }
+            }
+        }
     }
 }
 
@@ -522,6 +552,58 @@ fun PlayerDisplay(
                     )
                 )
             )
+        }
+    }
+}
+
+@Composable
+fun UnderdogChoiceUi(
+    onChoice: (Int) -> Unit
+) {
+    Card(
+        modifier = Modifier.padding(16.dp),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Run It Multiple Times?", style = MaterialTheme.typography.headlineSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                repeat(3) { times ->
+                    val text = when(times) {
+                        2 -> "Two times"
+                        3 -> "Three times"
+                        else -> "Once"
+                    }
+                    Button(onClick = { onChoice(times) }) { Text(text) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FavoriteConfirmationUi(
+    underdogId: String,
+    times: Int,
+    onConfirm: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.padding(16.dp),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("$underdogId wants to run it $times times", style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(onClick = { onConfirm(true) }) { Text("Accept") }
+                Button(onClick = { onConfirm(false) }, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) { Text("Decline") }
+            }
         }
     }
 }

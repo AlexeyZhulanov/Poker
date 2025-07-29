@@ -39,7 +39,13 @@ data class GameRoom(
 )
 
 @Serializable
-data class Player(val userId: String, val username: String, val stack: Long, val isReady: Boolean = false)
+data class Player(
+    val userId: String,
+    val username: String,
+    val stack: Long,
+    val status: PlayerStatus = PlayerStatus.SPECTATING,
+    val isReady: Boolean = false
+)
 
 @Serializable
 enum class GameStage { PRE_FLOP, FLOP, TURN, RIVER, SHOWDOWN }
@@ -70,5 +76,13 @@ data class GameState(
     val lastRaiseAmount: Long = 0,
     val amountToCall: Long = 0, // Сколько нужно доставить, чтобы уравнять
     val lastAggressorPosition: Int? = null,
-    val showdownResults: Map<String, List<Card>>? = null
+    val showdownResults: Map<String, List<Card>>? = null,
+    val runIndex: Int? = null
 )
+
+@Serializable
+enum class PlayerStatus {
+    SPECTATING,
+    SITTING_OUT,
+    IN_HAND
+}

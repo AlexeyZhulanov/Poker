@@ -51,14 +51,20 @@ sealed interface OutgoingMessage {
     @SerialName("out.tournament_winner")
     data class TournamentWinner(val winnerUsername: String) : OutgoingMessage
     @Serializable
+    @SerialName("out.start_board_run")
+    data class StartBoardRun(val runIndex: Int, val totalRuns: Int) : OutgoingMessage
+    @Serializable
     @SerialName("out.equity_update")
-    data class AllInEquityUpdate(val equities: Map<String, Double>, val outs: Map<String, OutsInfo> = emptyMap()) : OutgoingMessage
+    data class AllInEquityUpdate(val equities: Map<String, Double>, val outs: Map<String, OutsInfo> = emptyMap(), val runIndex: Int) : OutgoingMessage
     @Serializable
     @SerialName("out.run_multiple_result")
     data class RunItMultipleTimesResult(val results: List<BoardResult>) : OutgoingMessage
     @Serializable
     @SerialName("out.run_multiple_offer")
-    data class OfferRunItMultipleTimes(val options: List<Int>) : OutgoingMessage
+    data class OfferRunItMultipleTimes(val underdogId: String, val times: Int) : OutgoingMessage
+    @Serializable
+    @SerialName("out.run_offer_underdog")
+    data object OfferRunItForUnderdog : OutgoingMessage
     @Serializable
     @SerialName("out.social_action_broadcast")
     data class SocialActionBroadcast(val fromPlayerId: String, val action: SocialAction) : OutgoingMessage
@@ -68,6 +74,9 @@ sealed interface OutgoingMessage {
     @Serializable
     @SerialName("out.player_ready_update")
     data class PlayerReadyUpdate(val userId: String, val isReady: Boolean) : OutgoingMessage
+    @Serializable
+    @SerialName("out.player_status_update")
+    data class PlayerStatusUpdate(val userId: String, val status: PlayerStatus, val stack: Long) : OutgoingMessage
 }
 
 
@@ -92,11 +101,17 @@ sealed interface IncomingMessage {
     @SerialName("in.run_count")
     data class SelectRunCount(val times: Int) : IncomingMessage
     @Serializable
+    @SerialName("in.agree_run_count")
+    data class AgreeRunCount(val isAgree: Boolean) : IncomingMessage
+    @Serializable
     @SerialName("in.social_action")
     data class PerformSocialAction(val action: SocialAction) : IncomingMessage
     @Serializable
     @SerialName("in.set_ready")
     data class SetReady(val isReady: Boolean) : IncomingMessage
+    @Serializable
+    @SerialName("in.sit_at_table")
+    data class SitAtTable(val buyIn: Long) : IncomingMessage
 }
 
 @Serializable
