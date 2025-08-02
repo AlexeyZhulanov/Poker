@@ -105,7 +105,7 @@ fun CardFaceAlternative(card: Card, modifier: Modifier) {
     }
 }
 
-private fun getCardName(rank: Rank): String {
+fun getCardName(rank: Rank): String {
     return if(rank.value < 11) rank.value.toString() else {
         when(rank) {
             Rank.JACK -> "J"

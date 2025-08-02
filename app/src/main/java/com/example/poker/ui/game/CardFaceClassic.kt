@@ -124,7 +124,7 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
                     val tenIconSize = boxWithConstraintsScope.maxHeight / 10
 
                     Column(Modifier.align(Alignment.TopStart).width(IntrinsicSize.Min), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = getCardName(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
+                        Text(text = getCardNameClassic(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
                             style = TextStyle(
                                 platformStyle = PlatformTextStyle(
                                     includeFontPadding = false
@@ -637,7 +637,7 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
                         .align(Alignment.BottomEnd).width(IntrinsicSize.Min)
                         .graphicsLayer(rotationZ = 180f),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = getCardName(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
+                        Text(text = getCardNameClassic(rank), color = suitColor, fontSize = cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
                             style = TextStyle(
                                 platformStyle = PlatformTextStyle(
                                     includeFontPadding = false
@@ -653,6 +653,6 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
     }
 }
 
-private fun getCardName(rank: Rank): String {
+private fun getCardNameClassic(rank: Rank): String {
     return if(rank.value < 11) rank.value.toString() else "A"
 }

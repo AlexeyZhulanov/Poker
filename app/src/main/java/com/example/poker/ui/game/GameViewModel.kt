@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
+import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameRoom
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.IncomingMessage
 import com.example.poker.data.remote.dto.OutgoingMessage
+import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.repository.GameRepository
@@ -25,6 +27,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +45,12 @@ sealed interface RunItUiState {
     data object AwaitingUnderdogChoice : RunItUiState
     data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int) : RunItUiState
 }
+
+data class AllInEquity(
+    val equities: Map<String, Double>,
+    val outs: Map<String, OutsInfo> = emptyMap(),
+    val runIndex: Int
+)
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -63,6 +73,19 @@ class GameViewModel @Inject constructor(
 
     private val _runItUiState = MutableStateFlow<RunItUiState>(RunItUiState.Hidden)
     val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
+
+    private val _isActionPanelLocked = MutableStateFlow(false)
+    val isActionPanelLocked: StateFlow<Boolean> = _isActionPanelLocked.asStateFlow()
+    private var lockJob: Job? = null
+
+    private val _allInEquity = MutableStateFlow<AllInEquity?>(null)
+    val allInEquity: StateFlow<AllInEquity?> = _allInEquity.asStateFlow()
+
+    private val _staticCommunityCards = MutableStateFlow<List<Card>>(emptyList())
+    val staticCommunityCards: StateFlow<List<Card>> = _staticCommunityCards.asStateFlow()
+
+    private val _boardRunouts = MutableStateFlow<List<List<Card>>>(emptyList())
+    val boardRunouts: StateFlow<List<List<Card>>> = _boardRunouts.asStateFlow()
 
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
         state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
@@ -115,13 +138,43 @@ class GameViewModel @Inject constructor(
                                             currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) })
                                         }
                                     }
+                                    _isActionPanelLocked.value = false
+                                    lockJob?.cancel()
+                                    // Если идет Run It Multiple times, обновляем нужную доску
+                                    if (message.state?.runIndex != null && _boardRunouts.value.isNotEmpty()) {
+                                        _boardRunouts.update { currentRunouts ->
+                                            currentRunouts.toMutableList().also { mutableList ->
+                                                val runoutCards = message.state.communityCards.drop(_staticCommunityCards.value.size)
+                                                mutableList[message.state.runIndex - 1] = runoutCards
+                                            }
+                                        }
+                                    } else {
+                                        _boardRunouts.value = emptyList()
+                                        if(message.state?.runIndex == null) _allInEquity.value = null
+                                    }
                                 }
                                 is OutgoingMessage.AllInEquityUpdate -> {
                                     Log.d("testEquity", message.equities.toString())
-                                } // todo
+                                    _allInEquity.value = AllInEquity(
+                                        equities = message.equities,
+                                        outs = message.outs,
+                                        runIndex = message.runIndex
+                                    )
+                                }
                                 is OutgoingMessage.StartBoardRun -> {
-                                    Log.d("testStartRun", "Started")
-                                } // todo
+                                    Log.d("testStartRun", "Started, total runs: ${message.totalRuns}")
+                                    if(message.totalRuns > 1) {
+                                        if (message.runIndex == 1) {
+                                            // Первая крутка: запоминаем статичные карты и создаем первую пустую доску
+                                            _staticCommunityCards.value = _gameState.value?.communityCards ?: emptyList()
+                                            Log.d("testStaticCards", _staticCommunityCards.value.toString())
+                                            _boardRunouts.value = listOf(emptyList())
+                                        } else {
+                                            // Последующие крутки: добавляем еще одну пустую доску
+                                            _boardRunouts.value = _boardRunouts.value + listOf(emptyList())
+                                        }
+                                    }
+                                }
                                 is OutgoingMessage.BlindsUp -> println("123") // todo
                                 is OutgoingMessage.ErrorMessage -> println("123") // todo
                                 is OutgoingMessage.LobbyUpdate -> {} // скипаем, это для другой страницы
@@ -190,10 +243,22 @@ class GameViewModel @Inject constructor(
     }
 
     // --- Методы для отправки действий на сервер ---
-    fun onFold() = sendAction(IncomingMessage.Fold())
-    fun onCheck() = sendAction(IncomingMessage.Check())
-    fun onCall() = sendAction(IncomingMessage.Call())
-    fun onBet(amount: Long) = sendAction(IncomingMessage.Bet(amount))
+    fun onFold() {
+        lockActionPanel()
+        sendAction(IncomingMessage.Fold())
+    }
+    fun onCheck() {
+        lockActionPanel()
+        sendAction(IncomingMessage.Check())
+    }
+    fun onCall() {
+        lockActionPanel()
+        sendAction(IncomingMessage.Call())
+    }
+    fun onBet(amount: Long) {
+        lockActionPanel()
+        sendAction(IncomingMessage.Bet(amount))
+    }
     fun onReadyClick(isReady: Boolean) = sendAction(IncomingMessage.SetReady(isReady))
     fun onRunItChoice(times: Int) {
         sendAction(IncomingMessage.SelectRunCount(times))
@@ -205,6 +270,15 @@ class GameViewModel @Inject constructor(
     }
     fun onSitAtTableClick(buyIn: Long) {
         sendAction(IncomingMessage.SitAtTable(buyIn))
+    }
+
+    private fun lockActionPanel() {
+        if (_isActionPanelLocked.value) return
+        _isActionPanelLocked.value = true
+        lockJob = viewModelScope.launch {
+            delay(3000L)
+            _isActionPanelLocked.value = false
+        }
     }
 
     private fun sendAction(action: IncomingMessage) {
