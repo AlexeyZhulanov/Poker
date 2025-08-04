@@ -87,6 +87,9 @@ class GameViewModel @Inject constructor(
     private val _boardRunouts = MutableStateFlow<List<List<Card>>>(emptyList())
     val boardRunouts: StateFlow<List<List<Card>>> = _boardRunouts.asStateFlow()
 
+    private val _runsCount = MutableStateFlow(0)
+    val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
+
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
         state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -169,6 +172,7 @@ class GameViewModel @Inject constructor(
                                             _staticCommunityCards.value = _gameState.value?.communityCards ?: emptyList()
                                             Log.d("testStaticCards", _staticCommunityCards.value.toString())
                                             _boardRunouts.value = listOf(emptyList())
+                                            _runsCount.value = message.totalRuns
                                         } else {
                                             // Последующие крутки: добавляем еще одну пустую доску
                                             _boardRunouts.value = _boardRunouts.value + listOf(emptyList())

@@ -32,8 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
@@ -59,10 +57,10 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -72,10 +70,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.OutsInfo
@@ -96,18 +93,15 @@ fun GameScreen(viewModel: GameViewModel) {
     val allInEquity by viewModel.allInEquity.collectAsState()
     val staticCards by viewModel.staticCommunityCards.collectAsState()
     val boardRunouts by viewModel.boardRunouts.collectAsState()
+    val runsCount by viewModel.runsCount.collectAsState()
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val boxWithConstraintsScope = this
-        val width = boxWithConstraintsScope.maxWidth
-        //val height = boxWithConstraintsScope.maxHeight
-
         val specsCount = playersOnTable.filter { it.player.status == PlayerStatus.SPECTATING }.size
         val animatedCount by animateIntAsState(
             targetValue = specsCount,
@@ -123,7 +117,7 @@ fun GameScreen(viewModel: GameViewModel) {
                     modifier = Modifier.align(Alignment.CenterEnd).padding(3.dp, 0.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Visibility,
+                        painter = painterResource(R.drawable.ic_visibility),
                         modifier = Modifier.size(20.dp),
                         contentDescription = null,
                         tint = Color.White)
@@ -180,35 +174,33 @@ fun GameScreen(viewModel: GameViewModel) {
                     scaleMultiplier = scaleMultiplier
                 )
             }
-            if (boardRunouts.isNotEmpty()) {
-                MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, modifier = Modifier.align(Alignment.CenterStart))
-            } else {
-                gameState?.let {
-                    SingleBoardLayout(it, width, Modifier.align(Alignment.Center))
-                } ?: Column(modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50))
-                    .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50))
-                    .padding(32.dp, 16.dp)
-                ) {
-                    Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                    if(animatedCount != 0) {
-                        Spacer(Modifier.size(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Visibility,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp).padding(2.dp, 0.dp))
+            gameState?.let {
+                if (boardRunouts.isNotEmpty()) {
+                    MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot, modifier = Modifier.align(Alignment.CenterStart))
+                } else SingleBoardLayout(it, Modifier.align(Alignment.Center))
+            } ?: Column(modifier = Modifier
+                .align(Alignment.Center)
+                .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50))
+                .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50))
+                .padding(32.dp, 16.dp)
+            ) {
+                Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                if(animatedCount != 0) {
+                    Spacer(Modifier.size(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_visibility),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp).padding(2.dp, 0.dp))
 
-                            Text(
-                                text = animatedCount.toString(),
-                                color = Color.White,
-                                fontSize = 20.sp)
-                        }
+                        Text(
+                            text = animatedCount.toString(),
+                            color = Color.White,
+                            fontSize = 20.sp)
                     }
                 }
             }
@@ -345,9 +337,7 @@ private fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>
 }
 
 @Composable
-fun SingleBoardLayout(state: GameState, w: Dp, modifier: Modifier) {
-    //val cardWidth = w / 5
-    //val cardHeight = cardWidth * 1.5f
+fun SingleBoardLayout(state: GameState, modifier: Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -374,12 +364,17 @@ fun SingleBoardLayout(state: GameState, w: Dp, modifier: Modifier) {
 fun MultiBoardLayout(
     staticCards: List<Card>,
     runouts: List<List<Card>>,
+    runs: Int,
+    pot: Long,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier) {
         val boxWithConstraintsScope = this
         val cardWidth = boxWithConstraintsScope.maxWidth / 5
         val cardHeight = cardWidth * 1.5f
+
+        val offset = if(runs == 2) -(cardHeight / 2) -(cardHeight / 2.5f) else -cardHeight -(cardHeight / 5)
+        Text("Pot: $pot", color = Color.White, modifier = Modifier.align(Alignment.Center).offset(0.dp, offset))
 
         // 1. Рисуем статичные карты
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -391,14 +386,28 @@ fun MultiBoardLayout(
                 )
             }
         Column(
-            verticalArrangement = Arrangement.spacedBy((-(cardHeight.value / 2)).dp), // Отрицательный отступ для наложения
+            verticalArrangement = Arrangement.spacedBy((-(cardHeight.value)).dp), // Отрицательный отступ для наложения
             horizontalAlignment = Alignment.End
         ) {
             for ((index, runout) in runouts.withIndex()) {
+                val target = when(runs) {
+                    2 -> when(index) {
+                        0 -> -(cardHeight / 4)
+                        1 -> cardHeight / 4
+                        else -> 0.dp
+                    }
+                    3 -> when(index) {
+                        0 -> -(cardHeight / 2)
+                        1 -> 0.dp
+                        2 -> cardHeight / 2
+                        else -> 0.dp
+                    }
+                    else -> 0.dp
+                }
                 // Анимируем смещение вверх для каждой предыдущей доски
                 val yOffset by animateDpAsState(
                     // Смещаем каждую доску, кроме последней, на половину высоты карты
-                    targetValue = if(runouts.size == 3 || index < runouts.size - 1) -(cardHeight / 2) else 0.dp,
+                    targetValue = target,
                     label = "boardOffset$index"
                 )
 
