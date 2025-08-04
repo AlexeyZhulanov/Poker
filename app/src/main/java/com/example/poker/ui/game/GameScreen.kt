@@ -70,6 +70,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.R
@@ -79,7 +81,9 @@ import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.remote.dto.PlayerStatus
+import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.Suit
+import com.example.poker.domain.model.standardChipSet
 import com.example.poker.ui.theme.MerriWeatherFontFamily
 import kotlin.random.Random
 
@@ -942,6 +946,59 @@ fun FavoriteConfirmationUi(
             }
         }
     }
+}
+
+//@Composable
+//@Preview
+//fun TestChips() {
+//    val chipsForBet = calculateChipStack(300)
+//    ChipStack(
+//        chips = chipsForBet
+//    )
+//}
+
+//@Composable
+//fun ChipStack(
+//    chips: List<Chip>,
+//    modifier: Modifier = Modifier,
+//    chipWidth: Dp = 30.dp,
+//    verticalOffset: Dp = 4.dp // Насколько каждая фишка смещена относительно предыдущей
+//) {
+//    Box(
+//        modifier = modifier
+//            .width(chipWidth)
+//            // Высота вычисляется как высота одной фишки + смещение для всех остальных
+//            .height(chipWidth + (verticalOffset * (chips.size - 1)))
+//    ) {
+//        chips.forEachIndexed { index, chip ->
+//            PerspectiveChip(
+//                chip = chip,
+//                modifier = Modifier.width(chipWidth).offset(y = verticalOffset * index)
+//            )
+//        }
+//    }
+//}
+
+fun calculateChipStack(amount: Long): List<Chip> {
+    if (amount <= 0) return emptyList()
+
+    val result = mutableListOf<Chip>()
+    var remainingAmount = amount
+
+    // Проходим по нашему набору фишек от самой дорогой к самой дешевой
+    for (chip in standardChipSet) {
+        // Вычисляем, сколько фишек этого номинала "влезает" в остаток
+        val count = remainingAmount / chip.value
+        if (count > 0) {
+            // Добавляем нужное количество фишек в результат
+            repeat(count.toInt()) {
+                result.add(chip)
+            }
+            // Уменьшаем остаток
+            remainingAmount %= chip.value
+        }
+    }
+    return result
 }
 
 // todo использовать в главном экране
