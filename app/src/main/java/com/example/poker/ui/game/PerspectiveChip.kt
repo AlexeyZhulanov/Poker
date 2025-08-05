@@ -174,7 +174,7 @@ fun PerspectiveChipStack(
             .size(chipSize)
             .graphicsLayer {
                 rotationX = -50f // Более сильный наклон для лучшего вида стопки
-                cameraDistance = 8 * density
+                cameraDistance = 5 * density
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -277,19 +277,70 @@ fun PerspectiveChipStack(
                             chip.value >= 1000 -> "${chip.value / 1000}K"
                             else -> chip.value.toString()
                         }
-                        val textStyle = TextStyle(color = chip.baseColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        val textLayoutResult = textMeasurer.measure(AnnotatedString(textToDraw), style = textStyle)
-                        drawText(
-                            textLayoutResult = textLayoutResult,
-                            topLeft = Offset(
-                                x = center.x - textLayoutResult.size.width / 2,
-                                y = topOvalRect.center.y - textLayoutResult.size.height / 2
-                            )
+                        val fontSize = if(chip.value < 100) (chipSize / 3).toSp() else (chipSize / 4).toSp()
+                        val textStyle = TextStyle(
+                            color = chip.baseColor, // Основной цвет (например, белый)
+                            fontSize = fontSize,
+                            fontWeight = FontWeight.Bold
                         )
+                        val textLayoutResult = textMeasurer.measure(AnnotatedString(textToDraw), style = textStyle)
+
+                        // Центр для трансформаций и позиционирования
+                        val textCenter = Offset(center.x, topOvalRect.center.y)
+                        val textTopLeft = Offset(
+                            x = textCenter.x - textLayoutResult.size.width / 2,
+                            y = textCenter.y - textLayoutResult.size.height / 2
+                        )
+                        // Смещение для тени
+                        val shadowOffset = Offset(0.5.dp.toPx(), 0.5.dp.toPx())
+
+                        // Применяем трансформацию сжатия ко всему, что рисуется внутри
+                        withTransform({
+                            scale(scaleX = 1f, scaleY = 0.85f, pivot = textCenter)
+                        }) {
+                            // Сначала рисуем тень
+                            drawText(
+                                textLayoutResult = textLayoutResult,
+                                color = Color.Black.copy(alpha = 0.6f),
+                                topLeft = textTopLeft + shadowOffset
+                            )
+                            // Затем основной текст
+                            drawText(
+                                textLayoutResult = textLayoutResult,
+                                color = chip.baseColor,
+                                topLeft = textTopLeft
+                            )
+                        }
                     }
                 }
             }
         }
+//        val textToDraw = when {
+//            chips.first().value >= 1000 -> "${chips.first().value / 1000}K"
+//            else -> chips.first().value.toString()
+//        }
+//        Text(
+//            text = textToDraw,
+//            color = chips.first().baseColor,
+//            fontSize = 14.sp,
+//            fontWeight = FontWeight.Bold,
+//            style = TextStyle(
+//                shadow = Shadow(
+//                    Color.Black.copy(alpha = 0.6f),
+//                    offset = Offset(1f, 1f),
+//                    blurRadius = 2f
+//                )
+//            ),
+//            modifier = Modifier
+//                .graphicsLayer {
+//                    // Применяем тот же наклон, что и к фишке, чтобы они лежали в одной плоскости
+//                    rotationX = -50f
+//                    cameraDistance = 5 * density
+//
+//                    // Можно немного сжать по вертикали для усиления эффекта
+//                    scaleY = 0.9f
+//                }.offset(0.dp, (-47).dp).align(Alignment.Center)
+//        )
     }
 }
 
@@ -304,7 +355,7 @@ fun PerspectiveChipStack(
 @Composable
 @Preview
 fun TestPerspectiveChips() {
-    val chipsForBet = calculateChipStack(356)
+    val chipsForBet = calculateChipStack(10)
     PerspectiveChipStack(
         chips = chipsForBet
     )

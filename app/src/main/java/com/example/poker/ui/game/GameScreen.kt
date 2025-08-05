@@ -70,8 +70,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.R
@@ -166,6 +164,30 @@ fun GameScreen(viewModel: GameViewModel) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.align(alignments[index]).offset(offset * scaleMultiplier, 0.dp)) {
                             OutsBubble(equity, out, scaleMultiplier)
                         }
+                    }
+                }
+
+                if(playerState.currentBet > 0) {
+                    val (h, v) = alignments[index]
+                    val bet = playerState.currentBet
+                    Column(horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
+                        modifier = Modifier.align(BiasAlignment(h * 0.6f, v * 0.6f))) {
+                        PerspectiveChipStack(
+                            chips = calculateChipStack(bet),
+                            chipSize = 30.dp * scaleMultiplier
+                        )
+                        Text(
+                            text = bet.toString(),
+                            fontSize = 10.sp * scaleMultiplier,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontFamily = MerriWeatherFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                )
+                            )
+                        )
                     }
                 }
 
@@ -947,37 +969,6 @@ fun FavoriteConfirmationUi(
         }
     }
 }
-
-//@Composable
-//@Preview
-//fun TestChips() {
-//    val chipsForBet = calculateChipStack(300)
-//    ChipStack(
-//        chips = chipsForBet
-//    )
-//}
-
-//@Composable
-//fun ChipStack(
-//    chips: List<Chip>,
-//    modifier: Modifier = Modifier,
-//    chipWidth: Dp = 30.dp,
-//    verticalOffset: Dp = 4.dp // Насколько каждая фишка смещена относительно предыдущей
-//) {
-//    Box(
-//        modifier = modifier
-//            .width(chipWidth)
-//            // Высота вычисляется как высота одной фишки + смещение для всех остальных
-//            .height(chipWidth + (verticalOffset * (chips.size - 1)))
-//    ) {
-//        chips.forEachIndexed { index, chip ->
-//            PerspectiveChip(
-//                chip = chip,
-//                modifier = Modifier.width(chipWidth).offset(y = verticalOffset * index)
-//            )
-//        }
-//    }
-//}
 
 fun calculateChipStack(amount: Long): List<Chip> {
     if (amount <= 0) return emptyList()
