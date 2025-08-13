@@ -13,7 +13,6 @@ hilt-navigation-compose = "1.2.0"
 ktor = "3.2.2"
 navigation-compose = "2.9.1"
 securityCrypto = "1.1.0-beta01"
-icons = "1.7.8"
 
 [libraries]
 # Hilt

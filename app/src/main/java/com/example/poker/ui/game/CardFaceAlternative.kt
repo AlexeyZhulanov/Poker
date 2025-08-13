@@ -5,11 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -71,11 +69,11 @@ fun CardFaceAlternative(card: Card, modifier: Modifier) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(3.dp)) {
             val boxWithConstraintsScope = this
             val topTextSize = if(isTen) (boxWithConstraintsScope.maxHeight.value / 5).sp else (boxWithConstraintsScope.maxHeight.value / 4).sp
-            val topIconSize = boxWithConstraintsScope.maxHeight / 5
+            val topIconSize = boxWithConstraintsScope.maxHeight / 5.5f
             val bottomTextSize = if(isTen) (boxWithConstraintsScope.maxHeight.value * 0.65f * 0.8f).sp else (boxWithConstraintsScope.maxHeight.value * 0.65f).sp
             val topSpacing = (boxWithConstraintsScope.maxWidth.value * -0.02f).sp
             val bottomSpacing = (boxWithConstraintsScope.maxWidth.value * -0.08f).sp
-            Column(Modifier.align(Alignment.TopStart).width(IntrinsicSize.Min), horizontalAlignment = Alignment.Start) {
+            Column(Modifier.align(Alignment.TopStart), horizontalAlignment = Alignment.Start) {
                 Text(text = cardName, color = Color.White, fontSize = topTextSize, fontWeight = FontWeight.SemiBold, fontFamily = CardCharactersFontFamily,
                     style = TextStyle(
                         platformStyle = PlatformTextStyle(
@@ -87,7 +85,7 @@ fun CardFaceAlternative(card: Card, modifier: Modifier) {
                     letterSpacing = if (isTen) topSpacing else TextUnit.Unspecified
                 )
                 Icon(imageVector = suitVector, contentDescription = null, tint = Color.White,
-                    modifier = Modifier.size(topIconSize))
+                    modifier = Modifier.size(topIconSize).align(Alignment.CenterHorizontally))
             }
             Text(text = cardName, color = Color.White, fontSize = bottomTextSize, fontWeight = FontWeight.SemiBold, fontFamily = CardCharactersFontFamily,
                 style = TextStyle(

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
+import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.Player
@@ -87,6 +89,7 @@ import kotlin.random.Random
 
 @Composable
 fun GameScreen(viewModel: GameViewModel) {
+    val roomInfo by viewModel.roomInfo.collectAsState()
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
     val playersOnTable by viewModel.playersOnTable.collectAsState()
@@ -100,167 +103,179 @@ fun GameScreen(viewModel: GameViewModel) {
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        val specsCount = playersOnTable.filter { it.player.status == PlayerStatus.SPECTATING }.size
-        val animatedCount by animateIntAsState(
-            targetValue = specsCount,
-            animationSpec = tween(durationMillis = 300)
-        )
-
-        ///////
-        Box(Modifier.align(Alignment.TopCenter).background(Color.Gray).height(30.dp).fillMaxWidth()) {
-            Text("TopBar 30 dp", textAlign = TextAlign.Center, modifier = Modifier.fillMaxSize())
-            if (animatedCount != 0) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(3.dp, 0.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_visibility),
-                        modifier = Modifier.size(20.dp),
-                        contentDescription = null,
-                        tint = Color.White)
-
-                    Text(
-                        text = animatedCount.toString(),
-                        color = Color.White,
-                        fontSize = 16.sp)
-                }
-            }
-        }
-        ////////
-
-        // todo нормально паддинги вписать как константы
-        Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).fillMaxSize()) {
-            val reorderedPlayers = remember(playersOnTable, myUserId) {
-                val visiblePlayers = playersOnTable.filter { it.player.status != PlayerStatus.SPECTATING }
-                val myPlayerIndex = visiblePlayers.indexOfFirst { it.player.userId == myUserId }
-                if (myPlayerIndex != -1) {
-                    // Создаем новый список, начиная с нашего игрока
-                    visiblePlayers.subList(myPlayerIndex, visiblePlayers.size) + visiblePlayers.subList(0, myPlayerIndex)
-                } else {
-                    visiblePlayers
-                }
-            }
-            val (alignments, equityPositions) = calculatePlayerPosition(reorderedPlayers.size)
-            reorderedPlayers.forEachIndexed { index, playerState ->
-                val isRightTailDirection = equityPositions[index]
-                val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
-                val scaleMultiplier = 1.2f // todo добавить кастомизацию
-                val isMyPlayer = playerState.player.userId == myUserId
-                val verticalOffset = if(isMyPlayer) (-25).dp else 15.dp
-
-                allInEquity?.let { (equities, outs, _) ->
-                    val equity = equities[playerState.player.userId]
-                    val out = outs[playerState.player.userId]
-                    if(out == null && equity != null) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.align(alignments[index]).offset(offset * scaleMultiplier * 0.8f, verticalOffset * scaleMultiplier)) {
-                            EquityBubble(equity, tailDirection, scaleMultiplier)
-                        }
-                    } else if(out != null) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.align(alignments[index]).offset(offset * scaleMultiplier, 0.dp)) {
-                            OutsBubble(equity, out, scaleMultiplier)
-                        }
-                    }
-                }
-
-                if(playerState.currentBet > 0) {
-                    val (h, v) = alignments[index]
-                    val bet = playerState.currentBet
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
-                        modifier = Modifier.align(BiasAlignment(h * 0.6f, v * 0.6f))) {
-                        PerspectiveChipStack(
-                            chips = calculateChipStack(bet),
-                            chipSize = 30.dp * scaleMultiplier
-                        )
-                        Text(
-                            text = bet.toString(),
-                            fontSize = 10.sp * scaleMultiplier,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontFamily = MerriWeatherFontFamily,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(
-                                    includeFontPadding = false
-                                )
-                            )
-                        )
-                    }
-                }
-
-                PlayerDisplay(
-                    modifier = Modifier.align(alignments[index]).padding(3.dp),
-                    playerState = playerState,
-                    isMyPlayer = isMyPlayer,
-                    isFourColorMode = true,
-                    isGameStarted = gameState != null,
-                    scaleMultiplier = scaleMultiplier
-                )
-            }
-            gameState?.let {
-                if (boardRunouts.isNotEmpty()) {
-                    MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot, modifier = Modifier.align(Alignment.CenterStart))
-                } else SingleBoardLayout(it, Modifier.align(Alignment.Center))
-            } ?: Column(modifier = Modifier
-                .align(Alignment.Center)
-                .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50))
-                .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50))
-                .padding(32.dp, 16.dp)
-            ) {
-                Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                if(animatedCount != 0) {
-                    Spacer(Modifier.size(8.dp))
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF003D33))) {
+        Box(modifier = Modifier.background(Color.Black).align(Alignment.BottomCenter).fillMaxWidth().height(60.dp))
+        
+        Box(
+            modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            val specsCount = roomInfo?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
+            val animatedCount by animateIntAsState(
+                targetValue = specsCount,
+                animationSpec = tween(durationMillis = 300)
+            )
+            val modeText = if(roomInfo?.gameMode == GameMode.TOURNAMENT) "Tournament" else "Cash"
+            val (sb, bb) = roomInfo?.blindStructure?.let { it.first().smallBlind to it.first().bigBlind } ?: (10L to 20L)
+            val topBarText = "$modeText $sb / $bb"
+            Box(Modifier.align(Alignment.TopCenter).height(30.dp).fillMaxWidth()) {
+                Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
+                if (animatedCount != 0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(3.dp, 0.dp)
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_visibility),
+                            modifier = Modifier.size(20.dp),
                             contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp).padding(2.dp, 0.dp))
+                            tint = Color.White)
 
                         Text(
                             text = animatedCount.toString(),
                             color = Color.White,
-                            fontSize = 20.sp)
+                            fontSize = 16.sp)
                     }
                 }
             }
-        }
-        // Отображаем стол
-        //PokerTable() // todo можно будет красиво сделать и вернуть
 
-        val myPlayer = playersOnTable.find { it.player.userId == myUserId }?.player
+            // todo нормально паддинги вписать как константы
+            Box(Modifier.padding(0.dp, 30.dp, 0.dp, 63.dp).background(Color(0xFF004D40)).fillMaxSize()) {
+                val reorderedPlayers = remember(playersOnTable, myUserId) {
+                    val visiblePlayers = playersOnTable.filter { it.player.status != PlayerStatus.SPECTATING }
+                    val myPlayerIndex = visiblePlayers.indexOfFirst { it.player.userId == myUserId }
+                    if (myPlayerIndex != -1) {
+                        // Создаем новый список, начиная с нашего игрока
+                        visiblePlayers.subList(myPlayerIndex, visiblePlayers.size) + visiblePlayers.subList(0, myPlayerIndex)
+                    } else {
+                        visiblePlayers
+                    }
+                }
+                val (alignments, equityPositions) = calculatePlayerPosition(reorderedPlayers.size)
+                reorderedPlayers.forEachIndexed { index, playerState ->
+                    val isRightTailDirection = equityPositions[index]
+                    val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
+                    val scaleMultiplier = 1.2f // todo добавить кастомизацию
+                    val isMyPlayer = playerState.player.userId == myUserId
+                    val verticalOffset = if(isMyPlayer) (-25).dp else 15.dp
+                    val bias = alignments[index].horizontalBias
+                    val biasOffset = when {
+                        bias > 0f -> (-10).dp
+                        bias < 0f -> 10.dp
+                        else -> 0.dp
+                    }
+                    val totalOffset = offset + biasOffset
+                    val totalOffset2 = offset + biasOffset * -1.6f
 
-        when (val state = runItState) {
-            is RunItUiState.Hidden -> {
-                ActionPanel(
-                    viewModel = viewModel,
-                    isMyTurn = gameState != null && activePlayerId == myUserId && !isActionPanelLocked,
-                    myPlayer = myPlayer,
-                    playerState = myPlayerState,
-                    gameState = gameState,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
+                    allInEquity?.let { (equities, outs, _) ->
+                        val equity = equities[playerState.player.userId]
+                        val out = outs[playerState.player.userId]
+                        if(out == null && equity != null) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.align(alignments[index]).offset(totalOffset * scaleMultiplier * 0.8f, verticalOffset * scaleMultiplier)) {
+                                EquityBubble(equity, tailDirection, scaleMultiplier)
+                            }
+                        } else if(out != null) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.align(alignments[index]).offset(totalOffset2 * scaleMultiplier, 0.dp)) {
+                                OutsBubble(equity, out, scaleMultiplier)
+                            }
+                        }
+                    }
+
+                    if(playerState.currentBet > 0) {
+                        val (h, v) = alignments[index]
+                        val bet = playerState.currentBet
+                        Column(horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
+                            modifier = Modifier.align(BiasAlignment(h * 0.6f, v * 0.6f))) {
+                            PerspectiveChipStack(
+                                chips = calculateChipStack(bet),
+                                chipSize = 30.dp * scaleMultiplier
+                            )
+                            Text(
+                                text = bet.toString(),
+                                fontSize = 10.sp * scaleMultiplier,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontFamily = MerriWeatherFontFamily,
+                                style = TextStyle(
+                                    platformStyle = PlatformTextStyle(
+                                        includeFontPadding = false
+                                    )
+                                )
+                            )
+                        }
+                    }
+
+                    PlayerDisplay(
+                        modifier = Modifier.align(alignments[index]).padding(3.dp),
+                        playerState = playerState,
+                        isMyPlayer = isMyPlayer,
+                        isFourColorMode = true,
+                        isGameStarted = gameState != null,
+                        scaleMultiplier = scaleMultiplier
+                    )
+                }
+                gameState?.let {
+                    if (boardRunouts.isNotEmpty()) {
+                        MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot, modifier = Modifier.align(Alignment.CenterStart))
+                    } else SingleBoardLayout(it, Modifier.align(Alignment.Center))
+                } ?: Column(modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50))
+                    .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50))
+                    .padding(32.dp, 16.dp)
+                ) {
+                    Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                    if(animatedCount != 0) {
+                        Spacer(Modifier.size(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_visibility),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp).padding(2.dp, 0.dp))
+
+                            Text(
+                                text = animatedCount.toString(),
+                                color = Color.White,
+                                fontSize = 20.sp)
+                        }
+                    }
+                }
             }
-            is RunItUiState.AwaitingUnderdogChoice -> {
-                UnderdogChoiceUi(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    onChoice = { times -> viewModel.onRunItChoice(times) }
-                )
-            }
-            is RunItUiState.AwaitingFavoriteConfirmation -> {
-                val underdogName = playersOnTable.find { it.player.userId == state.underdogId }?.player?.username
-                FavoriteConfirmationUi(
-                    underdogName = underdogName ?: state.underdogId,
-                    times = state.times,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) }
-                )
+            // Отображаем стол
+            //PokerTable() // todo можно будет красиво сделать и вернуть
+
+            val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
+
+            when (val state = runItState) {
+                is RunItUiState.Hidden -> {
+                    ActionPanel(
+                        viewModel = viewModel,
+                        isMyTurn = gameState != null && activePlayerId == myUserId && !isActionPanelLocked && allInEquity == null,
+                        myPlayer = myPlayer,
+                        playerState = myPlayerState,
+                        gameState = gameState,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+                is RunItUiState.AwaitingUnderdogChoice -> {
+                    UnderdogChoiceUi(
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onChoice = { times -> viewModel.onRunItChoice(times) }
+                    )
+                }
+                is RunItUiState.AwaitingFavoriteConfirmation -> {
+                    val underdogName = playersOnTable.find { it.player.userId == state.underdogId }?.player?.username
+                    FavoriteConfirmationUi(
+                        underdogName = underdogName ?: state.underdogId,
+                        times = state.times,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) }
+                    )
+                }
             }
         }
     }
@@ -269,93 +284,93 @@ fun GameScreen(viewModel: GameViewModel) {
 private fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
     // 0.68 - центр
     val list = mutableListOf(BiasAlignment(0f, 1f)) // first
-    val equityList = mutableListOf(true) // right = true, left = false
+    val equityList = mutableListOf(true) // right = false, left = true
     when(playersCount) {
         1 -> return list to equityList
         2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
         3 -> {
             list.add(BiasAlignment(-1f, -0.9f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, -0.9f))
             equityList.add(false)
+            list.add(BiasAlignment(1f, -0.9f))
+            equityList.add(true)
         }
         4 -> {
             list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(0f, -1f))
             equityList.add(false)
             list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(false)
+            equityList.add(true)
         }
         5 -> {
             list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.9f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(1f, -0.9f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(false)
+            equityList.add(true)
         }
         6 -> {
             list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(0f, -1f))
             equityList.add(false)
             list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(false)
+            equityList.add(true)
         }
         7 -> {
             list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-0.5f, -1f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(0.5f, -1f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(false)
+            equityList.add(true)
         }
         8 -> {
             list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.4f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.85f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(0f, -1f))
             equityList.add(false)
             list.add(BiasAlignment(1f, -0.85f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, -0.4f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(false)
+            equityList.add(true)
         }
         9 -> {
             list.add(BiasAlignment(-1f, 0.85f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, 0.4f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(-0.5f, -1f))
-            equityList.add(true)
+            equityList.add(false)
             list.add(BiasAlignment(0.5f, -1f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.4f))
-            equityList.add(false)
+            equityList.add(true)
             list.add(BiasAlignment(1f, 0.85f))
-            equityList.add(false)
+            equityList.add(true)
         }
         else -> return Pair(listOf(), listOf())
     }
@@ -486,7 +501,6 @@ fun ActionPanel(
         modifier = modifier
             .height(63.dp)
             .fillMaxWidth()
-            .navigationBarsPadding()
             .background(Color.Black)
     ) {
         when {
@@ -524,7 +538,8 @@ fun ActionPanel(
                     }
 
                     // 3. Кнопка BET / RAISE
-                    BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn, text = "Bet", modifier = Modifier.weight(1f))
+                    val canRaise = (playerState?.player?.stack ?: 0L) > amountToCall
+                    BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn && canRaise, text = "Bet", modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -562,6 +577,8 @@ fun BetControls(
     // Используем String для TextField, но Float для Slider
     var sliderValue by remember { mutableFloatStateOf(initialBet.toFloat()) }
     var textValue by remember { mutableStateOf(initialBet.toString()) }
+    val currentBetAmount = textValue.toLongOrNull()
+    val isBetValid = currentBetAmount != null && currentBetAmount in minBet..maxBet
 
     // Синхронизация: если меняется слайдер, обновляем текст
     LaunchedEffect(sliderValue) {
@@ -604,14 +621,15 @@ fun BetControls(
                     onValueChange = {
                         textValue = it
                         // Синхронизация: если меняется текст, обновляем слайдер
-                        sliderValue = it.toFloatOrNull() ?: 0f
+                        sliderValue = it.toFloatOrNull() ?: 0f // todo эта штука не дает вводить дробные значения, если они будут нужны, придется менять
                     },
                     label = { Text("Amount") },
+                    isError = !isBetValid,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { onBetConfirmed(textValue.toLongOrNull() ?: 0) }) {
+                Button(onClick = { onBetConfirmed(textValue.toLongOrNull() ?: 0) }, enabled = isBetValid) {
                     Text("Confirm")
                 }
             }
@@ -650,7 +668,7 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
 //@Composable
 //@Preview
 //fun TestPlayerDisplay() {
-//    PlayerDisplay(PlayerState(Player("", "test", 1000L)), true, true, Modifier, true, true, null,1.2f)
+//    PlayerDisplay(PlayerState(Player("", "test", 1000L), hasFolded = true), true, true, Modifier, true, 1.2f)
 //}
 
 @Composable
@@ -681,13 +699,14 @@ fun PlayerDisplay(
             modifier = Modifier.align(Alignment.Center)
         ) {
             if (isGameStarted) {
-                val (card1, card2, isShow) = if (isMyPlayer || playerState.cards.isNotEmpty()) {
-                    Triple(playerState.cards.getOrNull(0), playerState.cards.getOrNull(1),true)
+                val (card1, card2, isShow) = if(playerState.hasFolded) {
+                    Triple(null, null, false)
                 } else {
-                    if(playerState.hasFolded) {
-                        Triple(null, null, false)
+                    if (isMyPlayer || playerState.cards.isNotEmpty()) {
+                        Triple(playerState.cards.getOrNull(0), playerState.cards.getOrNull(1),true)
                     } else Triple(null, null, true)
                 }
+                
                 if(isShow) {
                     PokerCard(
                         card = card1,
@@ -742,9 +761,12 @@ fun PlayerDisplay(
                 )
             )
             HorizontalDivider()
+            val (stackText, textColor) = if(playerState.player.stack != 0L) {
+                playerState.player.stack.toString() to Color.White
+            } else "All-In" to Color.Red
             Text(
-                text = playerState.player.stack.toString(),
-                color = Color.White,
+                text = stackText,
+                color = textColor,
                 fontWeight = FontWeight.Normal,
                 fontSize = 11.sp * scaleMultiplier,
                 modifier = Modifier
@@ -919,7 +941,6 @@ fun UnderdogChoiceUi(
     Box(
         modifier = modifier
             .height(63.dp)
-            .navigationBarsPadding()
             .background(Color.Black)
     ) {
         Row(
@@ -950,7 +971,6 @@ fun FavoriteConfirmationUi(
     Box(
         modifier = modifier
             .height(83.dp)
-            .navigationBarsPadding()
             .background(Color.Black)
     ) {
         Column(

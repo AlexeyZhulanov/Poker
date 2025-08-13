@@ -73,7 +73,7 @@ fun CardBack(modifier: Modifier) {
 @Composable
 @Preview
 fun Test() {
-    CardFaceAlternative(Card(Rank.JACK, Suit.DIAMONDS), Modifier.width(200.dp).height(300.dp))
+    CardFaceAlternative(Card(Rank.TEN, Suit.HEARTS), Modifier.width(200.dp).height(300.dp))
     //CardBack(Modifier)
 }
 
