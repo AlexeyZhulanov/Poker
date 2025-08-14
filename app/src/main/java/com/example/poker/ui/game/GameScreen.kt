@@ -574,11 +574,11 @@ fun ActionPanel(
                 .navigationBarsPadding()
         ) {
             BetControls(
-                minBet = (gameState.amountToCall - playerState.currentBet) + gameState.lastRaiseAmount,
-                maxBet = playerState.player.stack,
-                initialBet = (gameState.amountToCall - playerState.currentBet) + gameState.lastRaiseAmount,
+                minBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
+                maxBet = playerState.player.stack + playerState.currentBet,
+                initialBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
                 onBetConfirmed = { betAmount ->
-                    viewModel.onBet(playerState.currentBet + betAmount)
+                    viewModel.onBet(betAmount)
                     showBetSlider = false // Скрываем ползунок после подтверждения
                 },
                 onDismiss = { showBetSlider = false }
