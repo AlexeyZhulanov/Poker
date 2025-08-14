@@ -7,6 +7,7 @@ import javax.inject.Singleton
 
 sealed class AuthEvent {
     data object SessionExpired : AuthEvent()
+    data object KickedFromRoom : AuthEvent()
 }
 
 @Singleton

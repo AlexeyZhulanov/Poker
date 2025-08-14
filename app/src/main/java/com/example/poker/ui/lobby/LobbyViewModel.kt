@@ -1,5 +1,6 @@
 package com.example.poker.ui.lobby
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
@@ -18,6 +19,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 @HiltViewModel
 class LobbyViewModel @Inject constructor(
@@ -42,12 +45,12 @@ class LobbyViewModel @Inject constructor(
     private val _navigateToGameEvent = MutableSharedFlow<String>()
     val navigateToGameEvent = _navigateToGameEvent.asSharedFlow()
 
-    init {
-        connectToLobbySocket()
-    }
+    private var connectionJob: Job? = null
 
-    private fun connectToLobbySocket() {
-        viewModelScope.launch {
+    fun connect() {
+        if (connectionJob?.isActive == true) return
+
+        connectionJob = viewModelScope.launch {
             val token = appSettings.getAccessToken()
 
             if(token == null) {
@@ -55,26 +58,38 @@ class LobbyViewModel @Inject constructor(
                 authEventBus.postEvent(AuthEvent.SessionExpired)
                 return@launch
             }
-            try {
-                apiClient.client.webSocket(
-                    method = HttpMethod.Get,
-                    host = "amessenger.ru", port = 8080, path = "/lobby",
-                    request = { header(HttpHeaders.Authorization, "Bearer $token") }
-                ) {
-                    for (frame in incoming) {
-                        if (frame is Frame.Text) {
-                            val message = Json.decodeFromString<OutgoingMessage>(frame.readText())
-                            if (message is OutgoingMessage.LobbyUpdate) {
-                                _rooms.value = message.rooms
+            // Бесконечный цикл для переподключения
+            while(true) {
+                try {
+                    Log.d("testLobbyWS", "Connecting...")
+                    apiClient.client.webSocket(
+                        method = HttpMethod.Get,
+                        host = "amessenger.ru", port = 8080, path = "/lobby",
+                        request = { header(HttpHeaders.Authorization, "Bearer $token") }
+                    ) {
+                        Log.d("testLobbyWS", "Connected.")
+                        for (frame in incoming) {
+                            if (frame is Frame.Text) {
+                                val message = Json.decodeFromString<OutgoingMessage>(frame.readText())
+                                if (message is OutgoingMessage.LobbyUpdate) {
+                                    _rooms.value = message.rooms
+                                }
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    if (e !is CancellationException) Log.d("testLobbyWS", "Error: ${e.message}")
                 }
-            } catch (e: Exception) {
-                // TODO: Handle error
-                println("Lobby WS Error: ${e.message}")
+                Log.d("testLobbyWS", "Disconnected. Reconnecting in 5 seconds...")
+                delay(5000L) // Пауза перед попыткой переподключения
             }
         }
+    }
+
+    fun disconnect() {
+        Log.d("testLobbyWS", "Disconnecting...")
+        connectionJob?.cancel()
+        connectionJob = null
     }
 
     fun onJoinClick(roomId: String) {

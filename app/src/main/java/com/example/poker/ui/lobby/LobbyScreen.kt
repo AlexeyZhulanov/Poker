@@ -22,12 +22,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.poker.data.remote.dto.GameRoom
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,10 +43,30 @@ fun LobbyScreen(
     onNavigateToGame: (roomId: String) -> Unit
 ) {
     val rooms by viewModel.rooms.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
         viewModel.navigateToGameEvent.collect { roomId ->
             onNavigateToGame(roomId)
+        }
+    }
+
+    // Этот эффект следит за жизненным циклом
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                // Экран стал видимым - подключаемся
+                viewModel.connect()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                // Экран скрыт - отключаемся для экономии батареи
+                viewModel.disconnect()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // Эта часть вызовется, когда экран будет уничтожен
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 

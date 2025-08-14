@@ -46,6 +46,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,6 +74,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameMode
@@ -99,6 +103,23 @@ fun GameScreen(viewModel: GameViewModel) {
     val staticCards by viewModel.staticCommunityCards.collectAsState()
     val boardRunouts by viewModel.boardRunouts.collectAsState()
     val runsCount by viewModel.runsCount.collectAsState()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    // Следим за жизненным циклом экрана
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                viewModel.connect()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.disconnect()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId

@@ -3,6 +3,7 @@ package com.example.poker.data.repository
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.CreateRoomRequest
 import com.example.poker.data.remote.dto.GameRoom
+import com.example.poker.data.remote.dto.GameState
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -53,6 +54,19 @@ class GameRepository @Inject constructor(
                 Result.Success(response.body())
             } else {
                 Result.Error("Room not found")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    suspend fun getGameState(roomId: String): Result<GameState> {
+        return try {
+            val response = apiClient.client.get("http://amessenger.ru:8080/rooms/$roomId/state")
+            if (response.status == HttpStatusCode.OK) {
+                Result.Success(response.body())
+            } else {
+                Result.Error("Game state not found")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Unknown error")

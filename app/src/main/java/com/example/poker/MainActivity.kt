@@ -1,6 +1,7 @@
 package com.example.poker
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -52,6 +53,12 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(0)
                                 }
+                            }
+                            AuthEvent.KickedFromRoom -> {
+                                navController.navigate(Screen.Lobby.route) {
+                                    popUpTo(Screen.Lobby.route) { inclusive = true }
+                                }
+                                Toast.makeText(applicationContext, "Вы были исключены из комнаты", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
