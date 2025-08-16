@@ -48,8 +48,8 @@ import kotlin.coroutines.cancellation.CancellationException
 
 sealed interface RunItUiState {
     data object Hidden : RunItUiState
-    data object AwaitingUnderdogChoice : RunItUiState
-    data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int) : RunItUiState
+    data class AwaitingUnderdogChoice(val expiresAt: Long) : RunItUiState
+    data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int, val expiresAt: Long) : RunItUiState
 }
 
 data class AllInEquity(
@@ -225,11 +225,14 @@ class GameViewModel @Inject constructor(
                                     is OutgoingMessage.OfferRunItMultipleTimes -> {
                                         _runItUiState.value = RunItUiState.AwaitingFavoriteConfirmation(
                                             underdogId = message.underdogId,
-                                            times = message.times
+                                            times = message.times,
+                                            expiresAt = message.expiresAt
                                         )
                                     }
                                     is OutgoingMessage.OfferRunItForUnderdog -> {
-                                        _runItUiState.value = RunItUiState.AwaitingUnderdogChoice
+                                        _runItUiState.value = RunItUiState.AwaitingUnderdogChoice(
+                                            expiresAt = message.expiresAt
+                                        )
                                     }
                                     is OutgoingMessage.PlayerJoined -> {
                                         Log.d("testPlayerJoined", message.player.toString())
@@ -271,6 +274,26 @@ class GameViewModel @Inject constructor(
                                                         player.copy(status = message.status)
                                                     } else {
                                                         player
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                    is OutgoingMessage.ConnectionStatusUpdate -> {
+                                        _roomInfo.update { currentRoom ->
+                                            currentRoom?.copy(
+                                                players = currentRoom.players.map {
+                                                    if (it.userId == message.userId) it.copy(isConnected = message.isConnected) else it
+                                                }
+                                            )
+                                        }
+                                        _gameState.update { currentState ->
+                                            currentState?.copy(
+                                                playerStates = currentState.playerStates.map {
+                                                    if (it.player.userId == message.userId) {
+                                                        it.copy(player = it.player.copy(isConnected = message.isConnected))
+                                                    } else {
+                                                        it
                                                     }
                                                 }
                                             )
@@ -335,6 +358,9 @@ class GameViewModel @Inject constructor(
     }
     fun onRunItConfirmation(accepted: Boolean) {
         sendAction(IncomingMessage.AgreeRunCount(accepted))
+        _runItUiState.value = RunItUiState.Hidden
+    }
+    fun hideRunItState() {
         _runItUiState.value = RunItUiState.Hidden
     }
     fun onSitAtTableClick(buyIn: Long) {

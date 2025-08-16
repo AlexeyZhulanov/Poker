@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -93,6 +95,7 @@ import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.Suit
 import com.example.poker.domain.model.standardChipSet
 import com.example.poker.ui.theme.MerriWeatherFontFamily
+import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 @Composable
@@ -294,15 +297,19 @@ fun GameScreen(viewModel: GameViewModel) {
                 }
                 is RunItUiState.AwaitingUnderdogChoice -> {
                     UnderdogChoiceUi(
+                        viewModel = viewModel,
                         modifier = Modifier.align(Alignment.BottomCenter),
+                        expiresAt = state.expiresAt,
                         onChoice = { times -> viewModel.onRunItChoice(times) }
                     )
                 }
                 is RunItUiState.AwaitingFavoriteConfirmation -> {
                     val underdogName = playersOnTable.find { it.player.userId == state.underdogId }?.player?.username
                     FavoriteConfirmationUi(
+                        viewModel = viewModel,
                         underdogName = underdogName ?: state.underdogId,
                         times = state.times,
+                        expiresAt = state.expiresAt,
                         modifier = Modifier.align(Alignment.BottomCenter),
                         onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) }
                     )
@@ -834,6 +841,18 @@ fun PlayerDisplay(
                 scaleMultiplier = scaleMultiplier
             )
         }
+        if (!playerState.player.isConnected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(40.dp * scaleMultiplier)
+                    .clip(RoundedCornerShape(12.dp * scaleMultiplier))
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                PulsingConnectionLostIcon(modifier = Modifier.size(32.dp * scaleMultiplier))
+            }
+        }
     }
 }
 
@@ -986,27 +1005,51 @@ fun OutsText(outs: List<Card>, isFourColorMode: Boolean, scaleMultiplier: Float,
 
 @Composable
 fun UnderdogChoiceUi(
+    viewModel: GameViewModel,
     modifier: Modifier,
+    expiresAt: Long,
     onChoice: (Int) -> Unit
 ) {
+    var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    LaunchedEffect(expiresAt) {
+        while (remainingTime > 0) {
+            remainingTime = expiresAt - System.currentTimeMillis()
+            delay(50L) // Обновляем часто для плавной анимации
+        }
+        viewModel.hideRunItState()
+    }
+    val totalDurationMillis = 15000f
+    val progress = (remainingTime / totalDurationMillis).coerceIn(0f, 1f)
+
     Box(
         modifier = modifier
-            .height(63.dp)
+            .height(75.dp)
             .background(Color.Black)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            repeat(3) { t ->
-                val times = t + 1
-                val text = when(times) {
-                    2 -> "Two times"
-                    3 -> "Three times"
-                    else -> "Once"
+            CustomLinearProgressBar(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                color = Color.Green,
+                trackColor = Color.Black,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { t ->
+                    val times = t + 1
+                    val text = when(times) {
+                        2 -> "Two times"
+                        3 -> "Three times"
+                        else -> "Once"
+                    }
+                    BottomButton(onClick = { onChoice(times) }, text = text, modifier = Modifier.weight(1f))
                 }
-                BottomButton(onClick = { onChoice(times) }, text = text, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -1014,20 +1057,39 @@ fun UnderdogChoiceUi(
 
 @Composable
 fun FavoriteConfirmationUi(
+    viewModel: GameViewModel,
     underdogName: String,
     times: Int,
+    expiresAt: Long,
     modifier: Modifier,
     onConfirm: (Boolean) -> Unit
 ) {
+    var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    LaunchedEffect(expiresAt) {
+        while (remainingTime > 0) {
+            remainingTime = expiresAt - System.currentTimeMillis()
+            delay(50L) // Обновляем часто для плавной анимации
+        }
+        viewModel.hideRunItState()
+    }
+    val totalDurationMillis = 15000f
+    val progress = (remainingTime / totalDurationMillis).coerceIn(0f, 1f)
+
     Box(
         modifier = modifier
-            .height(83.dp)
+            .height(95.dp)
             .background(Color.Black)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            CustomLinearProgressBar(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                color = Color.Green,
+                trackColor = Color.Black,
+            )
             Text("$underdogName wants to run it $times times", style = MaterialTheme.typography.titleLarge, color = Color.White)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1083,6 +1145,30 @@ fun calculateChipStack(amount: Long): List<Chip> {
         }
     }
     return result
+}
+
+@Composable
+fun CustomLinearProgressBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant
+) {
+    // Внешний Box - это фон (трек)
+    Box(
+        modifier = modifier
+            .background(trackColor)
+            .fillMaxWidth()
+    ) {
+        // Внутренний Box - это сама полоска прогресса
+        Box(
+            modifier = Modifier
+                .background(color)
+                .fillMaxHeight()
+                // Ключевой момент: ширина внутреннего блока - это доля от ширины внешнего
+                .fillMaxWidth(fraction = progress)
+        )
+    }
 }
 
 // todo использовать в главном экране
