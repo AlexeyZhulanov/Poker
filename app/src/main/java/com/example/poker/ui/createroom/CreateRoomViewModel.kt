@@ -37,13 +37,19 @@ class CreateRoomViewModel @Inject constructor(
     private val _navigationEvent = MutableSharedFlow<String?>()
     val navigationEvent = _navigationEvent.asSharedFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
     fun onRoomNameChange(name: String) { _roomName.value = name }
     fun onGameModeChange(mode: GameMode) { _gameMode.value = mode }
     fun onStackChange(stack: String) { _initialStack.value = stack }
     fun onBlindStructureChange(type: BlindStructureType) { _blindStructureType.value = type }
 
     fun onCreateClick() {
+        if (_isLoading.value) return
+
         viewModelScope.launch {
+            _isLoading.value = true // Блокируем UI
             val request = CreateRoomRequest(
                 name = roomName.value,
                 gameMode = GameMode.CASH, // todo gamemode.value (не работает пока что)
@@ -61,6 +67,7 @@ class CreateRoomViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     Log.d("testError", result.message)
+                    _isLoading.value = false
                     _navigationEvent.emit(null) // Сигнал, что можно просто вернуться назад
                 }
             }

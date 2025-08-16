@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -29,7 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.poker.data.remote.dto.BlindStructureType
 import com.example.poker.data.remote.dto.GameMode
-import com.example.poker.data.remote.dto.GameRoom
 
 @Composable
 fun CreateRoomScreen(
@@ -42,6 +41,7 @@ fun CreateRoomScreen(
     val gameMode by viewModel.gameMode.collectAsState()
     val selectedStructure by viewModel.blindStructureType.collectAsState()
     val initialStack by viewModel.initialStack.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     // Слушаем событие навигации
     LaunchedEffect(Unit) {
@@ -97,8 +97,12 @@ fun CreateRoomScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Button(onClick = { viewModel.onCreateClick() }) {
-                    Text("Create")
+                Button(onClick = { viewModel.onCreateClick() }, enabled = !isLoading) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        Text("Create")
+                    }
                 }
             }
         }

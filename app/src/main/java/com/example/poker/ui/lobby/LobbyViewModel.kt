@@ -45,6 +45,9 @@ class LobbyViewModel @Inject constructor(
     private val _navigateToGameEvent = MutableSharedFlow<String>()
     val navigateToGameEvent = _navigateToGameEvent.asSharedFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     private var connectionJob: Job? = null
 
     fun connect() {
@@ -93,16 +96,24 @@ class LobbyViewModel @Inject constructor(
     }
 
     fun onJoinClick(roomId: String) {
+        if (_isLoading.value) return
+
         viewModelScope.launch {
-            when (val result = gameRepository.joinRoom(roomId)) {
-                is Result.Success -> {
-                    GameRoomCache.currentRoom = result.data
-                    _navigateToGameEvent.emit(roomId)
+            try {
+                _isLoading.value = true // Блокируем UI
+                when (val result = gameRepository.joinRoom(roomId)) {
+                    is Result.Success -> {
+                        GameRoomCache.currentRoom = result.data
+                        _navigateToGameEvent.emit(roomId)
+                    }
+                    is Result.Error -> {
+                        // TODO: Показать ошибку пользователю
+                        println("Join error: ${result.message}")
+                    }
                 }
-                is Result.Error -> {
-                    // TODO: Показать ошибку пользователю
-                    println("Join error: ${result.message}")
-                }
+            } finally {
+                delay(2000)
+                _isLoading.value = false
             }
         }
     }
