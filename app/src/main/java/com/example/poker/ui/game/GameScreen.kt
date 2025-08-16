@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,9 +82,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameMode
+import com.example.poker.data.remote.dto.GameStage
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.Player
+import com.example.poker.data.remote.dto.PlayerAction
 import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.domain.model.Chip
@@ -103,6 +107,7 @@ fun GameScreen(viewModel: GameViewModel) {
     val staticCards by viewModel.staticCommunityCards.collectAsState()
     val boardRunouts by viewModel.boardRunouts.collectAsState()
     val runsCount by viewModel.runsCount.collectAsState()
+    val visibleActionIds by viewModel.visibleActionIds.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     // Следим за жизненным циклом экрана
@@ -178,6 +183,7 @@ fun GameScreen(viewModel: GameViewModel) {
                     val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
                     val scaleMultiplier = 1.2f // todo добавить кастомизацию
                     val isMyPlayer = playerState.player.userId == myUserId
+                    val isActivePlayer = playerState.player.userId == activePlayerId
                     val verticalOffset = if(isMyPlayer) (-25).dp else 15.dp
                     val bias = alignments[index].horizontalBias
                     val biasOffset = when {
@@ -230,8 +236,11 @@ fun GameScreen(viewModel: GameViewModel) {
                         modifier = Modifier.align(alignments[index]).padding(3.dp),
                         playerState = playerState,
                         isMyPlayer = isMyPlayer,
+                        isActivePlayer = isActivePlayer,
+                        turnExpiresAt = gameState?.turnExpiresAt,
                         isFourColorMode = true,
                         isGameStarted = gameState != null,
+                        visibleActionIds = visibleActionIds,
                         scaleMultiplier = scaleMultiplier
                     )
                 }
@@ -270,12 +279,13 @@ fun GameScreen(viewModel: GameViewModel) {
             //PokerTable() // todo можно будет красиво сделать и вернуть
 
             val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
+            val isMyTurn = gameState?.let { activePlayerId == myUserId && !isActionPanelLocked && allInEquity == null && it.stage != GameStage.SHOWDOWN } ?: false
 
             when (val state = runItState) {
                 is RunItUiState.Hidden -> {
                     ActionPanel(
                         viewModel = viewModel,
-                        isMyTurn = gameState != null && activePlayerId == myUserId && !isActionPanelLocked && allInEquity == null,
+                        isMyTurn = isMyTurn,
                         myPlayer = myPlayer,
                         playerState = myPlayerState,
                         gameState = gameState,
@@ -689,7 +699,7 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
 //@Composable
 //@Preview
 //fun TestPlayerDisplay() {
-//    PlayerDisplay(PlayerState(Player("", "test", 1000L), hasFolded = true), true, true, Modifier, true, 1.2f)
+//    PlayerDisplay(PlayerState(Player("", "test", 1000L), hasFolded = true, lastAction = PlayerAction.Call(1L, "123")), true, true, true, 15L, Modifier, true, setOf("123"), 1.2f)
 //}
 
 @Composable
@@ -697,8 +707,11 @@ fun PlayerDisplay(
     playerState: PlayerState,
     isMyPlayer: Boolean,
     isFourColorMode: Boolean,
+    isActivePlayer: Boolean,
+    turnExpiresAt: Long?,
     modifier: Modifier = Modifier,
     isGameStarted: Boolean,
+    visibleActionIds: Set<String>,
     scaleMultiplier: Float
 ) {
     Box(modifier = modifier
@@ -802,6 +815,23 @@ fun PlayerDisplay(
                         trim = LineHeightStyle.Trim.Both
                     )
                 )
+            )
+        }
+        AnimatedVisibility(
+            modifier = Modifier.align(Alignment.Center),
+            visible = playerState.lastAction?.id in visibleActionIds,
+            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            playerState.lastAction?.let {
+                PlayerAction(it, scaleMultiplier)
+            }
+        }
+        if (isActivePlayer && turnExpiresAt != null) {
+            TurnTimer(
+                expiresAt = turnExpiresAt,
+                modifier = Modifier.align(Alignment.TopEnd),
+                scaleMultiplier = scaleMultiplier
             )
         }
     }
@@ -1008,6 +1038,28 @@ fun FavoriteConfirmationUi(
                 BottomButton(onClick = { onConfirm(false) }, text = "Decline", modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+@Composable
+fun PlayerAction(action: PlayerAction, scaleMultiplier: Float) {
+    val (text, color, brightColor) = when(action) {
+        is PlayerAction.Fold -> Triple("Fold", Color(0xFF983036), Color(0xFFE84952))
+        is PlayerAction.Check -> Triple("Check", Color(0xFFB29A3B), Color(0xFFF2D250))
+        is PlayerAction.Call -> Triple("Call", Color(0xFFDBA656), Color(0xFFF2B85F))
+        is PlayerAction.Bet -> Triple("Bet", Color(0xFF3C9FC5), Color(0xFF48BFED))
+        is PlayerAction.Raise -> Triple("Raise", Color(0xFF3396AE), Color(0xFF46CCED))
+        is PlayerAction.AllIn -> Triple("All-In", Color(0xFFAF6832), Color(0xFFF08E44))
+    }
+    val width = 50.dp * scaleMultiplier
+    val height = 20.dp * scaleMultiplier
+    Box(contentAlignment = Alignment.Center,
+        modifier = Modifier.width(width).height(height)
+            .clip(RoundedCornerShape(3.dp * scaleMultiplier))
+            .background(Color.Black.copy(alpha = 0.8f))
+            .border(BorderStroke(1.dp * scaleMultiplier, Brush.radialGradient(listOf(color.copy(alpha = 0.6f), brightColor), radius = 60f * scaleMultiplier)), RoundedCornerShape(3.dp * scaleMultiplier))
+    ) {
+        Text(text = text, color = brightColor, fontSize = 12.sp * scaleMultiplier)
     }
 }
 

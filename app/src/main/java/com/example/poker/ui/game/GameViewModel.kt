@@ -13,6 +13,7 @@ import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.IncomingMessage
 import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.remote.dto.OutsInfo
+import com.example.poker.data.remote.dto.PlayerAction
 import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
@@ -96,6 +97,11 @@ class GameViewModel @Inject constructor(
     private val _runsCount = MutableStateFlow(0)
     val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
 
+    private val _visibleActionIds = MutableStateFlow<Set<String>>(emptySet())
+    val visibleActionIds: StateFlow<Set<String>> = _visibleActionIds.asStateFlow()
+
+    private val actionDisplayJobs = mutableMapOf<String, Job>()
+
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
         state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -154,14 +160,29 @@ class GameViewModel @Inject constructor(
                                 when (val message = AppJson.decodeFromString<OutgoingMessage>(messageJson)) {
                                     is OutgoingMessage.GameStateUpdate -> {
                                         Log.d("testNewState", message.state.toString())
+                                        val oldState = _gameState.value
                                         _gameState.value = message.state
+
+                                        _isActionPanelLocked.value = false
+                                        lockJob?.cancel()
                                         if(message.state == null) {
                                             _roomInfo.update { currentRoom ->
                                                 currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) })
                                             }
+                                        } else {
+                                            val newActions = findNewActions(oldState, message.state)
+                                            newActions.forEach { action ->
+                                                // 1. Делаем действие видимым
+                                                _visibleActionIds.update { it + action.id }
+
+                                                // 2. Отменяем старый таймер (если был) и запускаем новый
+                                                actionDisplayJobs[action.id]?.cancel()
+                                                actionDisplayJobs[action.id] = viewModelScope.launch {
+                                                    delay(2000L) // Показываем 2 секунды
+                                                    _visibleActionIds.update { it - action.id } // Скрываем
+                                                }
+                                            }
                                         }
-                                        _isActionPanelLocked.value = false
-                                        lockJob?.cancel()
                                         // Если идет Run It Multiple times, обновляем нужную доску
                                         if (message.state?.runIndex != null && _boardRunouts.value.isNotEmpty()) {
                                             _boardRunouts.update { currentRunouts ->
@@ -346,5 +367,20 @@ class GameViewModel @Inject constructor(
         } catch (_: Exception) {
             return null
         }
+    }
+
+    private fun findNewActions(oldState: GameState?, newState: GameState): List<PlayerAction> {
+        if (oldState == null) return newState.playerStates.mapNotNull { it.lastAction }
+
+        val newActions = mutableListOf<PlayerAction>()
+        newState.playerStates.forEach { newPlayerState ->
+            val oldPlayerState = oldState.playerStates.find { it.player.userId == newPlayerState.player.userId }
+            val newAction = newPlayerState.lastAction
+            // Если действие новое (в старом состоянии его не было или id другой)
+            if (newAction != null && newAction.id != oldPlayerState?.lastAction?.id) {
+                newActions.add(newAction)
+            }
+        }
+        return newActions
     }
 }

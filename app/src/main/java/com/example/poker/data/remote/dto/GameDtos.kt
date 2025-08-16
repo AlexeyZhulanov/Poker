@@ -2,6 +2,7 @@ package com.example.poker.data.remote.dto
 
 import com.example.poker.domain.model.Rank
 import com.example.poker.domain.model.Suit
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -15,6 +16,29 @@ enum class BlindStructureType {
     STANDARD,
     FAST,
     TURBO
+}
+
+@Serializable
+sealed interface PlayerAction {
+    val id: String
+    @Serializable
+    @SerialName("action.fold")
+    data class Fold(override val id: String) : PlayerAction
+    @Serializable
+    @SerialName("action.check")
+    data class Check(override val id: String) : PlayerAction
+    @Serializable
+    @SerialName("action.call")
+    data class Call(val amount: Long, override val id: String) : PlayerAction
+    @Serializable
+    @SerialName("action.bet")
+    data class Bet(val amount: Long, override val id: String) : PlayerAction
+    @Serializable
+    @SerialName("action.raise")
+    data class Raise(val amount: Long, override val id: String) : PlayerAction
+    @Serializable
+    @SerialName("action.allin")
+    data class AllIn(override val id: String) : PlayerAction
 }
 
 @Serializable
@@ -62,7 +86,8 @@ data class PlayerState(
     val handContribution: Long = 0,
     val hasActedThisRound: Boolean = false,
     val hasFolded: Boolean = false,
-    val isAllIn: Boolean = false
+    val isAllIn: Boolean = false,
+    val lastAction: PlayerAction? = null
 )
 
 @Serializable
@@ -77,7 +102,8 @@ data class GameState(
     val lastRaiseAmount: Long = 0,
     val amountToCall: Long = 0, // Сколько нужно доставить, чтобы уравнять
     val lastAggressorPosition: Int? = null,
-    val runIndex: Int? = null
+    val runIndex: Int? = null,
+    val turnExpiresAt: Long? = null
 )
 
 @Serializable
