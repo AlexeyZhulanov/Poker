@@ -6,13 +6,6 @@ import kotlinx.serialization.Serializable
 //================================================
 // Вспомогательные классы, используемые в сообщениях
 //================================================
-
-@Serializable
-data class BoardResult(
-    val board: List<Card>,
-    val winnerUsernames: List<String>
-)
-
 @Serializable
 sealed interface OutsInfo {
     @Serializable
@@ -57,8 +50,8 @@ sealed interface OutgoingMessage {
     @SerialName("out.equity_update")
     data class AllInEquityUpdate(val equities: Map<String, Double>, val outs: Map<String, OutsInfo> = emptyMap(), val runIndex: Int) : OutgoingMessage
     @Serializable
-    @SerialName("out.run_multiple_result")
-    data class RunItMultipleTimesResult(val results: List<BoardResult>) : OutgoingMessage
+    @SerialName("out.board_result")
+    data class BoardResult(val payments: List<Pair<String, Long>>) : OutgoingMessage
     @Serializable
     @SerialName("out.run_multiple_offer")
     data class OfferRunItMultipleTimes(val underdogId: String, val times: Int, val expiresAt: Long) : OutgoingMessage

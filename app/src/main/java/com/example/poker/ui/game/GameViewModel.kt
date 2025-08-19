@@ -58,6 +58,10 @@ data class AllInEquity(
     val runIndex: Int
 )
 
+enum class StackDisplayMode {
+    CHIPS, BIG_BLINDS
+}
+
 @HiltViewModel
 class GameViewModel @Inject constructor(
     private val apiClient: KtorApiClient,
@@ -101,6 +105,14 @@ class GameViewModel @Inject constructor(
     val visibleActionIds: StateFlow<Set<String>> = _visibleActionIds.asStateFlow()
 
     private val actionDisplayJobs = mutableMapOf<String, Job>()
+
+    private val _stackDisplayMode = MutableStateFlow(StackDisplayMode.CHIPS)
+    val stackDisplayMode: StateFlow<StackDisplayMode> = _stackDisplayMode.asStateFlow()
+
+    private val _boardResult = MutableStateFlow<List<Pair<String, Long>>?>(null)
+    val boardResult: StateFlow<List<Pair<String, Long>>?> = _boardResult.asStateFlow()
+
+    private var winnerDisplayJob: Job? = null
 
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
         state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
@@ -246,9 +258,17 @@ class GameViewModel @Inject constructor(
                                             currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId })
                                         }
                                     }
-                                    is OutgoingMessage.RunItMultipleTimesResult -> {
-                                        Log.d("testRunMulRes", message.results.toString())
-                                    } // todo
+                                    is OutgoingMessage.BoardResult -> {
+                                        Log.d("testBoardResult", message.payments.toString())
+                                        _boardResult.value = message.payments
+                                        // Отменяем предыдущий таймер, если он был
+                                        winnerDisplayJob?.cancel()
+                                        // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
+                                        winnerDisplayJob = viewModelScope.launch {
+                                            delay(3000L)
+                                            _boardResult.value = null
+                                        }
+                                    }
                                     is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
                                     is OutgoingMessage.TournamentWinner -> println("123") // todo
                                     is OutgoingMessage.PlayerReadyUpdate -> {
@@ -408,5 +428,11 @@ class GameViewModel @Inject constructor(
             }
         }
         return newActions
+    }
+
+    fun toggleStackDisplayMode() {
+        _stackDisplayMode.update {
+            if (it == StackDisplayMode.CHIPS) StackDisplayMode.BIG_BLINDS else StackDisplayMode.CHIPS
+        }
     }
 }

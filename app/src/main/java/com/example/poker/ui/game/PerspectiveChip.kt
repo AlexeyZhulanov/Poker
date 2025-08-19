@@ -1,11 +1,25 @@
 package com.example.poker.ui.game
 
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -23,128 +37,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.poker.domain.model.Chip
 import kotlin.math.cos
 import kotlin.math.sin
-
-
-//@OptIn(ExperimentalTextApi::class)
-//@Composable
-//fun PerspectiveChip(
-//    chip: Chip,
-//    modifier: Modifier = Modifier
-//) {
-//    val density = LocalDensity.current.density
-//    val textMeasurer = rememberTextMeasurer()
-//
-//    Box(
-//        modifier = modifier
-//            .size(80.dp)
-//            .graphicsLayer {
-//                rotationX = -40f
-//                cameraDistance = 8 * density
-//            }.offset(5.dp, 0.dp)
-//    ) {
-//        Canvas(modifier = Modifier.fillMaxSize()) {
-//            val thickness = size.height * 0.2f
-//            val topOvalRect = Rect(0f, 0f, size.width, size.height - thickness)
-//            val bottomOvalRect = Rect(0f, thickness, size.width, size.height)
-//
-//            // --- 1. Рисуем "боковую" часть фишки ---
-//            val sidePath = Path().apply {
-//                // Левая вертикальная грань
-//                moveTo(topOvalRect.left, topOvalRect.center.y)
-//                lineTo(bottomOvalRect.left, bottomOvalRect.center.y)
-//                // Нижняя дуга
-//                arcTo(bottomOvalRect, 180f, -180f, false)
-//                // Правая вертикальная грань
-//                lineTo(topOvalRect.right, topOvalRect.center.y)
-//                // Верхняя дуга (для замыкания, хоть и невидима)
-//                arcTo(topOvalRect, 0f, 180f, false)
-//                close()
-//            }
-//            drawPath(path = sidePath, color = chip.baseColor.darken())
-//            drawPath(sidePath, color = Color.Black, style = Stroke(width = 0.8.dp.toPx()))
-//
-//            // --- 2. Рисуем "верхнюю" часть (эллипс) ---
-//            drawOval(color = chip.baseColor, topLeft = topOvalRect.topLeft, size = topOvalRect.size)
-//            drawOval(color = Color.Black, topLeft = topOvalRect.topLeft, size = topOvalRect.size, style = Stroke(width = 0.8.dp.toPx()))
-//
-//            // --- 3. Рисуем узор (в правильном порядке) ---
-//
-//            // 3.1 Четыре радиальные полосы
-//            for (i in 0..3) {
-//                val angle = (45 + i * 90).toFloat()
-//                val stripeWidthDegrees = 20f // Ширина полосы в градусах
-//                val angleRad = Math.toRadians(angle.toDouble())
-//                val startAngle = angle - stripeWidthDegrees / 2
-//
-//                // --- Полоса на боковой части ---
-//                if (sin(angleRad) > 0) {
-//                    val sideStripePath = Path().apply {
-//                        // Рисуем дугу по нижнему краю
-//                        arcTo(bottomOvalRect, angle - stripeWidthDegrees / 2, stripeWidthDegrees, false)
-//                        // Соединяем с верхним краем
-//                        val topRightRad = Math.toRadians((angle + stripeWidthDegrees / 2).toDouble())
-//                        lineTo(
-//                            topOvalRect.center.x + topOvalRect.width / 2 * cos(topRightRad).toFloat(),
-//                            topOvalRect.center.y + topOvalRect.height / 2 * sin(topRightRad).toFloat()
-//                        )
-//                        // Рисуем дугу по верхнему краю в обратном направлении
-//                        arcTo(topOvalRect, angle + stripeWidthDegrees / 2, -stripeWidthDegrees, false)
-//                        close()
-//                    }
-//                    drawPath(sideStripePath, color = chip.accentColor.darken())
-//                    drawPath(sideStripePath, color = Color.Black, style = Stroke(width = 1.dp.toPx()))
-//                }
-//
-//                // --- Полоса на верхней части ---
-//                // Сначала рисуем заливку
-//                drawArc(
-//                    color = chip.accentColor,
-//                    startAngle = startAngle,
-//                    sweepAngle = stripeWidthDegrees,
-//                    useCenter = true,
-//                    topLeft = topOvalRect.topLeft,
-//                    size = topOvalRect.size
-//                )
-//                // --- Поверх рисуем обводку ---
-//                drawArc(
-//                    color = Color.Black,
-//                    startAngle = startAngle,
-//                    sweepAngle = stripeWidthDegrees,
-//                    useCenter = true,
-//                    topLeft = topOvalRect.topLeft,
-//                    size = topOvalRect.size,
-//                    style = Stroke(width = 1.dp.toPx()) // Задаем стиль обводки
-//                )
-//            }
-//
-//            // 3.2 Центральный круг (рисуется ПОВЕРХ полос)
-//            val centerCircleRadius = topOvalRect.width * 0.3f
-//            // Сначала заливка
-//            drawCircle(color = chip.accentColor, radius = centerCircleRadius, center = topOvalRect.center)
-//            // Затем обводка
-//            drawCircle(color = Color.Black, radius = centerCircleRadius, center = topOvalRect.center, style = Stroke(width = 1.dp.toPx()))
-//
-//            // 3.3 Текст с номиналом (рисуется ПОВЕРХ центрального круга)
-//            val textToDraw = when {
-//                chip.value >= 1000 -> "${chip.value / 1000}K"
-//                else -> chip.value.toString()
-//            }
-//            val textStyle = TextStyle(color = chip.baseColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-//            val textLayoutResult = textMeasurer.measure(AnnotatedString(textToDraw), style = textStyle)
-//            drawText(
-//                textLayoutResult = textLayoutResult,
-//                topLeft = Offset(
-//                    x = center.x - textLayoutResult.size.width / 2,
-//                    y = topOvalRect.center.y - textLayoutResult.size.height / 2
-//                )
-//            )
-//        }
-//    }
-//}
 
 // Вспомогательная функция для затемнения цвета
 private fun Color.darken(factor: Float = 0.7f): Color {
@@ -155,6 +50,64 @@ private fun Color.darken(factor: Float = 0.7f): Color {
         alpha = this.alpha
     )
 }
+
+@Composable
+@Preview
+fun TestAnimChips() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        var animated by remember { mutableStateOf(false) }
+
+        Button(onClick = { animated = !animated }, modifier = Modifier.align(Alignment.BottomEnd)) {
+            Text("Toggle")
+        }
+
+        val hBias by animateFloatAsState(targetValue = if (animated) 0.3f else 0.6f)
+        val vBias by animateFloatAsState(targetValue = if (animated) 0.3f else 0.6f)
+        val animatedAlignment = BiasAlignment(hBias, vBias)
+
+        val alpha by animateFloatAsState(
+            targetValue = if (animated) 0f else 1f, // Исчезает в конце
+            animationSpec = tween(durationMillis = 300),
+            label = "chip_alpha"
+        )
+        Box(modifier = Modifier.align(animatedAlignment).alpha(alpha)) {
+            PerspectiveChipStack(
+                chipSize = 50.dp,
+                chips = calculateChipStack(326),
+            )
+        }
+    }
+}
+
+//@Composable
+//fun AnimatedChipStack(
+//    betAmount: Long, // Сумма ставки
+//    isVisible: Boolean, // Флаг для показа/скрытия
+//    onAnimationFinished: () -> Unit // Сообщить, когда анимация закончилась
+//) {
+//    val targetOffset by animateDpAsState(
+//        targetValue = if (isVisible) (-100).dp else 0.dp, // Летит вверх на 100 dp
+//        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
+//        label = "chip_offset",
+//        finishedListener = { onAnimationFinished() }
+//    )
+//
+//    val alpha by animateFloatAsState(
+//        targetValue = if (isVisible) 0f else 1f, // Исчезает в конце
+//        animationSpec = tween(durationMillis = 500, delayMillis = 200),
+//        label = "chip_alpha"
+//    )
+//
+//    if (isVisible) {
+//        // Мы используем существующий PerspectiveChipStack для красоты
+//        PerspectiveChipStack(
+//            chips = calculateChipStack(betAmount),
+//            modifier = Modifier
+//                .offset(y = targetOffset)
+//                .alpha(alpha)
+//        )
+//    }
+//}
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
@@ -315,48 +268,5 @@ fun PerspectiveChipStack(
                 }
             }
         }
-//        val textToDraw = when {
-//            chips.first().value >= 1000 -> "${chips.first().value / 1000}K"
-//            else -> chips.first().value.toString()
-//        }
-//        Text(
-//            text = textToDraw,
-//            color = chips.first().baseColor,
-//            fontSize = 14.sp,
-//            fontWeight = FontWeight.Bold,
-//            style = TextStyle(
-//                shadow = Shadow(
-//                    Color.Black.copy(alpha = 0.6f),
-//                    offset = Offset(1f, 1f),
-//                    blurRadius = 2f
-//                )
-//            ),
-//            modifier = Modifier
-//                .graphicsLayer {
-//                    // Применяем тот же наклон, что и к фишке, чтобы они лежали в одной плоскости
-//                    rotationX = -50f
-//                    cameraDistance = 5 * density
-//
-//                    // Можно немного сжать по вертикали для усиления эффекта
-//                    scaleY = 0.9f
-//                }.offset(0.dp, (-47).dp).align(Alignment.Center)
-//        )
     }
-}
-
-//@Preview
-//@Composable
-//fun ChipPreview() {
-//    Box(modifier = Modifier.size(100.dp)) {
-//        PerspectiveChip(chip = standardChipSet.first { it.value == 100L })
-//    }
-//}
-
-@Composable
-@Preview
-fun TestPerspectiveChips() {
-    val chipsForBet = calculateChipStack(10)
-    PerspectiveChipStack(
-        chips = chipsForBet
-    )
 }

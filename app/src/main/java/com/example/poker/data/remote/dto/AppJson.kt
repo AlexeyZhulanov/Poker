@@ -18,7 +18,7 @@ val AppJson = Json {
             subclass(OutgoingMessage.PlayerLeft::class)
             subclass(OutgoingMessage.ErrorMessage::class)
             subclass(OutgoingMessage.AllInEquityUpdate::class)
-            subclass(OutgoingMessage.RunItMultipleTimesResult::class)
+            subclass(OutgoingMessage.BoardResult::class)
             subclass(OutgoingMessage.TournamentWinner::class)
             subclass(OutgoingMessage.BlindsUp::class)
             subclass(OutgoingMessage.StartBoardRun::class)
