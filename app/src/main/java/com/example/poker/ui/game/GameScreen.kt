@@ -1,6 +1,5 @@
 package com.example.poker.ui.game
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -13,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -105,10 +105,8 @@ import com.example.poker.domain.model.standardChipSet
 import com.example.poker.ui.theme.MerriWeatherFontFamily
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
 import kotlin.random.Random
@@ -317,7 +315,6 @@ fun GameScreen(viewModel: GameViewModel) {
                         isMyPlayer = isMyPlayer,
                         isActivePlayer = isActivePlayer,
                         turnExpiresAt = gameState?.turnExpiresAt,
-                        isFourColorMode = true,
                         isGameStarted = gameState != null,
                         visibleActionIds = visibleActionIds,
                         scaleMultiplier = scaleMultiplier,
@@ -1010,7 +1007,6 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
 fun PlayerDisplay(
     playerState: PlayerState,
     isMyPlayer: Boolean,
-    isFourColorMode: Boolean,
     isActivePlayer: Boolean,
     turnExpiresAt: Long?,
     modifier: Modifier = Modifier,
@@ -1035,20 +1031,18 @@ fun PlayerDisplay(
                 .background(Color.DarkGray)
                 .border(1.dp, Color.White, shape = CircleShape)
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy((-20).dp * scaleMultiplier),
-            modifier = Modifier.align(Alignment.Center)
-        ) {
-            if (isGameStarted) {
-                val (card1, card2, isShow) = if(playerState.hasFolded) {
-                    Triple(null, null, false)
-                } else {
-                    if (isMyPlayer || playerState.cards.isNotEmpty()) {
-                        Triple(playerState.cards.getOrNull(0), playerState.cards.getOrNull(1),true)
-                    } else Triple(null, null, true)
-                }
-                
-                if(isShow) {
+
+        if (isGameStarted) {
+            val (card1, card2) = if (isMyPlayer || playerState.cards.isNotEmpty()) {
+                playerState.cards.getOrNull(0) to playerState.cards.getOrNull(1)
+            } else null to null
+            AnimatedVisibility(
+                modifier = Modifier.align(Alignment.Center),
+                visible = !playerState.hasFolded,
+                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(durationMillis = 500))
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy((-20).dp * scaleMultiplier)) {
                     FlippingPokerCard(
                         card = card1,
                         flipDirection = FlipDirection.COUNTER_CLOCKWISE,
@@ -1066,17 +1060,18 @@ fun PlayerDisplay(
                             .graphicsLayer { rotationZ = 10f }
                     )
                 }
-            } else {
-                if(playerState.player.isReady) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Is ready",
-                        tint = Color.Green,
-                        modifier = Modifier
-                            .size(60.dp * scaleMultiplier)
-                            .offset(0.dp, (-10).dp * scaleMultiplier)
-                    )
-                }
+            }
+        } else {
+            if(playerState.player.isReady) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Is ready",
+                    tint = Color.Green,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(60.dp * scaleMultiplier)
+                        .offset(0.dp, (-10).dp * scaleMultiplier)
+                )
             }
         }
         Column(modifier = Modifier

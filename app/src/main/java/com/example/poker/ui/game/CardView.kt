@@ -1,6 +1,7 @@
 package com.example.poker.ui.game
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -102,7 +103,7 @@ fun FlippingPokerCard(card: Card?, modifier: Modifier, flipDirection: FlipDirect
     // 1. Анимируем единый "прогресс" переворота от 0.0 (рубашка) до 1.0 (лицо)
     val animationProgress by animateFloatAsState(
         targetValue = if (isFaceUp) 1f else 0f,
-        animationSpec = tween(durationMillis = 800),
+        animationSpec = if(isFaceUp) tween(durationMillis = 800) else snap(),
         label = "flip_progress"
     )
     // 2. Вычисляем и применяем все трансформации в graphicsLayer
@@ -124,11 +125,11 @@ fun FlippingPokerCard(card: Card?, modifier: Modifier, flipDirection: FlipDirect
         CardBack(modifier = cardModifier)
     } else {
         // Поворачиваем лицо карты обратно, чтобы оно не было зеркальным
-        card?.let {
+        if (card != null) {
             CardFaceAlternative(
-                card = it,
+                card = card,
                 modifier = cardModifier.graphicsLayer { rotationY = 180f }
             )
-        }
+        } else CardBack(modifier = cardModifier.graphicsLayer { rotationY = 180f })
     }
 }
