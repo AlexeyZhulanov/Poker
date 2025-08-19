@@ -1049,17 +1049,17 @@ fun PlayerDisplay(
                 }
                 
                 if(isShow) {
-                    PokerCard(
+                    FlippingPokerCard(
                         card = card1,
-                        isFourColorMode = isFourColorMode,
+                        flipDirection = FlipDirection.COUNTER_CLOCKWISE,
                         modifier = Modifier
                             .width(40.dp * scaleMultiplier)
                             .height(60.dp * scaleMultiplier)
                             .graphicsLayer { rotationZ = -10f }
                     )
-                    PokerCard(
+                    FlippingPokerCard(
                         card = card2,
-                        isFourColorMode = isFourColorMode,
+                        flipDirection = FlipDirection.CLOCKWISE,
                         modifier = Modifier
                             .width(40.dp * scaleMultiplier)
                             .height(60.dp * scaleMultiplier)
@@ -1158,7 +1158,7 @@ fun PlayerDisplay(
         }
     }
     if(isWinner) {
-        Box(modifier) {
+        Box(modifier) { // todo в центре сделать либо надпись, либо иконку кубка
             RadiantGlowEffectEnhanced(
                 modifier = Modifier.size(70.dp * scaleMultiplier).align(Alignment.Center),
                 color = Color(0xFFFFA000),

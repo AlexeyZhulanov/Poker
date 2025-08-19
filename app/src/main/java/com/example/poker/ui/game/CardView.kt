@@ -1,5 +1,7 @@
 package com.example.poker.ui.game
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -12,10 +14,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.poker.data.remote.dto.Card
@@ -82,4 +87,48 @@ fun PokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier) {
     card?.let {
         CardFaceAlternative(it, modifier)
     } ?: CardBack(modifier)
+}
+
+enum class FlipDirection {
+    CLOCKWISE, // По часовой стрелке
+    COUNTER_CLOCKWISE // Против часовой стрелки
+}
+
+@Composable
+fun FlippingPokerCard(card: Card?, modifier: Modifier, flipDirection: FlipDirection = FlipDirection.CLOCKWISE) {
+    val density = LocalDensity.current.density
+    val isFaceUp = card != null
+
+    // 1. Анимируем единый "прогресс" переворота от 0.0 (рубашка) до 1.0 (лицо)
+    val animationProgress by animateFloatAsState(
+        targetValue = if (isFaceUp) 1f else 0f,
+        animationSpec = tween(durationMillis = 800),
+        label = "flip_progress"
+    )
+    // 2. Вычисляем и применяем все трансформации в graphicsLayer
+    val cardModifier = modifier
+        .graphicsLayer {
+            // --- Логика переворота (rotationY) ---
+            val direction = if (flipDirection == FlipDirection.CLOCKWISE) 1 else -1
+            rotationY = (animationProgress * 180f) * direction
+
+            // Устанавливаем камеру для создания 3D-эффекта
+            cameraDistance = 12 * density
+
+            // --- Логика "подбрасывания" (translationY) ---
+            // Используем формулу параболы: пик анимации будет в середине (когда progress = 0.5)
+            val tossHeight = -4 * (animationProgress - animationProgress * animationProgress)
+            translationY = tossHeight * 20.dp.toPx() // 20.dp - максимальная высота "подскока"
+        }
+    if (animationProgress <= 0.5f) {
+        CardBack(modifier = cardModifier)
+    } else {
+        // Поворачиваем лицо карты обратно, чтобы оно не было зеркальным
+        card?.let {
+            CardFaceAlternative(
+                card = it,
+                modifier = cardModifier.graphicsLayer { rotationY = 180f }
+            )
+        }
+    }
 }
