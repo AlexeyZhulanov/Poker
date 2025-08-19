@@ -306,6 +306,50 @@ fun GameScreen(viewModel: GameViewModel) {
                             )
                         }
                     }
+                    if(playerState.player.userId in winnerIds) {
+                        val amount = boardResult?.find { it.first == playerState.player.userId }?.second ?: 0L
+                        if(amount > 0) {
+                            val (h, v) = alignments[index]
+                            val (bet, textBet) = if(stackDisplayMode == StackDisplayMode.CHIPS) {
+                                amount.toFloat() to amount.toString()
+                            }
+                            else {
+                                amount.toBBFloat(gameState?.bigBlindAmount ?: 0L) to amount.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
+                            }
+                            val animatedAlpha = remember { Animatable(0f) }
+                            val animatedH = remember { Animatable(0f) }
+                            val animatedV = remember { Animatable(0f) }
+
+                            val animatedAlignment = BiasAlignment(animatedH.value, animatedV.value)
+                            LaunchedEffect(key1 = amount) {
+                                launch {
+                                    animatedAlpha.animateTo(1f, animationSpec = tween(200))
+                                    animatedAlpha.animateTo(0f, animationSpec = tween(500, delayMillis = 1500))
+                                }
+                                launch { animatedH.animateTo(h * 0.65f, animationSpec = tween(2000)) }
+                                launch { animatedV.animateTo(v * 0.65f, animationSpec = tween(2000)) }
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
+                                modifier = Modifier.align(animatedAlignment).alpha(animatedAlpha.value)) {
+                                PerspectiveChipStack(
+                                    chips = calculateChipStack(ceil(bet).toLong()),
+                                    chipSize = 30.dp * scaleMultiplier
+                                )
+                                Text(
+                                    text = textBet,
+                                    fontSize = 10.sp * scaleMultiplier,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontFamily = MerriWeatherFontFamily,
+                                    style = TextStyle(
+                                        platformStyle = PlatformTextStyle(
+                                            includeFontPadding = false
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
 
                     PlayerDisplay(
                         modifier = Modifier
@@ -628,7 +672,7 @@ fun AnimatedCommunityCards(
                     }
                 }
             }
-        }
+        } else Box(Modifier.height((cardWidth - 1.dp) * 1.5f))
     }
 }
 
