@@ -14,6 +14,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -426,8 +427,6 @@ fun GameScreen(viewModel: GameViewModel) {
                     }
                 }
             }
-            // Отображаем стол
-            //PokerTable() // todo можно будет красиво сделать и вернуть
 
             val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
             val isMyTurn = gameState?.let { activePlayerId == myUserId && !isActionPanelLocked && allInEquity == null && it.stage != GameStage.SHOWDOWN } ?: false
@@ -1010,18 +1009,6 @@ fun BetControls(
     }
 }
 
-// todo возможно не будет использоваться
-//@Composable
-//fun PokerTable() {
-//    Box(
-//        modifier = Modifier
-//            .fillMaxWidth(0.95f)
-//            .aspectRatio(0.6f)
-//            .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50)) // Зеленый фон и овальная форма
-//            .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50)) // Темно-зеленая рамка
-//    )
-//}
-
 @Composable
 fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, modifier: Modifier) {
     val color1 = if(enabled) Color.Red else Color(0xFF640D14)
@@ -1196,12 +1183,23 @@ fun PlayerDisplay(
             }
         }
     }
-    if(isWinner) {
-        Box(modifier) { // todo в центре сделать либо надпись, либо иконку кубка
+    AnimatedVisibility(
+        modifier = modifier,
+        visible = isWinner,
+        enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(animationSpec = tween(1000), initialOffsetY = { -it }),
+        exit = fadeOut(animationSpec = tween(300))
+    ) {
+        Box {
             RadiantGlowEffectEnhanced(
-                modifier = Modifier.size(70.dp * scaleMultiplier).align(Alignment.Center),
-                color = Color(0xFFFFA000),
-                rayCount = 32
+                Modifier.size(52.dp * scaleMultiplier).align(Alignment.Center),
+                color = Color(0xFFFDFFD8),
+                rayCount = 32,
+                innerRadiusRatio = 0.2f
+            )
+            Image(
+                painter = painterResource(R.drawable.winner_cup),
+                contentDescription = "Winner",
+                modifier = Modifier.width(27.dp * scaleMultiplier).height(39.dp * scaleMultiplier).align(Alignment.Center)
             )
         }
     }
