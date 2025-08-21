@@ -1,5 +1,6 @@
 package com.example.poker.ui.game
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -566,7 +567,9 @@ private fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>
 @Composable
 fun AnimatedCommunityCards(
     cards: List<Card>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    staticCardsSize: Int = 0,
+    isMultiboard: Boolean = false
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val boxWithConstraintsScope = this
@@ -578,7 +581,7 @@ fun AnimatedCommunityCards(
         val cardAlphas = remember { List(5) { Animatable(0f) } }
         val cardRotations = remember { List(5) { Animatable(0f) } }
 
-        var isReadyForAnimation by remember { mutableStateOf(false) }
+        var isReadyForAnimation by remember { mutableStateOf(isMultiboard) }
 
         // 2. LaunchedEffect - "мозг" анимации. Запускается, когда меняется список карт
         LaunchedEffect(cards) {
@@ -653,7 +656,7 @@ fun AnimatedCommunityCards(
         }
         if(isReadyForAnimation) {
             Box(modifier = Modifier.fillMaxWidth().height((cardWidth - 1.dp) * 1.5f)) {
-                (0..4).forEach { i ->
+                (staticCardsSize..4).forEach { i ->
                     val card = cards.getOrNull(i)
                     card?.let {
                         PokerCard(
@@ -719,7 +722,7 @@ fun MultiBoardLayout(
     BoxWithConstraints(modifier = modifier) {
         val boxWithConstraintsScope = this
         val cardWidth = boxWithConstraintsScope.maxWidth / 5
-        val cardHeight = cardWidth * 1.5f
+        val cardHeight = (cardWidth - 1.dp) * 1.5f
 
         val offset = if(runs == 2) -(cardHeight / 2) -(cardHeight / 2.5f) else -cardHeight -(cardHeight / 5)
         val text = if(displayMode == StackDisplayMode.CHIPS) pot.toString() else pot.toBB(bigBlind) + " BB"
@@ -728,17 +731,20 @@ fun MultiBoardLayout(
             .offset(0.dp, offset))
 
         // 1. Рисуем статичные карты
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
             staticCards.forEach { card ->
                 PokerCard(
                     card = card,
                     isFourColorMode = true,
                     modifier = Modifier
-                        .width(cardWidth)
+                        .width(cardWidth - 1.dp)
                         .height(cardHeight)
                 )
+                Spacer(Modifier.width(1.dp))
             }
+        }
         Column(
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy((-(cardHeight.value)).dp), // Отрицательный отступ для наложения
             horizontalAlignment = Alignment.End
         ) {
@@ -770,33 +776,18 @@ fun MultiBoardLayout(
                     enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 200))
                 ) {
                     Row(
-                        modifier = Modifier
-                            .offset(y = yOffset)
-                            .width(cardWidth * (5 - staticCards.size))
+                        modifier = Modifier.offset(y = yOffset)
                     ) {
                         // 2. Рисуем карты этого прогона
-                        runout.forEach { card ->
-                            PokerCard(
-                                card = card,
-                                isFourColorMode = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(0.6667f)
-                            )
-                        }
-                        // 3. Добавляем плейсхолдеры до 5 карт
-                        repeat(5 - staticCards.size - runout.size) {
-                            CardBack(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(0.6667f)
-                                    .alpha(0.2f)
-                            )
-                        }
+                        AnimatedCommunityCards(
+                            cards = staticCards + runout,
+                            modifier = Modifier,
+                            staticCardsSize = staticCards.size,
+                            isMultiboard = true
+                        )
                     }
                 }
             }
-        }
         }
     }
 }
