@@ -1,6 +1,6 @@
 package com.example.poker.ui.game
 
-import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,9 +41,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
@@ -52,12 +53,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -107,6 +110,7 @@ import com.example.poker.domain.model.standardChipSet
 import com.example.poker.ui.theme.MerriWeatherFontFamily
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
+import com.example.poker.util.toMinutesSeconds
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -114,7 +118,7 @@ import kotlin.math.ceil
 import kotlin.random.Random
 
 @Composable
-fun GameScreen(viewModel: GameViewModel) {
+fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val roomInfo by viewModel.roomInfo.collectAsState()
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
@@ -128,10 +132,16 @@ fun GameScreen(viewModel: GameViewModel) {
     val visibleActionIds by viewModel.visibleActionIds.collectAsState()
     val stackDisplayMode by viewModel.stackDisplayMode.collectAsState()
     val boardResult by viewModel.boardResult.collectAsState()
+    val tournamentInfo by viewModel.tournamentInfo.collectAsState()
+    val winnerId by viewModel.tournamentWinner.collectAsState()
+    val scaleMultiplier by viewModel.scaleMultiplier.collectAsState()
     var showSettingsMenu by remember { mutableStateOf(false) }
     val winnerIds = remember(boardResult) {
         boardResult?.map { it.first }?.toSet() ?: emptySet()
     }
+    var levelSeconds by remember { mutableLongStateOf(0L) }
+    var showExitDialog by remember { mutableStateOf(false) }
+    var lastBoardResult by remember { mutableLongStateOf(0L) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     // Следим за жизненным циклом экрана
@@ -148,6 +158,23 @@ fun GameScreen(viewModel: GameViewModel) {
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
+
+    // Перехватываем нажатие "назад"
+    BackHandler(enabled = true) {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        ConfirmExitDialog(
+            onConfirm = {
+                showExitDialog = false
+                onNavigateToLobby()
+            },
+            onDismiss = {
+                showExitDialog = false
+            }
+        )
     }
 
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
@@ -174,20 +201,48 @@ fun GameScreen(viewModel: GameViewModel) {
                 targetValue = specsCount,
                 animationSpec = tween(durationMillis = 300)
             )
-            val modeText = if(roomInfo?.gameMode == GameMode.TOURNAMENT) "Tournament" else "Cash"
-            val (sb, bb) = roomInfo?.blindStructure?.let { it.first().smallBlind to it.first().bigBlind } ?: (10L to 20L)
-            val topBarText = "$modeText $sb / $bb"
+            val topBarText = if(roomInfo?.gameMode == GameMode.CASH) "Cash 10 / 20"
+            else {
+                tournamentInfo?.let {
+                    val ante = if(it.ante == 0L) "-" else it.ante
+                    "sb ${it.sb}/bb ${it.bb}/ante $ante"
+                } ?: "Tournament"
+            }
+            val leftText = if(roomInfo?.gameMode == GameMode.CASH) null else {
+                LaunchedEffect(key1 = tournamentInfo?.levelTime) {
+                    tournamentInfo?.levelTime?.let {
+                        while (true) {
+                            val remaining = it - System.currentTimeMillis()
+                            if (remaining <= 0) {
+                                levelSeconds = 0
+                                break
+                            }
+                            levelSeconds = remaining
+                            delay(1000L)
+                        }
+                    }
+                }
+                tournamentInfo?.let { "level${it.level} | ${levelSeconds.toMinutesSeconds()}" }
+            }
             Box(Modifier
                 .align(Alignment.TopCenter)
                 .height(30.dp)
                 .fillMaxWidth()) {
-                Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
+                if(roomInfo?.gameMode == GameMode.CASH) {
+                    Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
+                } else {
+                    val textSize = when(topBarText.length) {
+                        in 0..20 -> 14.sp
+                        in 21..24 -> 12.sp
+                        else -> 11.sp
+                    }
+                    leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier.align(Alignment.CenterStart).padding(3.dp, 0.dp), color = Color.White, fontSize = textSize) }
+                    Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
+                }
                 if (animatedCount != 0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(3.dp, 0.dp)
+                        modifier = Modifier.padding(3.dp, 0.dp).align(Alignment.CenterEnd)
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_visibility),
@@ -233,7 +288,6 @@ fun GameScreen(viewModel: GameViewModel) {
                 reorderedPlayers.forEachIndexed { index, playerState ->
                     val isRightTailDirection = equityPositions[index]
                     val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
-                    val scaleMultiplier = 1.2f // todo добавить кастомизацию
                     val isMyPlayer = playerState.player.userId == myUserId
                     val isActivePlayer = playerState.player.userId == activePlayerId
                     val verticalOffset = if(isMyPlayer) (-25).dp else 15.dp
@@ -311,6 +365,7 @@ fun GameScreen(viewModel: GameViewModel) {
                     if(playerState.player.userId in winnerIds) {
                         val amount = boardResult?.find { it.first == playerState.player.userId }?.second ?: 0L
                         if(amount > 0) {
+                            lastBoardResult = amount
                             val (h, v) = alignments[index]
                             val (bet, textBet) = if(stackDisplayMode == StackDisplayMode.CHIPS) {
                                 amount.toFloat() to amount.toString()
@@ -416,14 +471,32 @@ fun GameScreen(viewModel: GameViewModel) {
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
-                        ) { // todo scaleMultiplier управление сюда добавить
-                            // todo запоминать в preferences и scale и режим, режим можно для турнира и cash свой
+                        ) {
                             Text("Show stack in BB")
                             Spacer(modifier = Modifier.width(8.dp))
                             Switch(
                                 checked = stackDisplayMode == StackDisplayMode.BIG_BLINDS,
                                 onCheckedChange = { viewModel.toggleStackDisplayMode() }
                             )
+                        }
+                        Text("UI Scale", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            IconButton(onClick = { viewModel.changeScale(-0.05f) }) {
+                                Icon(painter = painterResource(R.drawable.ic_remove), "Decrease")
+                            }
+
+                            Text(
+                                text = "${(scaleMultiplier * 100).toInt() + 1}%",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            IconButton(onClick = { viewModel.changeScale(0.05f) }) {
+                                Icon(Icons.Default.Add, "Increase")
+                            }
                         }
                     }
                 }
@@ -441,7 +514,8 @@ fun GameScreen(viewModel: GameViewModel) {
                         playerState = myPlayerState,
                         gameState = gameState,
                         displayMode = stackDisplayMode,
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        isTournament = roomInfo?.gameMode == GameMode.TOURNAMENT
                     )
                 }
                 is RunItUiState.AwaitingUnderdogChoice -> {
@@ -461,6 +535,16 @@ fun GameScreen(viewModel: GameViewModel) {
                         expiresAt = state.expiresAt,
                         modifier = Modifier.align(Alignment.BottomCenter),
                         onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) }
+                    )
+                }
+            }
+            winnerId?.let {
+                val player = playersOnTable.find { it.player.userId == winnerId }
+                player?.let {
+                    val winner = it.player
+                    TournamentWinnerDialog(
+                        winner = winner.copy(isReady = false, stack = winner.stack + lastBoardResult),
+                        onReturnToLobby = onNavigateToLobby
                     )
                 }
             }
@@ -800,7 +884,8 @@ fun ActionPanel(
     playerState: PlayerState?, // Состояние текущего игрока
     gameState: GameState?, // Общее состояние игры
     displayMode: StackDisplayMode,
-    modifier: Modifier
+    modifier: Modifier,
+    isTournament: Boolean
 ) {
     // Состояние для отображения/скрытия ползунка
     var showBetSlider by remember { mutableStateOf(false) }
@@ -814,9 +899,8 @@ fun ActionPanel(
             .background(Color.Black)
     ) {
         when {
-            myPlayer?.status == PlayerStatus.SPECTATING -> {
-                // todo 1000 поменять
-                BottomButton(onClick = { viewModel.onSitAtTableClick(buyIn = 1000L) }, text = "Sit at Table", modifier = Modifier.fillMaxWidth())
+            myPlayer?.status == PlayerStatus.SPECTATING && (!isTournament || gameState == null)  -> {
+                BottomButton(onClick = { viewModel.onSitAtTableClick() }, text = "Sit at Table", modifier = Modifier.fillMaxWidth())
             }
             gameState == null -> {
                 if (myPlayer != null) {
@@ -1040,7 +1124,7 @@ fun PlayerDisplay(
     scaleMultiplier: Float
 ) {
     Box(modifier = modifier
-        .width(IntrinsicSize.Max)
+        .width(IntrinsicSize.Max) // todo подобрать размер, чтобы сюда можно было вставить кубок и возможно эквити и фишки (оптимизация)
         .height(80.dp * scaleMultiplier)
         .padding(5.dp * scaleMultiplier, 0.dp)) {
         Icon(
@@ -1175,7 +1259,7 @@ fun PlayerDisplay(
         }
     }
     AnimatedVisibility(
-        modifier = modifier,
+        modifier = modifier.size(80.dp * scaleMultiplier),
         visible = isWinner,
         enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(animationSpec = tween(1000), initialOffsetY = { -it }),
         exit = fadeOut(animationSpec = tween(300))
@@ -1532,6 +1616,83 @@ fun CustomLinearProgressBar(
                 .fillMaxWidth(fraction = progress)
         )
     }
+}
+
+@Composable
+fun TournamentWinnerDialog(
+    winner: Player,
+    onReturnToLobby: () -> Unit
+) {
+    // Полупрозрачный фон, который затемняет игру
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(2.dp, Brush.verticalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA000))))
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Иконка кубка
+                Image(
+                    painter = painterResource(R.drawable.winner_cup),
+                    contentDescription = "Winner Trophy",
+                    modifier = Modifier.size(64.dp)
+                )
+
+                Text(
+                    text = "TOURNAMENT WINNER!",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                // Аватарка победителя со свечением
+                Box(contentAlignment = Alignment.Center) {
+                    RadiantGlowEffectEnhanced(modifier = Modifier.size(120.dp), rayCount = 32, color = Color(0xFFFFB506))
+                    PlayerDisplay(
+                        playerState = PlayerState(player = winner),
+                        isMyPlayer = true, // Неважно, просто для отображения
+                        isActivePlayer = false,
+                        turnExpiresAt = null,
+                        isGameStarted = false,
+                        visibleActionIds = setOf(),
+                        displayMode = StackDisplayMode.CHIPS,
+                        bigBlind = 0L,
+                        scaleMultiplier = 1.2f
+                    )
+                }
+
+                Button(onClick = onReturnToLobby) {
+                    Text("Return to Lobby")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConfirmExitDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss, // Сработает при клике мимо окна
+        title = { Text("Confirm Exit") },
+        text = { Text("Are you sure you want to leave the game? Your hand will be folded.") },
+        confirmButton = {
+            Button(onClick = onConfirm) { Text("Leave") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 // todo использовать в главном экране

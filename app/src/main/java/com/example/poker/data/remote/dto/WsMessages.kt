@@ -39,10 +39,10 @@ sealed interface OutgoingMessage {
     data class ErrorMessage(val message: String) : OutgoingMessage
     @Serializable
     @SerialName("out.blinds_up")
-    data class BlindsUp(val smallBlind: Long, val bigBlind: Long, val ante: Long, val level: Int) : OutgoingMessage
+    data class BlindsUp(val smallBlind: Long, val bigBlind: Long, val ante: Long, val level: Int, val levelTime: Long) : OutgoingMessage
     @Serializable
     @SerialName("out.tournament_winner")
-    data class TournamentWinner(val winnerUsername: String) : OutgoingMessage
+    data class TournamentWinner(val winnerUserId: String) : OutgoingMessage
     @Serializable
     @SerialName("out.start_board_run")
     data class StartBoardRun(val runIndex: Int, val totalRuns: Int) : OutgoingMessage
@@ -107,7 +107,7 @@ sealed interface IncomingMessage {
     data class SetReady(val isReady: Boolean) : IncomingMessage
     @Serializable
     @SerialName("in.sit_at_table")
-    data class SitAtTable(val buyIn: Long) : IncomingMessage
+    data object SitAtTable : IncomingMessage
 }
 
 @Serializable

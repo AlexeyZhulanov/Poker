@@ -16,7 +16,6 @@ data class CreateRoomRequest(
     val name: String,
     val gameMode: GameMode,
     val maxPlayers: Int,
-    val initialStack: Long,
     val smallBlind: Long?,
     val bigBlind: Long?,
     val blindStructureType: BlindStructureType? = null

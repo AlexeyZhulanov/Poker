@@ -40,7 +40,7 @@ fun CreateRoomScreen(
     val roomName by viewModel.roomName.collectAsState()
     val gameMode by viewModel.gameMode.collectAsState()
     val selectedStructure by viewModel.blindStructureType.collectAsState()
-    val initialStack by viewModel.initialStack.collectAsState()
+    //val initialStack by viewModel.initialStack.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     // Слушаем событие навигации
@@ -71,7 +71,7 @@ fun CreateRoomScreen(
                     Text("Tournament")
                 }
 
-                OutlinedTextField(value = initialStack, onValueChange = viewModel::onStackChange)
+                //OutlinedTextField(value = initialStack, onValueChange = viewModel::onStackChange)
 
                 // Условное отображение полей
                 if (gameMode == GameMode.CASH) {

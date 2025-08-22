@@ -58,6 +58,8 @@ data class AllInEquity(
     val runIndex: Int
 )
 
+data class TournamentInfo(val sb: Long, val bb: Long, val ante: Long, val level: Int, val levelTime: Long)
+
 enum class StackDisplayMode {
     CHIPS, BIG_BLINDS
 }
@@ -112,6 +114,15 @@ class GameViewModel @Inject constructor(
     private val _boardResult = MutableStateFlow<List<Pair<String, Long>>?>(null)
     val boardResult: StateFlow<List<Pair<String, Long>>?> = _boardResult.asStateFlow()
 
+    private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
+    val tournamentInfo: StateFlow<TournamentInfo?> = _tournamentInfo.asStateFlow()
+
+    private val _tournamentWinner = MutableStateFlow<String?>(null)
+    val tournamentWinner: StateFlow<String?> = _tournamentWinner.asStateFlow()
+
+    private val _scaleMultiplier = MutableStateFlow(1.0f)
+    val scaleMultiplier: StateFlow<Float> = _scaleMultiplier.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
@@ -123,6 +134,7 @@ class GameViewModel @Inject constructor(
 
     init {
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
+        _scaleMultiplier.value = appSettings.getScaleMultiplier()
     }
 
     private suspend fun loadInitialState() {
@@ -151,14 +163,13 @@ class GameViewModel @Inject constructor(
 
         connectionJob = viewModelScope.launch {
             val token = appSettings.getAccessToken() ?: return@launch
-            // 1. Сначала загружаем актуальное состояние комнаты через REST
-            loadInitialState()
-
-            // 2. Потом запускаем цикл переподключения WebSocket
             while (true) {
                 var wasKicked = false // Флаг, чтобы определить причину разрыва
                 try {
+                    // 1. Сначала загружаем актуальное состояние комнаты через REST
+                    loadInitialState()
                     Log.d("testGameWS", "Connecting to room $roomId...")
+                    // 2. Потом запускаем WebSocket
                     apiClient.client.webSocket(
                         method = HttpMethod.Get,
                         host = "amessenger.ru", port = 8080, path = "/play/$roomId",
@@ -231,7 +242,13 @@ class GameViewModel @Inject constructor(
                                             }
                                         }
                                     }
-                                    is OutgoingMessage.BlindsUp -> println("123") // todo
+                                    is OutgoingMessage.BlindsUp -> {
+                                        Log.d("testBlindsUp", message.toString())
+                                        _tournamentInfo.value = TournamentInfo(
+                                            message.smallBlind, message.bigBlind, message.ante,
+                                            message.level, message.levelTime
+                                        )
+                                    }
                                     is OutgoingMessage.ErrorMessage -> println("123") // todo
                                     is OutgoingMessage.LobbyUpdate -> {} // скипаем, это для другой страницы
                                     is OutgoingMessage.OfferRunItMultipleTimes -> {
@@ -270,7 +287,10 @@ class GameViewModel @Inject constructor(
                                         }
                                     }
                                     is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
-                                    is OutgoingMessage.TournamentWinner -> println("123") // todo
+                                    is OutgoingMessage.TournamentWinner -> {
+                                        Log.d("testTournamentWinner", message.toString())
+                                        _tournamentWinner.value = message.winnerUserId
+                                    }
                                     is OutgoingMessage.PlayerReadyUpdate -> {
                                         Log.d("testPlayerReady", "id: ${message.userId}, isReady: ${message.isReady}")
                                         _roomInfo.update { currentRoom ->
@@ -383,8 +403,8 @@ class GameViewModel @Inject constructor(
     fun hideRunItState() {
         _runItUiState.value = RunItUiState.Hidden
     }
-    fun onSitAtTableClick(buyIn: Long) {
-        sendAction(IncomingMessage.SitAtTable(buyIn))
+    fun onSitAtTableClick() {
+        sendAction(IncomingMessage.SitAtTable)
     }
 
     private fun lockActionPanel() {
@@ -434,5 +454,11 @@ class GameViewModel @Inject constructor(
         _stackDisplayMode.update {
             if (it == StackDisplayMode.CHIPS) StackDisplayMode.BIG_BLINDS else StackDisplayMode.CHIPS
         }
+    }
+
+    fun changeScale(change: Float) {
+        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
+        _scaleMultiplier.value = newValue
+        appSettings.saveScaleMultiplier(newValue)
     }
 }
