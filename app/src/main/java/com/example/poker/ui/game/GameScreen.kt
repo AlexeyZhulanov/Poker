@@ -104,10 +104,9 @@ import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerAction
 import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.remote.dto.PlayerStatus
-import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.Suit
-import com.example.poker.domain.model.standardChipSet
 import com.example.poker.ui.theme.MerriWeatherFontFamily
+import com.example.poker.util.calculateChipStack
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
 import com.example.poker.util.toMinutesSeconds
@@ -119,7 +118,7 @@ import kotlin.random.Random
 
 @Composable
 fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
-    val roomInfo by viewModel.roomInfo.collectAsState()
+    val roomInfo by viewModel.roomInfo.collectAsState() // todo УБРАТЬ, ЭТО ТОЧНО ТУТ НЕ НАДО (отдельно передавать specsCount и gamemode)
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
     val playersOnTable by viewModel.playersOnTable.collectAsState()
@@ -128,7 +127,6 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val allInEquity by viewModel.allInEquity.collectAsState()
     val staticCards by viewModel.staticCommunityCards.collectAsState()
     val boardRunouts by viewModel.boardRunouts.collectAsState()
-    val runsCount by viewModel.runsCount.collectAsState()
     val visibleActionIds by viewModel.visibleActionIds.collectAsState()
     val stackDisplayMode by viewModel.stackDisplayMode.collectAsState()
     val boardResult by viewModel.boardResult.collectAsState()
@@ -176,8 +174,9 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             }
         )
     }
-
+    // todo это надо в remember и возможно внутрь блока, здесь оно незачем
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
+    // todo можно в теории куда-то вынести в другое место, но не факт
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
 
     Box(modifier = Modifier
@@ -258,7 +257,6 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 }
             }
 
-            // todo нормально паддинги вписать как константы
             Box(Modifier
                 .padding(0.dp, 30.dp, 0.dp, 63.dp)
                 .background(Color(0xFF004D40))
@@ -284,7 +282,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                         visiblePlayers
                     }
                 }
-                val (alignments, equityPositions) = calculatePlayerPosition(reorderedPlayers.size)
+                val (alignments, equityPositions) = viewModel.calculatePlayerPosition(reorderedPlayers.size) // todo REMEMBER
                 reorderedPlayers.forEachIndexed { index, playerState ->
                     val isRightTailDirection = equityPositions[index]
                     val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
@@ -426,7 +424,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 }
                 gameState?.let {
                     if (boardRunouts.isNotEmpty()) {
-                        MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot,
+                        MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = viewModel.getRunsCount(), pot = it.pot,
                             displayMode = stackDisplayMode, bigBlind = it.bigBlindAmount,
                             modifier = Modifier.align(Alignment.CenterStart))
                     } else SingleBoardLayout(it, stackDisplayMode, Modifier.align(Alignment.Center))
@@ -552,102 +550,6 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     }
 }
 
-private fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
-    // 0.68 - центр
-    val list = mutableListOf(BiasAlignment(0f, 1f)) // first
-    val equityList = mutableListOf(true) // right = false, left = true
-    when(playersCount) {
-        1 -> return list to equityList
-        2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
-        3 -> {
-            list.add(BiasAlignment(-1f, -0.9f))
-            equityList.add(false)
-            list.add(BiasAlignment(1f, -0.9f))
-            equityList.add(true)
-        }
-        4 -> {
-            list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(0f, -1f))
-            equityList.add(false)
-            list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(true)
-        }
-        5 -> {
-            list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.9f))
-            equityList.add(false)
-            list.add(BiasAlignment(1f, -0.9f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(true)
-        }
-        6 -> {
-            list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(0f, -1f))
-            equityList.add(false)
-            list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(true)
-        }
-        7 -> {
-            list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-0.5f, -1f))
-            equityList.add(false)
-            list.add(BiasAlignment(0.5f, -1f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(true)
-        }
-        8 -> {
-            list.add(BiasAlignment(-1f, 0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.4f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.85f))
-            equityList.add(false)
-            list.add(BiasAlignment(0f, -1f))
-            equityList.add(false)
-            list.add(BiasAlignment(1f, -0.85f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, -0.4f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.5f))
-            equityList.add(true)
-        }
-        9 -> {
-            list.add(BiasAlignment(-1f, 0.85f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, 0.4f))
-            equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.5f))
-            equityList.add(false)
-            list.add(BiasAlignment(-0.5f, -1f))
-            equityList.add(false)
-            list.add(BiasAlignment(0.5f, -1f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, -0.5f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.4f))
-            equityList.add(true)
-            list.add(BiasAlignment(1f, 0.85f))
-            equityList.add(true)
-        }
-        else -> return Pair(listOf(), listOf())
-    }
-    return list to equityList
-}
-
 @Composable
 fun AnimatedCommunityCards(
     cards: List<Card>,
@@ -745,7 +647,6 @@ fun AnimatedCommunityCards(
                     card?.let {
                         PokerCard(
                             card = it,
-                            isFourColorMode = true,
                             modifier = Modifier
                                 .width(cardWidth - 1.dp)
                                 .alpha(cardAlphas[i].value)
@@ -772,24 +673,6 @@ fun SingleBoardLayout(state: GameState, displayMode: StackDisplayMode, modifier:
         Text("Pot: $text", color = Color.White)
         Spacer(modifier = Modifier.height(8.dp))
         AnimatedCommunityCards(cards = state.communityCards)
-//        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-//            // Отображаем 5 общих карт, даже если их еще нет
-//            (0 until 5).forEach { index ->
-//                val card = state.communityCards.getOrNull(index)
-//                val mod = if(card == null) Modifier
-//                    .weight(1f)
-//                    .aspectRatio(0.6667f)
-//                    .alpha(0.2f)
-//                else Modifier
-//                    .weight(1f)
-//                    .aspectRatio(0.6667f)
-//                PokerCard(
-//                    card = card,
-//                    isFourColorMode = true,
-//                    modifier = mod
-//                )
-//            }
-//        }
     }
 }
 
@@ -819,7 +702,6 @@ fun MultiBoardLayout(
             staticCards.forEach { card ->
                 PokerCard(
                     card = card,
-                    isFourColorMode = true,
                     modifier = Modifier
                         .width(cardWidth - 1.dp)
                         .height(cardHeight)
@@ -964,12 +846,6 @@ fun ActionPanel(
         }
     }
 }
-
-//@Composable
-//@Preview
-//fun TestControls() {
-//    BetControls(100, 1000, 100, { 1000 }) { }
-//}
 
 @Composable
 fun BetControls(
@@ -1280,16 +1156,6 @@ fun PlayerDisplay(
     }
 }
 
-//@Composable
-//@Preview
-//fun TextEquityBox() {
-//    Box(contentAlignment = Alignment.Center, modifier = Modifier.width(100.dp).height(80.dp)) {
-//        //EquityBubble(74.18, TailDirection.LEFT)
-//        //OutsBubble(63.6, OutsInfo.DrawingDead)
-//    }
-//
-//}
-
 @Composable
 fun EquityBubble(
     equity: Double,
@@ -1570,28 +1436,6 @@ fun PlayerAction(action: PlayerAction, scaleMultiplier: Float) {
     ) {
         Text(text = text, color = brightColor, fontSize = 12.sp * scaleMultiplier)
     }
-}
-
-fun calculateChipStack(amount: Long): List<Chip> {
-    if (amount <= 0) return emptyList()
-
-    val result = mutableListOf<Chip>()
-    var remainingAmount = amount
-
-    // Проходим по нашему набору фишек от самой дорогой к самой дешевой
-    for (chip in standardChipSet) {
-        // Вычисляем, сколько фишек этого номинала "влезает" в остаток
-        val count = remainingAmount / chip.value
-        if (count > 0) {
-            // Добавляем нужное количество фишек в результат
-            repeat(count.toInt()) {
-                result.add(chip)
-            }
-            // Уменьшаем остаток
-            remainingAmount %= chip.value
-        }
-    }
-    return result
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package com.example.poker.ui.game
 
 import android.util.Log
+import androidx.compose.ui.BiasAlignment
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,6 +31,12 @@ import io.ktor.http.HttpMethod
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -94,25 +101,25 @@ class GameViewModel @Inject constructor(
     private val _allInEquity = MutableStateFlow<AllInEquity?>(null)
     val allInEquity: StateFlow<AllInEquity?> = _allInEquity.asStateFlow()
 
-    private val _staticCommunityCards = MutableStateFlow<List<Card>>(emptyList())
-    val staticCommunityCards: StateFlow<List<Card>> = _staticCommunityCards.asStateFlow()
+    private val _staticCommunityCards = MutableStateFlow<ImmutableList<Card>>(persistentListOf())
+    val staticCommunityCards: StateFlow<ImmutableList<Card>> = _staticCommunityCards.asStateFlow()
 
-    private val _boardRunouts = MutableStateFlow<List<List<Card>>>(emptyList())
-    val boardRunouts: StateFlow<List<List<Card>>> = _boardRunouts.asStateFlow()
+    private val _boardRunouts = MutableStateFlow<ImmutableList<ImmutableList<Card>>>(persistentListOf())
+    val boardRunouts: StateFlow<ImmutableList<ImmutableList<Card>>> = _boardRunouts.asStateFlow()
 
-    private val _runsCount = MutableStateFlow(0)
-    val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
+    private var runsCount: Int = 0
+    fun getRunsCount() = runsCount
 
-    private val _visibleActionIds = MutableStateFlow<Set<String>>(emptySet())
-    val visibleActionIds: StateFlow<Set<String>> = _visibleActionIds.asStateFlow()
+    private val _visibleActionIds = MutableStateFlow<ImmutableSet<String>>(persistentSetOf())
+    val visibleActionIds: StateFlow<ImmutableSet<String>> = _visibleActionIds.asStateFlow()
 
     private val actionDisplayJobs = mutableMapOf<String, Job>()
 
     private val _stackDisplayMode = MutableStateFlow(StackDisplayMode.CHIPS)
     val stackDisplayMode: StateFlow<StackDisplayMode> = _stackDisplayMode.asStateFlow()
 
-    private val _boardResult = MutableStateFlow<List<Pair<String, Long>>?>(null)
-    val boardResult: StateFlow<List<Pair<String, Long>>?> = _boardResult.asStateFlow()
+    private val _boardResult = MutableStateFlow<ImmutableList<Pair<String, Long>>?>(null)
+    val boardResult: StateFlow<ImmutableList<Pair<String, Long>>?> = _boardResult.asStateFlow()
 
     private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
     val tournamentInfo: StateFlow<TournamentInfo?> = _tournamentInfo.asStateFlow()
@@ -125,9 +132,9 @@ class GameViewModel @Inject constructor(
 
     private var winnerDisplayJob: Job? = null
 
-    val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
-        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val playersOnTable: StateFlow<ImmutableList<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
+        state?.playerStates?.toImmutableList() ?: (room?.players?.map { PlayerState(player = it) }?.toImmutableList() ?: persistentListOf())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
     private var session: DefaultClientWebSocketSession? = null
     private var connectionJob: Job? = null
@@ -190,19 +197,19 @@ class GameViewModel @Inject constructor(
                                         lockJob?.cancel()
                                         if(message.state == null) {
                                             _roomInfo.update { currentRoom ->
-                                                currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) })
+                                                currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) }.toImmutableList())
                                             }
                                         } else {
                                             val newActions = findNewActions(oldState, message.state)
                                             newActions.forEach { action ->
                                                 // 1. Делаем действие видимым
-                                                _visibleActionIds.update { it + action.id }
+                                                _visibleActionIds.update { (it + action.id).toImmutableSet() }
 
                                                 // 2. Отменяем старый таймер (если был) и запускаем новый
                                                 actionDisplayJobs[action.id]?.cancel()
                                                 actionDisplayJobs[action.id] = viewModelScope.launch {
                                                     delay(2000L) // Показываем 2 секунды
-                                                    _visibleActionIds.update { it - action.id } // Скрываем
+                                                    _visibleActionIds.update { (it - action.id).toImmutableSet() } // Скрываем
                                                 }
                                             }
                                         }
@@ -211,11 +218,11 @@ class GameViewModel @Inject constructor(
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = message.state.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[message.state.runIndex - 1] = runoutCards
-                                                }
+                                                    mutableList[message.state.runIndex - 1] = runoutCards.toImmutableList()
+                                                }.toImmutableList()
                                             }
                                         } else {
-                                            _boardRunouts.value = emptyList()
+                                            _boardRunouts.value = persistentListOf()
                                             if(message.state?.runIndex == null) _allInEquity.value = null
                                         }
                                     }
@@ -232,13 +239,13 @@ class GameViewModel @Inject constructor(
                                         if(message.totalRuns > 1) {
                                             if (message.runIndex == 1) {
                                                 // Первая крутка: запоминаем статичные карты и создаем первую пустую доску
-                                                _staticCommunityCards.value = _gameState.value?.communityCards ?: emptyList()
+                                                _staticCommunityCards.value = _gameState.value?.communityCards?.toImmutableList() ?: persistentListOf()
                                                 Log.d("testStaticCards", _staticCommunityCards.value.toString())
-                                                _boardRunouts.value = listOf(emptyList())
-                                                _runsCount.value = message.totalRuns
+                                                runsCount = message.totalRuns
+                                                _boardRunouts.value = persistentListOf(persistentListOf())
                                             } else {
                                                 // Последующие крутки: добавляем еще одну пустую доску
-                                                _boardRunouts.value = _boardRunouts.value + listOf(emptyList())
+                                                _boardRunouts.value = (_boardRunouts.value + persistentListOf(persistentListOf())).toImmutableList()
                                             }
                                         }
                                     }
@@ -266,18 +273,18 @@ class GameViewModel @Inject constructor(
                                     is OutgoingMessage.PlayerJoined -> {
                                         Log.d("testPlayerJoined", message.player.toString())
                                         _roomInfo.update { currentRoom ->
-                                            currentRoom?.copy(players = currentRoom.players + message.player)
+                                            currentRoom?.copy(players = (currentRoom.players + message.player).toImmutableList())
                                         }
                                     }
                                     is OutgoingMessage.PlayerLeft -> {
                                         Log.d("testPlayerLeft", message.userId)
                                         _roomInfo.update { currentRoom ->
-                                            currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId })
+                                            currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId }.toImmutableList())
                                         }
                                     }
                                     is OutgoingMessage.BoardResult -> {
                                         Log.d("testBoardResult", message.payments.toString())
-                                        _boardResult.value = message.payments
+                                        _boardResult.value = message.payments.toImmutableList()
                                         // Отменяем предыдущий таймер, если он был
                                         winnerDisplayJob?.cancel()
                                         // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
@@ -301,7 +308,7 @@ class GameViewModel @Inject constructor(
                                                     } else {
                                                         player
                                                     }
-                                                }
+                                                }.toImmutableList()
                                             )
                                         }
                                     }
@@ -315,7 +322,7 @@ class GameViewModel @Inject constructor(
                                                     } else {
                                                         player
                                                     }
-                                                }
+                                                }.toImmutableList()
                                             )
                                         }
                                     }
@@ -324,7 +331,7 @@ class GameViewModel @Inject constructor(
                                             currentRoom?.copy(
                                                 players = currentRoom.players.map {
                                                     if (it.userId == message.userId) it.copy(isConnected = message.isConnected) else it
-                                                }
+                                                }.toImmutableList()
                                             )
                                         }
                                         _gameState.update { currentState ->
@@ -335,7 +342,7 @@ class GameViewModel @Inject constructor(
                                                     } else {
                                                         it
                                                     }
-                                                }
+                                                }.toImmutableList()
                                             )
                                         }
                                     }
@@ -460,5 +467,101 @@ class GameViewModel @Inject constructor(
         val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
+    }
+
+    fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
+        // 0.68 - центр
+        val list = mutableListOf(BiasAlignment(0f, 1f)) // first
+        val equityList = mutableListOf(true) // right = false, left = true
+        when(playersCount) {
+            1 -> return list to equityList
+            2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
+            3 -> {
+                list.add(BiasAlignment(-1f, -0.9f))
+                equityList.add(false)
+                list.add(BiasAlignment(1f, -0.9f))
+                equityList.add(true)
+            }
+            4 -> {
+                list.add(BiasAlignment(-1f, -0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(0f, -1f))
+                equityList.add(false)
+                list.add(BiasAlignment(1f, -0.5f))
+                equityList.add(true)
+            }
+            5 -> {
+                list.add(BiasAlignment(-1f, 0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.9f))
+                equityList.add(false)
+                list.add(BiasAlignment(1f, -0.9f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.5f))
+                equityList.add(true)
+            }
+            6 -> {
+                list.add(BiasAlignment(-1f, 0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(0f, -1f))
+                equityList.add(false)
+                list.add(BiasAlignment(1f, -0.5f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.5f))
+                equityList.add(true)
+            }
+            7 -> {
+                list.add(BiasAlignment(-1f, 0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-0.5f, -1f))
+                equityList.add(false)
+                list.add(BiasAlignment(0.5f, -1f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, -0.5f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.5f))
+                equityList.add(true)
+            }
+            8 -> {
+                list.add(BiasAlignment(-1f, 0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.4f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.85f))
+                equityList.add(false)
+                list.add(BiasAlignment(0f, -1f))
+                equityList.add(false)
+                list.add(BiasAlignment(1f, -0.85f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, -0.4f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.5f))
+                equityList.add(true)
+            }
+            9 -> {
+                list.add(BiasAlignment(-1f, 0.85f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, 0.4f))
+                equityList.add(false)
+                list.add(BiasAlignment(-1f, -0.5f))
+                equityList.add(false)
+                list.add(BiasAlignment(-0.5f, -1f))
+                equityList.add(false)
+                list.add(BiasAlignment(0.5f, -1f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, -0.5f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.4f))
+                equityList.add(true)
+                list.add(BiasAlignment(1f, 0.85f))
+                equityList.add(true)
+            }
+            else -> return Pair(listOf(), listOf())
+        }
+        return list to equityList
     }
 }

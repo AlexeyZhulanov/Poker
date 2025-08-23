@@ -1,25 +1,11 @@
 package com.example.poker.ui.game
 
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -34,7 +20,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.poker.domain.model.Chip
@@ -50,64 +35,6 @@ private fun Color.darken(factor: Float = 0.7f): Color {
         alpha = this.alpha
     )
 }
-
-@Composable
-@Preview
-fun TestAnimChips() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        var animated by remember { mutableStateOf(false) }
-
-        Button(onClick = { animated = !animated }, modifier = Modifier.align(Alignment.BottomEnd)) {
-            Text("Toggle")
-        }
-
-        val hBias by animateFloatAsState(targetValue = if (animated) 0.3f else 0.6f)
-        val vBias by animateFloatAsState(targetValue = if (animated) 0.3f else 0.6f)
-        val animatedAlignment = BiasAlignment(hBias, vBias)
-
-        val alpha by animateFloatAsState(
-            targetValue = if (animated) 0f else 1f, // Исчезает в конце
-            animationSpec = tween(durationMillis = 300),
-            label = "chip_alpha"
-        )
-        Box(modifier = Modifier.align(animatedAlignment).alpha(alpha)) {
-            PerspectiveChipStack(
-                chipSize = 50.dp,
-                chips = calculateChipStack(326),
-            )
-        }
-    }
-}
-
-//@Composable
-//fun AnimatedChipStack(
-//    betAmount: Long, // Сумма ставки
-//    isVisible: Boolean, // Флаг для показа/скрытия
-//    onAnimationFinished: () -> Unit // Сообщить, когда анимация закончилась
-//) {
-//    val targetOffset by animateDpAsState(
-//        targetValue = if (isVisible) (-100).dp else 0.dp, // Летит вверх на 100 dp
-//        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
-//        label = "chip_offset",
-//        finishedListener = { onAnimationFinished() }
-//    )
-//
-//    val alpha by animateFloatAsState(
-//        targetValue = if (isVisible) 0f else 1f, // Исчезает в конце
-//        animationSpec = tween(durationMillis = 500, delayMillis = 200),
-//        label = "chip_alpha"
-//    )
-//
-//    if (isVisible) {
-//        // Мы используем существующий PerspectiveChipStack для красоты
-//        PerspectiveChipStack(
-//            chips = calculateChipStack(betAmount),
-//            modifier = Modifier
-//                .offset(y = targetOffset)
-//                .alpha(alpha)
-//        )
-//    }
-//}
 
 @OptIn(ExperimentalTextApi::class)
 @Composable

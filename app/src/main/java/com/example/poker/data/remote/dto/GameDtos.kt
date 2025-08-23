@@ -2,6 +2,8 @@ package com.example.poker.data.remote.dto
 
 import com.example.poker.domain.model.Rank
 import com.example.poker.domain.model.Suit
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -54,12 +56,12 @@ data class GameRoom(
     val roomId: String,
     val name: String,
     val gameMode: GameMode,
-    val players: List<Player>,
+    val players: ImmutableList<Player>,
     val maxPlayers: Int = 9,
     val ownerId: String,
     val buyIn: Long,
     val blindStructureType: BlindStructureType? = null,
-    val blindStructure: List<BlindLevel>? = null
+    val blindStructure: ImmutableList<BlindLevel>? = null
 )
 
 @Serializable
@@ -82,7 +84,7 @@ data class Card(val rank: Rank, val suit: Suit)
 @Serializable
 data class PlayerState(
     val player: Player,
-    val cards: List<Card> = emptyList(),
+    val cards: ImmutableList<Card> = persistentListOf(),
     val currentBet: Long = 0,
     val handContribution: Long = 0,
     val hasActedThisRound: Boolean = false,
@@ -95,9 +97,9 @@ data class PlayerState(
 data class GameState(
     val roomId: String,
     val stage: GameStage = GameStage.PRE_FLOP,
-    val communityCards: List<Card> = emptyList(),
+    val communityCards: ImmutableList<Card> = persistentListOf(),
     val pot: Long = 0,
-    val playerStates: List<PlayerState> = emptyList(),
+    val playerStates: ImmutableList<PlayerState> = persistentListOf(),
     val dealerPosition: Int = 0,
     val activePlayerPosition: Int = 0,
     val lastRaiseAmount: Long = 0,

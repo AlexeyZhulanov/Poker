@@ -84,7 +84,7 @@ fun Test() {
 }
 
 @Composable
-fun PokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier) {
+fun PokerCard(card: Card?, modifier: Modifier) {
     card?.let {
         CardFaceAlternative(it, modifier)
     } ?: CardBack(modifier)
