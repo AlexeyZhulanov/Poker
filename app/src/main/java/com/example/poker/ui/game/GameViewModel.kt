@@ -1,7 +1,6 @@
 package com.example.poker.ui.game
 
 import android.util.Log
-import androidx.compose.ui.BiasAlignment
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +8,7 @@ import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
 import com.example.poker.data.remote.dto.Card
+import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.remote.dto.GameRoom
 import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.IncomingMessage
@@ -16,6 +16,7 @@ import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.PlayerAction
 import com.example.poker.data.remote.dto.PlayerState
+import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
@@ -89,7 +90,6 @@ class GameViewModel @Inject constructor(
     val myUserId: StateFlow<String?> = _myUserId.asStateFlow()
 
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
-    val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
 
     private val _runItUiState = MutableStateFlow<RunItUiState>(RunItUiState.Hidden)
     val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
@@ -109,6 +109,9 @@ class GameViewModel @Inject constructor(
 
     private var runsCount: Int = 0
     fun getRunsCount() = runsCount
+
+    private var gameMode: GameMode? = null
+    fun getGameMode() = gameMode
 
     private val _visibleActionIds = MutableStateFlow<ImmutableSet<String>>(persistentSetOf())
     val visibleActionIds: StateFlow<ImmutableSet<String>> = _visibleActionIds.asStateFlow()
@@ -130,6 +133,9 @@ class GameViewModel @Inject constructor(
     private val _scaleMultiplier = MutableStateFlow(1.0f)
     val scaleMultiplier: StateFlow<Float> = _scaleMultiplier.asStateFlow()
 
+    private val _specsCount = MutableStateFlow(0)
+    val specsCount: StateFlow<Int> = _specsCount.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     val playersOnTable: StateFlow<ImmutableList<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
@@ -148,7 +154,9 @@ class GameViewModel @Inject constructor(
         val initialRoom = GameRoomCache.currentRoom
         if (initialRoom != null) {
             _roomInfo.value = initialRoom
+            _specsCount.value = initialRoom.players.filter { it.status == PlayerStatus.SPECTATING }.size
             GameRoomCache.currentRoom = null // Очищаем кэш
+            if(gameMode == null) gameMode = initialRoom.gameMode
         }
         coroutineScope {
             val gameStateJob = async { gameRepository.getGameState(roomId) }
@@ -160,7 +168,11 @@ class GameViewModel @Inject constructor(
                 _gameState.value = gameStateResult.data
             }
             if(roomResult is Result.Success) {
-                if(roomResult.data != initialRoom) _roomInfo.value = roomResult.data
+                if(roomResult.data != initialRoom) {
+                    _roomInfo.value = roomResult.data
+                    _specsCount.value = roomResult.data.players.filter { it.status == PlayerStatus.SPECTATING }.size
+                }
+                if(gameMode == null) gameMode = roomResult.data.gameMode
             }
         }
     }
@@ -275,12 +287,14 @@ class GameViewModel @Inject constructor(
                                         _roomInfo.update { currentRoom ->
                                             currentRoom?.copy(players = (currentRoom.players + message.player).toImmutableList())
                                         }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
                                     }
                                     is OutgoingMessage.PlayerLeft -> {
                                         Log.d("testPlayerLeft", message.userId)
                                         _roomInfo.update { currentRoom ->
                                             currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId }.toImmutableList())
                                         }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
                                     }
                                     is OutgoingMessage.BoardResult -> {
                                         Log.d("testBoardResult", message.payments.toString())
@@ -325,6 +339,7 @@ class GameViewModel @Inject constructor(
                                                 }.toImmutableList()
                                             )
                                         }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
                                     }
                                     is OutgoingMessage.ConnectionStatusUpdate -> {
                                         _roomInfo.update { currentRoom ->
@@ -467,101 +482,5 @@ class GameViewModel @Inject constructor(
         val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
-    }
-
-    fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
-        // 0.68 - центр
-        val list = mutableListOf(BiasAlignment(0f, 1f)) // first
-        val equityList = mutableListOf(true) // right = false, left = true
-        when(playersCount) {
-            1 -> return list to equityList
-            2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
-            3 -> {
-                list.add(BiasAlignment(-1f, -0.9f))
-                equityList.add(false)
-                list.add(BiasAlignment(1f, -0.9f))
-                equityList.add(true)
-            }
-            4 -> {
-                list.add(BiasAlignment(-1f, -0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(0f, -1f))
-                equityList.add(false)
-                list.add(BiasAlignment(1f, -0.5f))
-                equityList.add(true)
-            }
-            5 -> {
-                list.add(BiasAlignment(-1f, 0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.9f))
-                equityList.add(false)
-                list.add(BiasAlignment(1f, -0.9f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.5f))
-                equityList.add(true)
-            }
-            6 -> {
-                list.add(BiasAlignment(-1f, 0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(0f, -1f))
-                equityList.add(false)
-                list.add(BiasAlignment(1f, -0.5f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.5f))
-                equityList.add(true)
-            }
-            7 -> {
-                list.add(BiasAlignment(-1f, 0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-0.5f, -1f))
-                equityList.add(false)
-                list.add(BiasAlignment(0.5f, -1f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, -0.5f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.5f))
-                equityList.add(true)
-            }
-            8 -> {
-                list.add(BiasAlignment(-1f, 0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.4f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.85f))
-                equityList.add(false)
-                list.add(BiasAlignment(0f, -1f))
-                equityList.add(false)
-                list.add(BiasAlignment(1f, -0.85f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, -0.4f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.5f))
-                equityList.add(true)
-            }
-            9 -> {
-                list.add(BiasAlignment(-1f, 0.85f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, 0.4f))
-                equityList.add(false)
-                list.add(BiasAlignment(-1f, -0.5f))
-                equityList.add(false)
-                list.add(BiasAlignment(-0.5f, -1f))
-                equityList.add(false)
-                list.add(BiasAlignment(0.5f, -1f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, -0.5f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.4f))
-                equityList.add(true)
-                list.add(BiasAlignment(1f, 0.85f))
-                equityList.add(true)
-            }
-            else -> return Pair(listOf(), listOf())
-        }
-        return list to equityList
     }
 }

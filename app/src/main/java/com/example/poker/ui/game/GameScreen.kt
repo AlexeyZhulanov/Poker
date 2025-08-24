@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -107,9 +106,12 @@ import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.domain.model.Suit
 import com.example.poker.ui.theme.MerriWeatherFontFamily
 import com.example.poker.util.calculateChipStack
+import com.example.poker.util.calculatePlayerPosition
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
 import com.example.poker.util.toMinutesSeconds
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -118,7 +120,6 @@ import kotlin.random.Random
 
 @Composable
 fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
-    val roomInfo by viewModel.roomInfo.collectAsState() // todo УБРАТЬ, ЭТО ТОЧНО ТУТ НЕ НАДО (отдельно передавать specsCount и gamemode)
     val gameState by viewModel.gameState.collectAsState()
     val myUserId by viewModel.myUserId.collectAsState()
     val playersOnTable by viewModel.playersOnTable.collectAsState()
@@ -133,13 +134,14 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val tournamentInfo by viewModel.tournamentInfo.collectAsState()
     val winnerId by viewModel.tournamentWinner.collectAsState()
     val scaleMultiplier by viewModel.scaleMultiplier.collectAsState()
+    val specsCount by viewModel.specsCount.collectAsState()
     var showSettingsMenu by remember { mutableStateOf(false) }
     val winnerIds = remember(boardResult) {
-        boardResult?.map { it.first }?.toSet() ?: emptySet()
+        boardResult?.map { it.first }?.toImmutableSet() ?: persistentSetOf()
     }
-    var levelSeconds by remember { mutableLongStateOf(0L) }
     var showExitDialog by remember { mutableStateOf(false) }
     var lastBoardResult by remember { mutableLongStateOf(0L) }
+    val gameMode by remember { mutableStateOf(viewModel.getGameMode()) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     // Следим за жизненным циклом экрана
@@ -174,19 +176,15 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             }
         )
     }
-    // todo это надо в remember и возможно внутрь блока, здесь оно незачем
+    // todo это надо в remember и возможно внутрь блока, здесь оно незачем, 100% внутрь блока надо
     val myPlayerState = gameState?.playerStates?.find { it.player.userId == myUserId }
-    // todo можно в теории куда-то вынести в другое место, но не факт
+    // todo нужно перенести внутрь блока и remember
     val activePlayerId = gameState?.playerStates?.getOrNull(gameState!!.activePlayerPosition)?.player?.userId
 
     Box(modifier = Modifier
         .fillMaxSize()
         .background(Color(0xFF003D33))) {
-        Box(modifier = Modifier
-            .background(Color.Black)
-            .align(Alignment.BottomCenter)
-            .fillMaxWidth()
-            .height(60.dp))
+        Box(modifier = Modifier.background(Color.Black).align(Alignment.BottomCenter).fillMaxWidth().height(60.dp))
         
         Box(
             modifier = Modifier
@@ -195,67 +193,13 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 .navigationBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
-            val specsCount = roomInfo?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
+            // todo даже эту штуку возможно можно будет вынести
             val animatedCount by animateIntAsState(
                 targetValue = specsCount,
                 animationSpec = tween(durationMillis = 300)
             )
-            val topBarText = if(roomInfo?.gameMode == GameMode.CASH) "Cash 10 / 20"
-            else {
-                tournamentInfo?.let {
-                    val ante = if(it.ante == 0L) "-" else it.ante
-                    "sb ${it.sb}/bb ${it.bb}/ante $ante"
-                } ?: "Tournament"
-            }
-            val leftText = if(roomInfo?.gameMode == GameMode.CASH) null else {
-                LaunchedEffect(key1 = tournamentInfo?.levelTime) {
-                    tournamentInfo?.levelTime?.let {
-                        while (true) {
-                            val remaining = it - System.currentTimeMillis()
-                            if (remaining <= 0) {
-                                levelSeconds = 0
-                                break
-                            }
-                            levelSeconds = remaining
-                            delay(1000L)
-                        }
-                    }
-                }
-                tournamentInfo?.let { "level${it.level} | ${levelSeconds.toMinutesSeconds()}" }
-            }
-            Box(Modifier
-                .align(Alignment.TopCenter)
-                .height(30.dp)
-                .fillMaxWidth()) {
-                if(roomInfo?.gameMode == GameMode.CASH) {
-                    Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
-                } else {
-                    val textSize = when(topBarText.length) {
-                        in 0..20 -> 14.sp
-                        in 21..24 -> 12.sp
-                        else -> 11.sp
-                    }
-                    leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier.align(Alignment.CenterStart).padding(3.dp, 0.dp), color = Color.White, fontSize = textSize) }
-                    Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
-                }
-                if (animatedCount != 0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(3.dp, 0.dp).align(Alignment.CenterEnd)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_visibility),
-                            modifier = Modifier.size(20.dp),
-                            contentDescription = null,
-                            tint = Color.White)
 
-                        Text(
-                            text = animatedCount.toString(),
-                            color = Color.White,
-                            fontSize = 16.sp)
-                    }
-                }
-            }
+            TopBar(gameMode, tournamentInfo, animatedCount, Modifier.align(Alignment.TopCenter).height(30.dp).fillMaxWidth())
 
             Box(Modifier
                 .padding(0.dp, 30.dp, 0.dp, 63.dp)
@@ -282,42 +226,13 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                         visiblePlayers
                     }
                 }
-                val (alignments, equityPositions) = viewModel.calculatePlayerPosition(reorderedPlayers.size) // todo REMEMBER
+                val (alignments, equityPositions) = remember(reorderedPlayers.size) {
+                    calculatePlayerPosition(reorderedPlayers.size)
+                }
                 reorderedPlayers.forEachIndexed { index, playerState ->
-                    val isRightTailDirection = equityPositions[index]
-                    val (offset, tailDirection) = if(isRightTailDirection) (-80).dp to TailDirection.RIGHT else 80.dp to TailDirection.LEFT
-                    val isMyPlayer = playerState.player.userId == myUserId
-                    val isActivePlayer = playerState.player.userId == activePlayerId
-                    val verticalOffset = if(isMyPlayer) (-25).dp else 15.dp
-                    val bias = alignments[index].horizontalBias
-                    val biasOffset = when {
-                        bias > 0f -> (-10).dp
-                        bias < 0f -> 10.dp
-                        else -> 0.dp
-                    }
-                    val totalOffset = offset + biasOffset
-                    val totalOffset2 = offset + biasOffset * -1.6f
-
-                    allInEquity?.let { (equities, outs, _) ->
-                        val equity = equities[playerState.player.userId]
-                        val out = outs[playerState.player.userId]
-                        if(out == null && equity != null) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier
-                                .align(alignments[index])
-                                .offset(
-                                    totalOffset * scaleMultiplier * 0.8f,
-                                    verticalOffset * scaleMultiplier
-                                )) {
-                                EquityBubble(equity, tailDirection, scaleMultiplier)
-                            }
-                        } else if(out != null) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier
-                                .align(alignments[index])
-                                .offset(totalOffset2 * scaleMultiplier, 0.dp)) {
-                                OutsBubble(equity, out, scaleMultiplier)
-                            }
-                        }
-                    }
+                    val tailDirection = if(equityPositions[index]) TailDirection.RIGHT else TailDirection.LEFT
+                    val isMyPlayer = playerState.player.userId == myUserId // todo это можно внутрь
+                    val isActivePlayer = playerState.player.userId == activePlayerId //todo и это тоже
 
                     if(playerState.currentBet > 0) {
                         val (h, v) = alignments[index]
@@ -343,8 +258,9 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
                             modifier = Modifier.align(animatedAlignment).alpha(animatedAlpha.value)) {
+                            val chips = remember(bet) { calculateChipStack(ceil(bet).toLong()) }
                             PerspectiveChipStack(
-                                chips = calculateChipStack(ceil(bet).toLong()),
+                                chips = chips,
                                 chipSize = 30.dp * scaleMultiplier
                             )
                             Text(
@@ -387,8 +303,9 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
                                 modifier = Modifier.align(animatedAlignment).alpha(animatedAlpha.value)) {
+                                val chips = remember(bet) { calculateChipStack(ceil(bet).toLong()) }
                                 PerspectiveChipStack(
-                                    chips = calculateChipStack(ceil(bet).toLong()),
+                                    chips = chips,
                                     chipSize = 30.dp * scaleMultiplier
                                 )
                                 Text(
@@ -405,11 +322,10 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                             }
                         }
                     }
-
-                    PlayerDisplay(
-                        modifier = Modifier
-                            .align(alignments[index])
-                            .padding(3.dp),
+                    PlayerWithEquity(
+                        allInEquity = allInEquity,
+                        tailDirection = tailDirection,
+                        modifier = Modifier.align(alignments[index]).padding(3.dp),
                         playerState = playerState,
                         isMyPlayer = isMyPlayer,
                         isActivePlayer = isActivePlayer,
@@ -428,97 +344,45 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                             displayMode = stackDisplayMode, bigBlind = it.bigBlindAmount,
                             modifier = Modifier.align(Alignment.CenterStart))
                     } else SingleBoardLayout(it, stackDisplayMode, Modifier.align(Alignment.Center))
-                } ?: Column(modifier = Modifier
+                } ?: WaitingPlayersLayout(modifier = Modifier
                     .align(Alignment.Center)
                     .background(Color(0xFF00695C), shape = RoundedCornerShape(percent = 50))
                     .border(4.dp, Color(0xFF004D40), shape = RoundedCornerShape(percent = 50))
-                    .padding(32.dp, 16.dp)
-                ) {
-                    Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                    if(animatedCount != 0) {
-                        Spacer(Modifier.size(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_visibility),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(2.dp, 0.dp))
-
-                            Text(
-                                text = animatedCount.toString(),
-                                color = Color.White,
-                                fontSize = 20.sp)
-                        }
-                    }
-                }
+                    .padding(32.dp, 16.dp),
+                    animatedCount = animatedCount
+                )
                 // Выдвижное меню настроек
-                AnimatedVisibility(
-                    visible = showSettingsMenu,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 60.dp, end = 16.dp),
-                    enter = slideInHorizontally { it },
-                    exit = slideOutHorizontally { it }
-                ) {
-                    Card(elevation = CardDefaults.cardElevation(8.dp)) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Show stack in BB")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Switch(
-                                checked = stackDisplayMode == StackDisplayMode.BIG_BLINDS,
-                                onCheckedChange = { viewModel.toggleStackDisplayMode() }
-                            )
-                        }
-                        Text("UI Scale", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            IconButton(onClick = { viewModel.changeScale(-0.05f) }) {
-                                Icon(painter = painterResource(R.drawable.ic_remove), "Decrease")
-                            }
-
-                            Text(
-                                text = "${(scaleMultiplier * 100).toInt() + 1}%",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            IconButton(onClick = { viewModel.changeScale(0.05f) }) {
-                                Icon(Icons.Default.Add, "Increase")
-                            }
-                        }
-                    }
-                }
+                SettingsMenu(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 60.dp, end = 16.dp),
+                    showSettingsMenu = showSettingsMenu,
+                    stackDisplayMode = stackDisplayMode,
+                    scaleMultiplier = scaleMultiplier,
+                    onToggleDisplayMode = { viewModel.toggleStackDisplayMode() },
+                    onIncreaseScale = { viewModel.changeScale(0.05f) },
+                    onDecreaseScale = { viewModel.changeScale(-0.05f) }
+                )
             }
-
-            val myPlayer = roomInfo?.players?.find { it.userId == myUserId }
+            // todo перенести в блок
+            val myPlayer = playersOnTable.find { it.player.userId == myUserId }?.player
+            // todo и это тоже
             val isMyTurn = gameState?.let { activePlayerId == myUserId && !isActionPanelLocked && allInEquity == null && it.stage != GameStage.SHOWDOWN } ?: false
 
             when (val state = runItState) {
                 is RunItUiState.Hidden -> {
                     ActionPanel(
-                        viewModel = viewModel,
+                        viewModel = viewModel, // todo это критическая ошибка
                         isMyTurn = isMyTurn,
-                        myPlayer = myPlayer,
+                        myPlayer = myPlayer, // todo можно вообще это внутри вычислять, причем через remember
                         playerState = myPlayerState,
                         gameState = gameState,
                         displayMode = stackDisplayMode,
                         modifier = Modifier.align(Alignment.BottomCenter),
-                        isTournament = roomInfo?.gameMode == GameMode.TOURNAMENT
+                        isTournament = gameMode == GameMode.TOURNAMENT
                     )
                 }
                 is RunItUiState.AwaitingUnderdogChoice -> {
                     UnderdogChoiceUi(
-                        viewModel = viewModel,
+                        viewModel = viewModel, // todo это критическая ошибка
                         modifier = Modifier.align(Alignment.BottomCenter),
                         expiresAt = state.expiresAt,
                         onChoice = { times -> viewModel.onRunItChoice(times) }
@@ -527,7 +391,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 is RunItUiState.AwaitingFavoriteConfirmation -> {
                     val underdogName = playersOnTable.find { it.player.userId == state.underdogId }?.player?.username
                     FavoriteConfirmationUi(
-                        viewModel = viewModel,
+                        viewModel = viewModel, // todo это критическая ошибка
                         underdogName = underdogName ?: state.underdogId,
                         times = state.times,
                         expiresAt = state.expiresAt,
@@ -560,7 +424,7 @@ fun AnimatedCommunityCards(
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val boxWithConstraintsScope = this
         val cardWidth = boxWithConstraintsScope.maxWidth / 5
-
+        // todo Здесь много расчетов, при этом можно всё вычислить буквально один раз и больше не считать, нужно подумать как
         // 1. Создаем анимируемые состояния для каждой из 5 карт
         val cardOffsetsX = remember { List(5) { Animatable(0f) } }
         val cardOffsetsY = remember { List(5) { Animatable(0f) } }
@@ -686,7 +550,7 @@ fun MultiBoardLayout(
     bigBlind: Long,
     modifier: Modifier = Modifier
 ) {
-    BoxWithConstraints(modifier = modifier) {
+    BoxWithConstraints(modifier = modifier) { // todo тут тоже куча расчетов со всегда одинаковыми результатами
         val boxWithConstraintsScope = this
         val cardWidth = boxWithConstraintsScope.maxWidth / 5
         val cardHeight = (cardWidth - 1.dp) * 1.5f
@@ -827,9 +691,7 @@ fun ActionPanel(
     if (showBetSlider && playerState != null && gameState != null) {
         Box(
             contentAlignment = Alignment.TopCenter,
-            modifier = modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
+            modifier = modifier.fillMaxWidth()
         ) {
             BetControls(
                 minBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
@@ -964,7 +826,7 @@ fun BetControls(
 fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, modifier: Modifier) {
     val color1 = if(enabled) Color.Red else Color(0xFF640D14)
     val color2 = if(enabled) Color(0xFF640D14) else Color.Black
-    FilledTonalButton(
+    FilledTonalButton( // todo можно в теории присвоить это в remember от enabled и текста
         modifier = modifier
             .height(60.dp)
             .padding(1.dp, 0.dp),
@@ -980,8 +842,72 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
 
 //@Composable
 //@Preview
+//fun TestPlayerWithEquity() {
+//    PlayerWithEquity(null, TailDirection.RIGHT, PlayerState(Player("id", "test12", 1000L), lastAction = PlayerAction.Call(1L, "123"), cards = persistentListOf(Card(
+//        Rank.KING, Suit.DIAMONDS), Card(Rank.FIVE, Suit.SPADES))), true, true, 15L, Modifier, true, setOf(), false,
+//        StackDisplayMode.CHIPS, 20, 1.2f)
+//}
+
+@Composable
+fun PlayerWithEquity(
+    allInEquity: AllInEquity?,
+    tailDirection: TailDirection,
+    playerState: PlayerState,
+    isMyPlayer: Boolean,
+    isActivePlayer: Boolean,
+    turnExpiresAt: Long?,
+    modifier: Modifier = Modifier,
+    isGameStarted: Boolean,
+    visibleActionIds: Set<String>,
+    isWinner: Boolean = false,
+    displayMode: StackDisplayMode,
+    bigBlind: Long,
+    scaleMultiplier: Float
+) {
+    val equity = allInEquity?.equities?.get(playerState.player.userId)
+    val out = allInEquity?.outs?.get(playerState.player.userId)
+
+    val requiredWidth = remember(equity != null, out != null) {
+        when {
+            out != null -> 255.dp * scaleMultiplier
+            equity != null -> 190.dp * scaleMultiplier
+            else -> 70.dp * scaleMultiplier
+        }
+    }
+
+    Box(modifier = modifier.width(requiredWidth), contentAlignment = Alignment.Center) {
+        PlayerDisplay(
+            modifier = Modifier,
+            playerState = playerState,
+            isMyPlayer = isMyPlayer,
+            isActivePlayer = isActivePlayer,
+            turnExpiresAt = turnExpiresAt,
+            isGameStarted = isGameStarted,
+            visibleActionIds = visibleActionIds,
+            scaleMultiplier = scaleMultiplier,
+            displayMode = displayMode,
+            isWinner = isWinner,
+            bigBlind = bigBlind
+        )
+        val mod = if(tailDirection == TailDirection.RIGHT) Modifier.align(Alignment.CenterStart) else Modifier.align(Alignment.CenterEnd)
+
+        if(out == null && equity != null) {
+            Box(contentAlignment = Alignment.Center, modifier = mod) {
+                EquityBubble(equity, tailDirection, scaleMultiplier)
+            }
+        } else if(out != null) {
+            Box(contentAlignment = Alignment.Center, modifier = mod) {
+                OutsBubble(equity, out, scaleMultiplier)
+            }
+        }
+    }
+}
+
+//@Composable
+//@Preview
 //fun TestPlayerDisplay() {
-//    PlayerDisplay(PlayerState(Player("", "test", 1000L), hasFolded = true, lastAction = PlayerAction.Call(1L, "123")), true, true, true, 15L, Modifier, true, setOf("123"), true,
+//    PlayerDisplay(PlayerState(Player("", "test12", 1000L), lastAction = PlayerAction.Call(1L, "123"), cards = persistentListOf(Card(
+//        Rank.KING, Suit.DIAMONDS), Card(Rank.FIVE, Suit.SPADES))), true, true, 15L, Modifier, true, setOf(), false,
 //        StackDisplayMode.CHIPS, 20, 1.2f)
 //}
 
@@ -1000,7 +926,7 @@ fun PlayerDisplay(
     scaleMultiplier: Float
 ) {
     Box(modifier = modifier
-        .width(IntrinsicSize.Max) // todo подобрать размер, чтобы сюда можно было вставить кубок и возможно эквити и фишки (оптимизация)
+        .width(70.dp * scaleMultiplier)
         .height(80.dp * scaleMultiplier)
         .padding(5.dp * scaleMultiplier, 0.dp)) {
         Icon(
@@ -1049,10 +975,7 @@ fun PlayerDisplay(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Is ready",
                     tint = Color.Green,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(60.dp * scaleMultiplier)
-                        .offset(0.dp, (-10).dp * scaleMultiplier)
+                    modifier = Modifier.size(60.dp * scaleMultiplier)
                 )
             }
         }
@@ -1062,14 +985,22 @@ fun PlayerDisplay(
             .clip(TrapezoidShape(10f))
             .clip(RoundedCornerShape(4.dp))
             .background(Color.Black)) {
+            val (s, pd) = remember(playerState.player.username.length) {
+                when(playerState.player.username.length) {
+                    in 0..8 -> 10.sp to 0.dp
+                    in 9..10 -> 9.sp to 1.dp
+                    in 11..13 -> 8.sp to 2.dp
+                    else -> 7.sp to 3.dp
+                }
+            }
             Text(
                 text = playerState.player.username,
                 color = Color.White,
                 fontWeight = FontWeight.Normal,
-                fontSize = 10.sp * scaleMultiplier,
+                fontSize = s * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(0.dp, 1.dp),
+                    .padding(3.dp, 1.dp + pd),
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -1078,7 +1009,8 @@ fun PlayerDisplay(
                         alignment = LineHeightStyle.Alignment.Center,
                         trim = LineHeightStyle.Trim.Both
                     )
-                )
+                ),
+                maxLines = 1
             )
             HorizontalDivider()
             val (stackText, textColor) = if(playerState.player.stack != 0L) {
@@ -1101,7 +1033,8 @@ fun PlayerDisplay(
                         alignment = LineHeightStyle.Alignment.Center,
                         trim = LineHeightStyle.Trim.Both
                     )
-                )
+                ),
+                maxLines = 1
             )
         }
         AnimatedVisibility(
@@ -1133,25 +1066,25 @@ fun PlayerDisplay(
                 PulsingConnectionLostIcon(modifier = Modifier.size(32.dp * scaleMultiplier))
             }
         }
-    }
-    AnimatedVisibility(
-        modifier = modifier.size(80.dp * scaleMultiplier),
-        visible = isWinner,
-        enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(animationSpec = tween(1000), initialOffsetY = { -it }),
-        exit = fadeOut(animationSpec = tween(300))
-    ) {
-        Box {
-            RadiantGlowEffectEnhanced(
-                Modifier.size(52.dp * scaleMultiplier).align(Alignment.Center),
-                color = Color(0xFFFDFFD8),
-                rayCount = 32,
-                innerRadiusRatio = 0.2f
-            )
-            Image(
-                painter = painterResource(R.drawable.winner_cup),
-                contentDescription = "Winner",
-                modifier = Modifier.width(27.dp * scaleMultiplier).height(39.dp * scaleMultiplier).align(Alignment.Center)
-            )
+        AnimatedVisibility(
+            modifier = modifier.fillMaxSize(),
+            visible = isWinner,
+            enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(animationSpec = tween(1000), initialOffsetY = { -it }),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            Box {
+                RadiantGlowEffectEnhanced(
+                    Modifier.size(52.dp * scaleMultiplier).align(Alignment.Center),
+                    color = Color(0xFFFDFFD8),
+                    rayCount = 32,
+                    innerRadiusRatio = 0.2f
+                )
+                Image(
+                    painter = painterResource(R.drawable.winner_cup),
+                    contentDescription = "Winner",
+                    modifier = Modifier.width(27.dp * scaleMultiplier).height(39.dp * scaleMultiplier).align(Alignment.Center)
+                )
+            }
         }
     }
 }
@@ -1537,6 +1470,151 @@ fun ConfirmExitDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@Composable
+fun TopBar(
+    gameMode: GameMode?,
+    tournamentInfo: TournamentInfo?,
+    animatedCount: Int,
+    modifier: Modifier
+) {
+    var levelSeconds by remember { mutableLongStateOf(0L) }
+
+    val topBarText = if(gameMode == GameMode.CASH) "Cash 10 / 20"
+    else {
+        tournamentInfo?.let {
+            val ante = if(it.ante == 0L) "-" else it.ante
+            "sb ${it.sb}/bb ${it.bb}/ante $ante"
+        } ?: "Tournament"
+    }
+    val leftText = if(gameMode == GameMode.CASH) null else {
+        LaunchedEffect(key1 = tournamentInfo?.levelTime) {
+            tournamentInfo?.levelTime?.let {
+                while (true) {
+                    val remaining = it - System.currentTimeMillis()
+                    if (remaining <= 0) {
+                        levelSeconds = 0
+                        break
+                    }
+                    levelSeconds = remaining
+                    delay(1000L)
+                }
+            }
+        }
+        tournamentInfo?.let { "level${it.level} | ${levelSeconds.toMinutesSeconds()}" }
+    }
+    Box(modifier) {
+        if(gameMode == GameMode.CASH) {
+            Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
+        } else {
+            val textSize = when(topBarText.length) {
+                in 0..20 -> 14.sp
+                in 21..24 -> 12.sp
+                else -> 11.sp
+            }
+            leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier.align(Alignment.CenterStart).padding(3.dp, 0.dp), color = Color.White, fontSize = textSize) }
+            Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
+        }
+        if (animatedCount != 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(3.dp, 0.dp).align(Alignment.CenterEnd)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_visibility),
+                    modifier = Modifier.size(20.dp),
+                    contentDescription = null,
+                    tint = Color.White)
+
+                Text(
+                    text = animatedCount.toString(),
+                    color = Color.White,
+                    fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun WaitingPlayersLayout(
+    modifier: Modifier,
+    animatedCount: Int
+) {
+    Column(modifier = modifier) {
+        Text("Waiting for players...", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+        if(animatedCount != 0) {
+            Spacer(Modifier.size(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_visibility),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .padding(2.dp, 0.dp))
+
+                Text(
+                    text = animatedCount.toString(),
+                    color = Color.White,
+                    fontSize = 20.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsMenu(
+    modifier: Modifier,
+    showSettingsMenu: Boolean,
+    stackDisplayMode: StackDisplayMode,
+    scaleMultiplier: Float,
+    onToggleDisplayMode: () -> Unit,
+    onIncreaseScale: () -> Unit,
+    onDecreaseScale: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = showSettingsMenu,
+        modifier = modifier,
+        enter = slideInHorizontally { it },
+        exit = slideOutHorizontally { it }
+    ) {
+        Card(elevation = CardDefaults.cardElevation(8.dp)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Show stack in BB")
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = stackDisplayMode == StackDisplayMode.BIG_BLINDS,
+                    onCheckedChange = { onToggleDisplayMode }
+                )
+            }
+            Text("UI Scale", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(onClick = { onDecreaseScale }) {
+                    Icon(painter = painterResource(R.drawable.ic_remove), "Decrease")
+                }
+
+                Text(
+                    text = "${(scaleMultiplier * 100).toInt() + 1}%",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                IconButton(onClick = { onIncreaseScale }) {
+                    Icon(Icons.Default.Add, "Increase")
+                }
+            }
+        }
+    }
 }
 
 // todo использовать в главном экране
