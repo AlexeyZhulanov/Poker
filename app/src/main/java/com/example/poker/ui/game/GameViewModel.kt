@@ -33,10 +33,13 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -61,8 +64,8 @@ sealed interface RunItUiState {
 }
 
 data class AllInEquity(
-    val equities: Map<String, Double>,
-    val outs: Map<String, OutsInfo> = emptyMap(),
+    val equities: ImmutableMap<String, Double>,
+    val outs: ImmutableMap<String, OutsInfo> = persistentMapOf(),
     val runIndex: Int
 )
 
@@ -107,11 +110,11 @@ class GameViewModel @Inject constructor(
     private val _boardRunouts = MutableStateFlow<ImmutableList<ImmutableList<Card>>>(persistentListOf())
     val boardRunouts: StateFlow<ImmutableList<ImmutableList<Card>>> = _boardRunouts.asStateFlow()
 
-    private var runsCount: Int = 0
-    fun getRunsCount() = runsCount
+    private val _runsCount = MutableStateFlow<Int>(0)
+    val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
 
-    private var gameMode: GameMode? = null
-    fun getGameMode() = gameMode
+    private val _gameMode = MutableStateFlow<GameMode?>(null)
+    val gameMode: StateFlow<GameMode?> = _gameMode.asStateFlow()
 
     private val _visibleActionIds = MutableStateFlow<ImmutableSet<String>>(persistentSetOf())
     val visibleActionIds: StateFlow<ImmutableSet<String>> = _visibleActionIds.asStateFlow()
@@ -156,7 +159,7 @@ class GameViewModel @Inject constructor(
             _roomInfo.value = initialRoom
             _specsCount.value = initialRoom.players.filter { it.status == PlayerStatus.SPECTATING }.size
             GameRoomCache.currentRoom = null // Очищаем кэш
-            if(gameMode == null) gameMode = initialRoom.gameMode
+            _gameMode.value = initialRoom.gameMode
         }
         coroutineScope {
             val gameStateJob = async { gameRepository.getGameState(roomId) }
@@ -172,7 +175,7 @@ class GameViewModel @Inject constructor(
                     _roomInfo.value = roomResult.data
                     _specsCount.value = roomResult.data.players.filter { it.status == PlayerStatus.SPECTATING }.size
                 }
-                if(gameMode == null) gameMode = roomResult.data.gameMode
+                _gameMode.value = roomResult.data.gameMode
             }
         }
     }
@@ -241,8 +244,8 @@ class GameViewModel @Inject constructor(
                                     is OutgoingMessage.AllInEquityUpdate -> {
                                         Log.d("testEquity", message.equities.toString())
                                         _allInEquity.value = AllInEquity(
-                                            equities = message.equities,
-                                            outs = message.outs,
+                                            equities = message.equities.toImmutableMap(),
+                                            outs = message.outs.toImmutableMap(),
                                             runIndex = message.runIndex
                                         )
                                     }
@@ -253,7 +256,7 @@ class GameViewModel @Inject constructor(
                                                 // Первая крутка: запоминаем статичные карты и создаем первую пустую доску
                                                 _staticCommunityCards.value = _gameState.value?.communityCards?.toImmutableList() ?: persistentListOf()
                                                 Log.d("testStaticCards", _staticCommunityCards.value.toString())
-                                                runsCount = message.totalRuns
+                                                _runsCount.value = message.totalRuns
                                                 _boardRunouts.value = persistentListOf(persistentListOf())
                                             } else {
                                                 // Последующие крутки: добавляем еще одну пустую доску
