@@ -52,11 +52,14 @@ fun TurnTimer(
         Color.White
     }
 
-    Box(modifier = modifier
+    val boxModifier = remember(scaleMultiplier) {
+        modifier
             .size(22.dp * scaleMultiplier)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.7f))
-            .border(1.dp * scaleMultiplier, Color.White.copy(alpha = 0.5f), CircleShape),
+            .border(1.dp * scaleMultiplier, Color.White.copy(alpha = 0.5f), CircleShape)
+    }
+    Box(modifier = boxModifier,
         contentAlignment = Alignment.Center
     ) {
         Text(

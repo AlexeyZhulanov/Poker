@@ -192,7 +192,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             TopBar({ viewModel.gameMode.value }, { viewModel.tournamentInfo.value }, { viewModel.specsCount.value }, topBarModifier)
             val boxModifier3 = remember {
                 Modifier
-                    .padding(0.dp, 30.dp, 0.dp, 63.dp)
+                    .padding(top = 30.dp, bottom = 63.dp)
                     .background(Color(0xFF004D40))
                     .fillMaxSize()
             }
@@ -202,7 +202,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                         .align(Alignment.BottomEnd)
                         .size(50.dp)
                         .clip(CircleShape)
-                        .padding(0.dp, 0.dp, 5.dp, 5.dp)
+                        .padding(end = 5.dp, bottom = 5.dp)
                         .clickable(onClick = { showSettingsMenu = !showSettingsMenu })
                 }
                 // Кнопка настроек
@@ -290,9 +290,22 @@ fun AnimatedCommunityCards(
     isMultiboard: Boolean = false
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val boxWithConstraintsScope = this
-        val cardWidth = boxWithConstraintsScope.maxWidth / 5
-        // todo Здесь много расчетов, при этом можно всё вычислить буквально один раз и больше не считать, нужно подумать как
+        val targets = remember(maxWidth, maxHeight) {
+            object {
+                val cardWidth = maxWidth / 5
+                val cardHeight = (cardWidth - 1.dp) * 1.5f
+                val drawCardWidth = cardWidth - 1.dp
+                // Начальная позиция "вылета"
+                val startX = maxWidth.value * 0.5f
+                val startY = maxHeight.value * 0.75f
+                // Рассчитываем целевые X-позиции для карт
+                val flopTarget1X = 0f
+                val flopTarget2X = cardWidth.value
+                val flopTarget3X = (cardWidth * 2).value
+                val turnTargetX = (cardWidth * 3).value
+                val riverTargetX = (cardWidth * 4).value
+            }
+        }
         // 1. Создаем анимируемые состояния для каждой из 5 карт
         val cardOffsetsX = remember { List(5) { Animatable(0f) } }
         val cardOffsetsY = remember { List(5) { Animatable(0f) } }
@@ -303,17 +316,6 @@ fun AnimatedCommunityCards(
 
         // 2. LaunchedEffect - "мозг" анимации. Запускается, когда меняется список карт
         LaunchedEffect(cards) {
-            // Рассчитываем целевые X-позиции для карт
-            val flopTarget1X = 0f
-            val flopTarget2X = cardWidth.value
-            val flopTarget3X = (cardWidth * 2).value
-            val turnTargetX = (cardWidth * 3).value
-            val riverTargetX = (cardWidth * 4).value
-
-            // Начальная Y-позиция "вылета"
-            val startX = boxWithConstraintsScope.maxWidth.value * 0.5f
-            val startY = boxWithConstraintsScope.maxHeight.value * 0.75f
-
             if(cards.isEmpty()) {
                 // Перед началом новой анимации сбрасываем все значения в 0
                 isReadyForAnimation = false
@@ -326,26 +328,24 @@ fun AnimatedCommunityCards(
                     }
                 }
             }
-
             when (cards.size) {
                 3 -> {
                     // 1. "Телепортируем" все 3 карты в ЦЕНТРАЛЬНУЮ позицию за пределами экрана
                     (0..2).forEach { i ->
-                        cardOffsetsX[i].snapTo(startX) // Все начинают с центра
-                        cardOffsetsY[i].snapTo(startY)
+                        cardOffsetsX[i].snapTo(targets.startX)
+                        cardOffsetsY[i].snapTo(targets.startY)
                         cardAlphas[i].snapTo(0f)
                     }
                 }
                 4 -> {
-                    cardOffsetsX[3].snapTo(turnTargetX)
-                    cardOffsetsY[3].snapTo(startY)
+                    cardOffsetsX[3].snapTo(targets.turnTargetX)
+                    cardOffsetsY[3].snapTo(targets.startY)
                 }
                 5 -> {
-                    cardOffsetsX[4].snapTo(riverTargetX)
-                    cardOffsetsY[4].snapTo(startY)
+                    cardOffsetsX[4].snapTo(targets.riverTargetX)
+                    cardOffsetsY[4].snapTo(targets.startY)
                 }
             }
-
             when (cards.size) {
                 3 -> { // Флоп
                     // Теперь, когда все карты на стартовых позициях, разрешаем их показать
@@ -353,12 +353,12 @@ fun AnimatedCommunityCards(
 
                     // 2. Анимируем их "вылет" в центр стола
                     (0..2).forEach { i -> launch { cardAlphas[i].animateTo(1f, tween(100)) } }
-                    (0..2).forEach { i -> launch { cardOffsetsX[i].animateTo(flopTarget1X, tween((i+1) * 300)) } }
+                    (0..2).forEach { i -> launch { cardOffsetsX[i].animateTo(targets.flopTarget1X, tween((i+1) * 300)) } }
                     (0..2).forEach { i -> launch { cardOffsetsY[i].animateTo(0f, tween((i+1) * 300)) } }
                     delay(950) // Ждем, пока они прилетят
                     // 3. Анимируем "разъезжание" крайних карт из центра
-                    launch { cardOffsetsX[1].animateTo(flopTarget2X, spring(stiffness = Spring.StiffnessLow)) }
-                    launch { cardOffsetsX[2].animateTo(flopTarget3X, spring(stiffness = Spring.StiffnessLow)) }
+                    launch { cardOffsetsX[1].animateTo(targets.flopTarget2X, spring(stiffness = Spring.StiffnessLow)) }
+                    launch { cardOffsetsX[2].animateTo(targets.flopTarget3X, spring(stiffness = Spring.StiffnessLow)) }
                 }
                 4 -> { // Терн
                     launch { cardAlphas[3].animateTo(1f, tween(200)) }
@@ -375,14 +375,14 @@ fun AnimatedCommunityCards(
         if(isReadyForAnimation) {
             Box(modifier = Modifier
                 .fillMaxWidth()
-                .height((cardWidth - 1.dp) * 1.5f)) {
+                .height(targets.cardHeight)) {
                 (staticCardsSize..4).forEach { i ->
                     val card = cards.getOrNull(i)
                     card?.let {
                         PokerCard(
                             card = it,
                             modifier = Modifier
-                                .width(cardWidth - 1.dp)
+                                .width(targets.drawCardWidth)
                                 .graphicsLayer {
                                     alpha = cardAlphas[i].value
                                     rotationZ = cardRotations[i].value
@@ -393,7 +393,7 @@ fun AnimatedCommunityCards(
                     }
                 }
             }
-        } else Box(Modifier.height((cardWidth - 1.dp) * 1.5f))
+        } else Box(Modifier.height(targets.cardHeight))
     }
 }
 
@@ -427,16 +427,41 @@ fun MultiBoardLayout(
 ) {
     val staticCards = staticCardsProvider()
     val runs = runsProvider()
-    BoxWithConstraints(modifier = modifier) { // todo тут тоже куча расчетов со всегда одинаковыми результатами
-        val boxWithConstraintsScope = this
-        val cardWidth = boxWithConstraintsScope.maxWidth / 5
-        val cardHeight = (cardWidth - 1.dp) * 1.5f
+    BoxWithConstraints(modifier = modifier) {
+        val layoutData = remember(maxWidth, runs) {
+            val cardWidth = maxWidth / 5
+            val drawCardWidth = cardWidth - 1.dp
+            val cardHeight = (cardWidth - 1.dp) * 1.5f
 
-        val offset = if(runs == 2) -(cardHeight / 2) -(cardHeight / 2.5f) else -cardHeight -(cardHeight / 5)
-        val text = if(displayMode == StackDisplayMode.CHIPS) pot.toString() else pot.toBB(bigBlind) + " BB"
-        Text("Pot: $text", color = Color.White, modifier = Modifier
+            // Вычисляем смещение для текста с банком
+            val potTextOffset = if(runs == 2) -(cardHeight / 2) -(cardHeight / 2.5f)
+            else -cardHeight -(cardHeight / 5)
+            // Заранее вычисляем все целевые точки для анимации
+            val runTargets = List(runs) { index ->
+                when (runs) {
+                    2 -> if (index == 0) -(cardHeight / 4) else cardHeight / 4
+                    3 -> when (index) {
+                        0 -> -(cardHeight / 2)
+                        1 -> 0.dp
+                        else -> cardHeight / 2
+                    }
+                    else -> 0.dp
+                }
+            }
+            // Возвращаем объект со всеми вычисленными значениями
+            object {
+                val drawWidth = drawCardWidth
+                val height = cardHeight
+                val potOffset = potTextOffset
+                val targets = runTargets
+            }
+        }
+        val potText = remember(pot, displayMode, bigBlind) {
+            if (displayMode == StackDisplayMode.CHIPS) pot.toString() else pot.toBB(bigBlind) + " BB"
+        }
+        Text("Pot: $potText", color = Color.White, modifier = Modifier
             .align(Alignment.Center)
-            .offset(0.dp, offset))
+            .offset(y = layoutData.potOffset))
 
         // 1. Рисуем статичные карты
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
@@ -444,40 +469,25 @@ fun MultiBoardLayout(
                 PokerCard(
                     card = card,
                     modifier = Modifier
-                        .width(cardWidth - 1.dp)
-                        .height(cardHeight)
+                        .width(layoutData.drawWidth)
+                        .height(layoutData.height)
                 )
                 Spacer(Modifier.width(1.dp))
             }
         }
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy((-(cardHeight.value)).dp), // Отрицательный отступ для наложения
+            verticalArrangement = Arrangement.spacedBy(-layoutData.height), // Отрицательный отступ для наложения
             horizontalAlignment = Alignment.End
         ) {
             for ((index, runout) in runouts.withIndex()) {
                 key(index) {
-                    val target = when(runs) {
-                        2 -> when(index) {
-                            0 -> -(cardHeight / 4)
-                            1 -> cardHeight / 4
-                            else -> 0.dp
-                        }
-                        3 -> when(index) {
-                            0 -> -(cardHeight / 2)
-                            1 -> 0.dp
-                            2 -> cardHeight / 2
-                            else -> 0.dp
-                        }
-                        else -> 0.dp
-                    }
                     // Анимируем смещение вверх для каждой предыдущей доски
                     val yOffset by animateDpAsState(
                         // Смещаем каждую доску, кроме последней, на половину высоты карты
-                        targetValue = target,
+                        targetValue = layoutData.targets.getOrElse(index) { 0.dp },
                         label = "boardOffset$index"
                     )
-
                     // Показываем доску с анимацией появления
                     AnimatedVisibility(
                         visible = true, // Управляется самим списком runouts
@@ -522,17 +532,20 @@ fun ActionPanel(
     var showBetSlider by remember { mutableStateOf(false) }
 
     val gameState = gameStateProvider()
-    // todo как-то remember сделать можно
-    val playerState = gameState?.playerStates?.find { it.player.userId == myUserId }
-
-    // Используем Box для наложения ползунка поверх панели
-    Box(
-        contentAlignment = Alignment.TopCenter,
-        modifier = modifier
+    val myPlayerState by remember {
+        derivedStateOf {
+            gameState?.playerStates?.find { it.player.userId == myUserId }
+        }
+    }
+    val playerState = myPlayerState
+    val boxModifier = remember(modifier) {
+        modifier
             .height(63.dp)
             .fillMaxWidth()
             .background(Color.Black)
-    ) {
+    }
+    // Используем Box для наложения ползунка поверх панели
+    Box(contentAlignment = Alignment.TopCenter, modifier = boxModifier) {
         when {
             myPlayer?.status == PlayerStatus.SPECTATING && (!isTournament || gameState == null)  -> {
                 BottomButton(onClick = { onSitAtTableClick }, text = "Sit at Table", modifier = Modifier.fillMaxWidth())
@@ -543,7 +556,7 @@ fun ActionPanel(
                     BottomButton(onClick = { onReadyClick(!myPlayer.isReady) }, text = text, modifier = Modifier.fillMaxWidth())
                 }
             }
-            else -> { // todo сделать check/fold по удержанию кнопки и call any также
+            else -> {
                 // --- ОСНОВНАЯ ПАНЕЛЬ С ТРЕМЯ КНОПКАМИ ---
                 val isActionPanelLocked = isActionPanelLockedProvider()
                 val allInEquity = allInEquityProvider()
@@ -553,7 +566,6 @@ fun ActionPanel(
                         activeId == myUserId && !isActionPanelLocked && allInEquity == null && gameState.stage != GameStage.SHOWDOWN
                     }
                 }
-
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -572,9 +584,11 @@ fun ActionPanel(
                     } else {
                         // Если нужно коллировать, показываем CALL с суммой
                         val callValue = minOf(playerState?.player?.stack ?: 0L, amountToCall - myCurrentBet)
-                        val callText = if (displayMode == StackDisplayMode.BIG_BLINDS) {
-                            "Call ${callValue.toBB(gameState.bigBlindAmount)} BB"
-                        } else "Call $callValue"
+                        val callText = remember(displayMode, callValue, gameState.bigBlindAmount) {
+                            if (displayMode == StackDisplayMode.BIG_BLINDS) {
+                                "Call ${callValue.toBB(gameState.bigBlindAmount)} BB"
+                            } else "Call $callValue"
+                        }
                         BottomButton(onClick = { onCall() }, enabled = isMyTurn, text = callText, modifier = Modifier.weight(1f))
                     }
 
@@ -586,7 +600,7 @@ fun ActionPanel(
         }
     }
     // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
-    if (showBetSlider && playerState != null) {
+    if (showBetSlider && playerState != null && gameState != null) {
         Box(
             contentAlignment = Alignment.TopCenter,
             modifier = modifier.fillMaxWidth()
@@ -622,9 +636,10 @@ fun BetControls(
     var textValue by remember { mutableStateOf("") }
     val isBetValid = betAmountInChips in minBet..maxBet
 
-    val (presetX2, presetX3, presetX4) = if(amountToCall > 0) Triple(amountToCall * 2, amountToCall * 3, amountToCall * 4)
-     else Triple(minBet * 2, minBet * 3, minBet * 4)
-
+    val (presetX2, presetX3, presetX4) = remember(amountToCall, minBet) {
+        if(amountToCall > 0) Triple(amountToCall * 2, amountToCall * 3, amountToCall * 4)
+        else Triple(minBet * 2, minBet * 3, minBet * 4)
+    }
     // Синхронизация: запускается, когда меняется betAmountInChips или режим
     LaunchedEffect(betAmountInChips, displayMode) {
         textValue = if (displayMode == StackDisplayMode.BIG_BLINDS) {
@@ -633,24 +648,26 @@ fun BetControls(
             betAmountInChips.toString()
         }
     }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 70.dp, start = 16.dp, end = 16.dp), // Располагаем над основной панелью
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close bet controls",
-            tint = Color.White,
-            modifier = Modifier
+        val iconModifier = remember {
+            Modifier
                 .align(Alignment.End)
                 .size(30.dp)
                 .clip(CircleShape)
                 .background(Color.DarkGray)
                 .border(1.dp, Color.White, shape = CircleShape)
                 .clickable(onClick = onDismiss)
+        }
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Close bet controls",
+            tint = Color.White,
+            modifier = iconModifier
         )
         Column(
             modifier = Modifier.padding(16.dp, 3.dp, 16.dp, 16.dp),
@@ -722,17 +739,26 @@ fun BetControls(
 
 @Composable
 fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, modifier: Modifier) {
-    val color1 = if(enabled) Color.Red else Color(0xFF640D14)
-    val color2 = if(enabled) Color(0xFF640D14) else Color.Black
-    FilledTonalButton( // todo можно в теории присвоить это в remember от enabled и текста
-        modifier = modifier
-            .height(60.dp)
-            .padding(1.dp, 0.dp),
+    val border = remember(enabled) {
+        val color1 = if (enabled) Color.Red else Color(0xFF640D14)
+        val color2 = if (enabled) Color(0xFF640D14) else Color.Black
+        BorderStroke(5.dp, Brush.radialGradient(listOf(color1, color2), radius = 170f))
+    }
+    val buttonColors = remember {
+        ButtonColors(
+            containerColor = Color.Red.copy(alpha = 0.7f),
+            contentColor = Color.Black,
+            disabledContainerColor = Color(0xFF38070B),
+            disabledContentColor = Color.Black
+        )
+    }
+    FilledTonalButton(
+        modifier = modifier.height(60.dp).padding(horizontal = 1.dp),
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonColors(Color.Red.copy(alpha = 0.7f), Color.Black, Color(0xFF38070B), Color.Black),
-        border = BorderStroke(5.dp, Brush.radialGradient(listOf(color1, color2), radius = 170f))
+        colors = buttonColors,
+        border = border
     ) {
         Text(text, fontSize = 18.sp, textAlign = TextAlign.Center)
     }
@@ -750,7 +776,7 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
 fun PlayerWithEquity(
     allInEquityProvider: () -> AllInEquity?,
     tailDirection: TailDirection,
-    playerState: PlayerState,
+    playerStateProvider: () -> PlayerState,
     myUserId: String?,
     isActivePlayer: Boolean,
     turnExpiresAt: Long?,
@@ -763,6 +789,7 @@ fun PlayerWithEquity(
     scaleMultiplier: Float
 ) {
     val allInEquity = allInEquityProvider()
+    val playerState = playerStateProvider()
     val equity = allInEquity?.equities?.get(playerState.player.userId)
     val out = allInEquity?.outs?.get(playerState.player.userId)
 
@@ -777,7 +804,7 @@ fun PlayerWithEquity(
     Box(modifier = modifier.width(requiredWidth), contentAlignment = Alignment.Center) {
         PlayerDisplay(
             modifier = Modifier,
-            playerState = playerState,
+            playerStateProvider = { playerState },
             myUserId = myUserId,
             isActivePlayer = isActivePlayer,
             turnExpiresAt = turnExpiresAt,
@@ -812,7 +839,7 @@ fun PlayerWithEquity(
 
 @Composable
 fun PlayerDisplay(
-    playerState: PlayerState,
+    playerStateProvider: () -> PlayerState,
     isActivePlayer: Boolean,
     turnExpiresAt: Long?,
     myUserId: String?,
@@ -824,21 +851,23 @@ fun PlayerDisplay(
     bigBlind: Long,
     scaleMultiplier: Float
 ) {
+    val playerState = playerStateProvider()
     val visibleActionIds = visibleActionIdsProvider()
-    Box(modifier = modifier
-        .width(70.dp * scaleMultiplier)
-        .height(80.dp * scaleMultiplier)
-        .padding(5.dp * scaleMultiplier, 0.dp)) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = "Player Avatar",
-            tint = Color.White,
-            modifier = Modifier
+    val boxModifier = remember(scaleMultiplier) {
+        modifier
+            .width(70.dp * scaleMultiplier)
+            .height(80.dp * scaleMultiplier)
+            .padding(horizontal = 5.dp * scaleMultiplier)
+    }
+    Box(modifier = boxModifier) {
+        val iconModifier = remember(scaleMultiplier) {
+            Modifier
                 .size(60.dp * scaleMultiplier)
                 .clip(CircleShape)
                 .background(Color.DarkGray)
                 .border(1.dp, Color.White, shape = CircleShape)
-        )
+        }
+        Icon(imageVector = Icons.Default.Person, contentDescription = "Player Avatar", tint = Color.White, modifier = iconModifier)
 
         if (isGameStarted) {
             val (card1, card2) = if (playerState.player.userId == myUserId || playerState.cards.isNotEmpty()) {
@@ -851,21 +880,27 @@ fun PlayerDisplay(
                 exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(durationMillis = 500))
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy((-20).dp * scaleMultiplier)) {
-                    FlippingPokerCard(
-                        card = card1,
-                        flipDirection = FlipDirection.COUNTER_CLOCKWISE,
-                        modifier = Modifier
+                    val firstCardModifier = remember(scaleMultiplier) {
+                        Modifier
                             .width(40.dp * scaleMultiplier)
                             .height(60.dp * scaleMultiplier)
                             .graphicsLayer { rotationZ = -10f }
-                    )
+                    }
                     FlippingPokerCard(
-                        card = card2,
-                        flipDirection = FlipDirection.CLOCKWISE,
-                        modifier = Modifier
+                        card = card1,
+                        flipDirection = FlipDirection.COUNTER_CLOCKWISE,
+                        modifier = firstCardModifier
+                    )
+                    val secondCardModifier = remember(scaleMultiplier) {
+                        Modifier
                             .width(40.dp * scaleMultiplier)
                             .height(60.dp * scaleMultiplier)
                             .graphicsLayer { rotationZ = 10f }
+                    }
+                    FlippingPokerCard(
+                        card = card2,
+                        flipDirection = FlipDirection.CLOCKWISE,
+                        modifier = secondCardModifier
                     )
                 }
             }
@@ -879,12 +914,15 @@ fun PlayerDisplay(
                 )
             }
         }
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .clip(TrapezoidShape(10f))
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black)) {
+        val columnModifier = remember {
+            Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .clip(TrapezoidShape(10f))
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.Black)
+        }
+        Column(modifier = columnModifier) {
             val (s, pd) = remember(playerState.player.username.length) {
                 when(playerState.player.username.length) {
                     in 0..8 -> 10.sp to 0.dp
@@ -924,7 +962,7 @@ fun PlayerDisplay(
                 fontSize = 11.sp * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(0.dp, 1.dp),
+                    .padding(vertical = 1.dp),
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -955,12 +993,15 @@ fun PlayerDisplay(
             )
         }
         if (!playerState.player.isConnected) {
-            Box(
-                modifier = Modifier
+            val connectModifier = remember(scaleMultiplier) {
+                Modifier
                     .align(Alignment.Center)
                     .size(40.dp * scaleMultiplier)
                     .clip(RoundedCornerShape(12.dp * scaleMultiplier))
-                    .background(Color.Black.copy(alpha = 0.6f)),
+                    .background(Color.Black.copy(alpha = 0.6f))
+            }
+            Box(
+                modifier = connectModifier,
                 contentAlignment = Alignment.Center
             ) {
                 PulsingConnectionLostIcon(modifier = Modifier.size(32.dp * scaleMultiplier))
@@ -981,13 +1022,16 @@ fun PlayerDisplay(
                     rayCount = 32,
                     innerRadiusRatio = 0.2f
                 )
-                Image(
-                    painter = painterResource(R.drawable.winner_cup),
-                    contentDescription = "Winner",
-                    modifier = Modifier
+                val imageModifier = remember(scaleMultiplier) {
+                    Modifier
                         .width(27.dp * scaleMultiplier)
                         .height(39.dp * scaleMultiplier)
                         .align(Alignment.Center)
+                }
+                Image(
+                    painter = painterResource(R.drawable.winner_cup),
+                    contentDescription = "Winner",
+                    modifier = imageModifier
                 )
             }
         }
@@ -1001,13 +1045,16 @@ fun EquityBubble(
     scaleMultiplier: Float,
     modifier: Modifier = Modifier
 ) {
+    val border = remember(scaleMultiplier) {
+        BorderStroke(1.5.dp * scaleMultiplier, Color(0xFF216625))
+    }
     Surface(
         modifier = modifier,
         shape = OvalWithTailShape(
             tailDirection = tailDirection
         ),
         color = Color.Black.copy(alpha = 0.6f),
-        border = BorderStroke(1.5.dp * scaleMultiplier, Color(0xFF216625))
+        border = border
     ) {
         Box(
             modifier = Modifier
@@ -1033,12 +1080,14 @@ fun OutsBubble(
     modifier: Modifier = Modifier
 ) {
     val randomSeed = remember { Random.nextInt() }
-
+    val border = remember(scaleMultiplier) {
+        BorderStroke(1.dp * scaleMultiplier, Color(0xFF610C18))
+    }
     Surface(
         modifier = modifier.graphicsLayer { clip = false },
         shape = JaggedOvalShape(seed = randomSeed),
         color = Color.Black.copy(alpha = 0.6f),
-        border = BorderStroke(1.dp * scaleMultiplier, Color(0xFF610C18))
+        border = border
     ) {
         Box(
             modifier = Modifier
@@ -1090,6 +1139,12 @@ fun OutsBubble(
 
 @Composable
 fun OutsText(outs: List<Card>, isFourColorMode: Boolean, scaleMultiplier: Float, modifier: Modifier) {
+    val textModifier = remember(modifier) {
+        modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.Gray)
+    }
     Text(
         buildAnnotatedString {
             outs.forEach { card ->
@@ -1122,10 +1177,7 @@ fun OutsText(outs: List<Card>, isFourColorMode: Boolean, scaleMultiplier: Float,
         fontSize = 8.sp * scaleMultiplier,
         maxLines = 3,
         textAlign = TextAlign.Center,
-        modifier = modifier
-            .padding(16.dp, 0.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Gray),
+        modifier = textModifier,
         style = TextStyle(
             platformStyle = PlatformTextStyle(
                 includeFontPadding = false
@@ -1165,12 +1217,15 @@ fun UnderdogChoiceUi(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            CustomLinearProgressBar(
-                progress = progress,
-                modifier = Modifier
+            val barModifier = remember {
+                Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+            }
+            CustomLinearProgressBar(
+                progress = progress,
+                modifier = barModifier,
                 color = Color.Green,
                 trackColor = Color.Black,
             )
@@ -1222,12 +1277,15 @@ fun FavoriteConfirmationUi(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            CustomLinearProgressBar(
-                progress = progress,
-                modifier = Modifier
+            val barModifier = remember {
+                Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+            }
+            CustomLinearProgressBar(
+                progress = progress,
+                modifier = barModifier,
                 color = Color.Green,
                 trackColor = Color.Black,
             )
@@ -1246,31 +1304,35 @@ fun FavoriteConfirmationUi(
 
 @Composable
 fun PlayerAction(action: PlayerAction, scaleMultiplier: Float) {
-    val (text, color, brightColor) = when(action) {
-        is PlayerAction.Fold -> Triple("Fold", Color(0xFF983036), Color(0xFFE84952))
-        is PlayerAction.Check -> Triple("Check", Color(0xFFB29A3B), Color(0xFFF2D250))
-        is PlayerAction.Call -> Triple("Call", Color(0xFFDBA656), Color(0xFFF2B85F))
-        is PlayerAction.Bet -> Triple("Bet", Color(0xFF3C9FC5), Color(0xFF48BFED))
-        is PlayerAction.Raise -> Triple("Raise", Color(0xFF3396AE), Color(0xFF46CCED))
-        is PlayerAction.AllIn -> Triple("All-In", Color(0xFFAF6832), Color(0xFFF08E44))
+    val (text, color, brightColor) = remember(action) {
+        when(action) {
+            is PlayerAction.Fold -> Triple("Fold", Color(0xFF983036), Color(0xFFE84952))
+            is PlayerAction.Check -> Triple("Check", Color(0xFFB29A3B), Color(0xFFF2D250))
+            is PlayerAction.Call -> Triple("Call", Color(0xFFDBA656), Color(0xFFF2B85F))
+            is PlayerAction.Bet -> Triple("Bet", Color(0xFF3C9FC5), Color(0xFF48BFED))
+            is PlayerAction.Raise -> Triple("Raise", Color(0xFF3396AE), Color(0xFF46CCED))
+            is PlayerAction.AllIn -> Triple("All-In", Color(0xFFAF6832), Color(0xFFF08E44))
+        }
     }
-    val width = 50.dp * scaleMultiplier
-    val height = 20.dp * scaleMultiplier
-    Box(contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .width(width)
-            .height(height)
-            .clip(RoundedCornerShape(3.dp * scaleMultiplier))
-            .background(Color.Black.copy(alpha = 0.8f))
-            .border(
-                BorderStroke(
-                    1.dp * scaleMultiplier,
-                    Brush.radialGradient(
-                        listOf(color.copy(alpha = 0.6f), brightColor),
-                        radius = 60f * scaleMultiplier
-                    )
-                ), RoundedCornerShape(3.dp * scaleMultiplier)
+    val shape = remember(scaleMultiplier) { RoundedCornerShape(3.dp * scaleMultiplier) }
+    val border = remember(color, brightColor, scaleMultiplier) {
+        BorderStroke(
+            1.dp * scaleMultiplier,
+            Brush.radialGradient(
+                listOf(color.copy(alpha = 0.6f), brightColor),
+                radius = 60f * scaleMultiplier
             )
+        )
+    }
+    val mainModifier = remember(scaleMultiplier) {
+        Modifier
+            .width(50.dp * scaleMultiplier)
+            .height(20.dp * scaleMultiplier)
+            .clip(shape)
+            .background(Color.Black.copy(alpha = 0.8f))
+    }
+    Box(contentAlignment = Alignment.Center,
+        modifier = mainModifier.border(border, shape)
     ) {
         Text(text = text, color = brightColor, fontSize = 12.sp * scaleMultiplier)
     }
@@ -1346,7 +1408,7 @@ fun TournamentWinnerDialog(
                     Box(contentAlignment = Alignment.Center) {
                         RadiantGlowEffectEnhanced(modifier = Modifier.size(120.dp), rayCount = 32, color = Color(0xFFFFB506))
                         PlayerDisplay(
-                            playerState = PlayerState(player = winner),
+                            playerStateProvider = { PlayerState(player = winner) },
                             myUserId = "", // Неважно, просто для отображения
                             isActivePlayer = false,
                             turnExpiresAt = null,
@@ -1400,12 +1462,14 @@ fun TopBar(
     )
     var levelSeconds by remember { mutableLongStateOf(0L) }
 
-    val topBarText = if(gameMode == GameMode.CASH) "Cash 10 / 20"
-    else {
-        tournamentInfo?.let {
-            val ante = if(it.ante == 0L) "-" else it.ante
-            "sb ${it.sb}/bb ${it.bb}/ante $ante"
-        } ?: "Tournament"
+    val topBarText = remember(gameMode, tournamentInfo) {
+        if(gameMode == GameMode.CASH) "Cash 10 / 20"
+        else {
+            tournamentInfo?.let {
+                val ante = if(it.ante == 0L) "-" else it.ante
+                "sb ${it.sb}/bb ${it.bb}/ante $ante"
+            } ?: "Tournament"
+        }
     }
     val leftText = if(gameMode == GameMode.CASH) null else {
         LaunchedEffect(key1 = tournamentInfo?.levelTime) {
@@ -1434,14 +1498,14 @@ fun TopBar(
             }
             leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(3.dp, 0.dp), color = Color.White, fontSize = textSize) }
+                .padding(horizontal = 3.dp), color = Color.White, fontSize = textSize) }
             Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
         }
         if (animatedCount != 0) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .padding(3.dp, 0.dp)
+                    .padding(horizontal = 3.dp)
                     .align(Alignment.CenterEnd)
             ) {
                 Icon(
@@ -1482,7 +1546,7 @@ fun WaitingPlayersLayout(
                     tint = Color.White,
                     modifier = Modifier
                         .size(32.dp)
-                        .padding(2.dp, 0.dp))
+                        .padding(horizontal = 2.dp))
 
                 Text(
                     text = animatedCount.toString(),
@@ -1523,7 +1587,7 @@ fun SettingsMenu(
                     onCheckedChange = { onToggleDisplayMode }
                 )
             }
-            Text("UI Scale", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp))
+            Text("UI Scale", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -1567,8 +1631,10 @@ fun PlayersLayout(
     val winnerIds = remember(boardResult) {
         boardResult?.map { it.first }?.toImmutableSet() ?: persistentSetOf()
     }
-    val activePlayerId = remember(gameState?.activePlayerPosition) {
-        gameState?.playerStates?.getOrNull(gameState.activePlayerPosition)?.player?.userId
+    val activePlayerId by remember {
+        derivedStateOf {
+            gameState?.playerStates?.getOrNull(gameState.activePlayerPosition)?.player?.userId
+        }
     }
     val reorderedPlayers = remember(playersOnTable, myUserId) {
         val visiblePlayers = playersOnTable.filter { it.player.status != PlayerStatus.SPECTATING }
@@ -1584,9 +1650,8 @@ fun PlayersLayout(
         calculatePlayerPosition(reorderedPlayers.size)
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val boxWithConstraintsScope = this
-        val parentWidthPx = boxWithConstraintsScope.maxWidth.value
-        val parentHeightPx = boxWithConstraintsScope.maxHeight.value
+        val parentWidthPx = maxWidth.value
+        val parentHeightPx = maxHeight.value
         reorderedPlayers.forEachIndexed { index, playerState ->
             key(playerState.player.userId) {
                 val tailDirection = if(equityPositions[index]) TailDirection.RIGHT else TailDirection.LEFT
@@ -1679,10 +1744,8 @@ fun PlayersLayout(
                 PlayerWithEquity(
                     allInEquityProvider = { allInEquityProvider() },
                     tailDirection = tailDirection,
-                    modifier = Modifier
-                        .align(alignments[index])
-                        .padding(3.dp),
-                    playerState = playerState,
+                    modifier = Modifier.align(alignments[index]).padding(3.dp),
+                    playerStateProvider = { playerState },
                     myUserId = myUserId,
                     isActivePlayer = isActivePlayer,
                     turnExpiresAt = gameState?.turnExpiresAt,
@@ -1756,7 +1819,11 @@ fun BottomLayout(
             val myUserId = myUserIdProvider()
             val stackDisplayMode = stackDisplayModeProvider()
             val gameMode = gameModeProvider()
-            val myPlayer = playersOnTable.find { it.player.userId == myUserId }?.player
+            val myPlayer by remember {
+                derivedStateOf {
+                    playersOnTable.find { it.player.userId == myUserId }?.player
+                }
+            }
             ActionPanel(
                 myPlayer = myPlayer,
                 myUserId = myUserId,
