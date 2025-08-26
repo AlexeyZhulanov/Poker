@@ -10,9 +10,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import com.example.poker.R
 
@@ -47,8 +46,10 @@ fun PulsingConnectionLostIcon(modifier: Modifier = Modifier) {
         painter = painterResource(R.drawable.ic_wifi_off),
         contentDescription = "Connection Lost",
         tint = Color.Red.copy(alpha = 0.8f),
-        modifier = modifier
-            .scale(scale) // Применяем анимированный размер
-            .alpha(alpha)  // Применяем анимированную прозрачность
+        modifier = modifier.graphicsLayer {
+            scaleX = scale // Применяем анимированный размер X
+            scaleY = scale // Применяем анимированный размер Y
+            this.alpha = alpha // Применяем анимированную прозрачность
+        }
     )
 }

@@ -1,6 +1,10 @@
 package com.example.poker.util
 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.standardChipSet
 
@@ -120,4 +124,15 @@ fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<B
         else -> return Pair(listOf(), listOf())
     }
     return list to equityList
+}
+
+fun calculateOffset(
+    startAlignment: Alignment,
+    endAlignment: Alignment,
+    parentWidthPx: Float,
+    parentHeightPx: Float
+) : Pair<IntOffset, IntOffset> {
+    val startOffset = startAlignment.align(IntSize.Zero, IntSize(parentWidthPx.toInt(), parentHeightPx.toInt()), LayoutDirection.Ltr)
+    val endOffset = endAlignment.align(IntSize.Zero, IntSize(parentWidthPx.toInt(), parentHeightPx.toInt()), LayoutDirection.Ltr)
+    return startOffset to endOffset
 }

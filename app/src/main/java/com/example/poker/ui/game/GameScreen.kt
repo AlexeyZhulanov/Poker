@@ -75,7 +75,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -109,6 +108,7 @@ import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.domain.model.Suit
 import com.example.poker.ui.theme.MerriWeatherFontFamily
 import com.example.poker.util.calculateChipStack
+import com.example.poker.util.calculateOffset
 import com.example.poker.util.calculatePlayerPosition
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
@@ -284,7 +284,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
 
 @Composable
 fun AnimatedCommunityCards(
-    cards: List<Card>,
+    cards: ImmutableList<Card>,
     modifier: Modifier = Modifier,
     staticCardsSize: Int = 0,
     isMultiboard: Boolean = false
@@ -383,12 +383,12 @@ fun AnimatedCommunityCards(
                             card = it,
                             modifier = Modifier
                                 .width(cardWidth - 1.dp)
-                                .alpha(cardAlphas[i].value)
-                                .graphicsLayer { rotationZ = cardRotations[i].value }
-                                .offset(
-                                    x = cardOffsetsX[i].value.dp,
-                                    y = cardOffsetsY[i].value.dp
-                                )
+                                .graphicsLayer {
+                                    alpha = cardAlphas[i].value
+                                    rotationZ = cardRotations[i].value
+                                    translationX = cardOffsetsX[i].value
+                                    translationY = cardOffsetsY[i].value
+                                }
                         )
                     }
                 }
@@ -456,42 +456,44 @@ fun MultiBoardLayout(
             horizontalAlignment = Alignment.End
         ) {
             for ((index, runout) in runouts.withIndex()) {
-                val target = when(runs) {
-                    2 -> when(index) {
-                        0 -> -(cardHeight / 4)
-                        1 -> cardHeight / 4
+                key(index) {
+                    val target = when(runs) {
+                        2 -> when(index) {
+                            0 -> -(cardHeight / 4)
+                            1 -> cardHeight / 4
+                            else -> 0.dp
+                        }
+                        3 -> when(index) {
+                            0 -> -(cardHeight / 2)
+                            1 -> 0.dp
+                            2 -> cardHeight / 2
+                            else -> 0.dp
+                        }
                         else -> 0.dp
                     }
-                    3 -> when(index) {
-                        0 -> -(cardHeight / 2)
-                        1 -> 0.dp
-                        2 -> cardHeight / 2
-                        else -> 0.dp
-                    }
-                    else -> 0.dp
-                }
-                // Анимируем смещение вверх для каждой предыдущей доски
-                val yOffset by animateDpAsState(
-                    // Смещаем каждую доску, кроме последней, на половину высоты карты
-                    targetValue = target,
-                    label = "boardOffset$index"
-                )
+                    // Анимируем смещение вверх для каждой предыдущей доски
+                    val yOffset by animateDpAsState(
+                        // Смещаем каждую доску, кроме последней, на половину высоты карты
+                        targetValue = target,
+                        label = "boardOffset$index"
+                    )
 
-                // Показываем доску с анимацией появления
-                AnimatedVisibility(
-                    visible = true, // Управляется самим списком runouts
-                    enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 200))
-                ) {
-                    Row(
-                        modifier = Modifier.offset(y = yOffset)
+                    // Показываем доску с анимацией появления
+                    AnimatedVisibility(
+                        visible = true, // Управляется самим списком runouts
+                        enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 200))
                     ) {
-                        // 2. Рисуем карты этого прогона
-                        AnimatedCommunityCards(
-                            cards = staticCards + runout,
-                            modifier = Modifier,
-                            staticCardsSize = staticCards.size,
-                            isMultiboard = true
-                        )
+                        Row(
+                            modifier = Modifier.graphicsLayer { translationY = yOffset.toPx() }
+                        ) {
+                            // 2. Рисуем карты этого прогона
+                            AnimatedCommunityCards(
+                                cards = (staticCards + runout) as ImmutableList<Card>,
+                                modifier = Modifier,
+                                staticCardsSize = staticCards.size,
+                                isMultiboard = true
+                            )
+                        }
                     }
                 }
             }
@@ -1581,103 +1583,97 @@ fun PlayersLayout(
     val (alignments, equityPositions) = remember(reorderedPlayers.size) {
         calculatePlayerPosition(reorderedPlayers.size)
     }
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val boxWithConstraintsScope = this
+        val parentWidthPx = boxWithConstraintsScope.maxWidth.value
+        val parentHeightPx = boxWithConstraintsScope.maxHeight.value
         reorderedPlayers.forEachIndexed { index, playerState ->
             key(playerState.player.userId) {
                 val tailDirection = if(equityPositions[index]) TailDirection.RIGHT else TailDirection.LEFT
                 val isActivePlayer = playerState.player.userId == activePlayerId
 
                 if(playerState.currentBet > 0) {
-                    val (h, v) = alignments[index]
-                    val (bet, textBet) = if(stackDisplayMode == StackDisplayMode.CHIPS) {
-                        playerState.currentBet.toFloat() to playerState.currentBet.toString()
+                    val (bet, textBet) = remember(playerState.currentBet, stackDisplayMode, gameState?.bigBlindAmount) {
+                        if(stackDisplayMode == StackDisplayMode.CHIPS) {
+                            playerState.currentBet.toFloat() to playerState.currentBet.toString()
+                        }
+                        else {
+                            playerState.currentBet.toBBFloat(gameState?.bigBlindAmount ?: 0L) to playerState.currentBet.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
+                        }
                     }
-                    else {
-                        playerState.currentBet.toBBFloat(gameState?.bigBlindAmount ?: 0L) to playerState.currentBet.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
+                    val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx) {
+                        val (h, v) = alignments[index]
+                        val startAlignment = BiasAlignment(h * 0.8f, v * 0.8f)
+                        val endAlignment = BiasAlignment(h * 0.6f, v * 0.6f)
+                        calculateOffset(startAlignment, endAlignment, parentWidthPx, parentHeightPx)
                     }
 
                     val animatedAlpha = remember { Animatable(0f) }
-                    val animatedH = remember { Animatable(h * 0.8f) }
-                    val animatedV = remember { Animatable(v * 0.8f) }
-
-                    val animatedAlignment = BiasAlignment(animatedH.value, animatedV.value)
+                    val animatedX = remember { Animatable(startOffset.x.toFloat()) }
+                    val animatedY = remember { Animatable(startOffset.y.toFloat()) }
 
                     LaunchedEffect(key1 = playerState.currentBet) {
+                        animatedX.snapTo(startOffset.x.toFloat())
+                        animatedY.snapTo(startOffset.y.toFloat())
                         launch { animatedAlpha.animateTo(1f, animationSpec = tween(200)) }
-                        launch { animatedH.animateTo(h * 0.6f, animationSpec = tween(400)) }
-                        launch { animatedV.animateTo(v * 0.6f, animationSpec = tween(400)) }
+                        launch { animatedX.animateTo(endOffset.x.toFloat(), animationSpec = tween(400)) }
+                        launch { animatedY.animateTo(endOffset.y.toFloat(), animationSpec = tween(400)) }
                     }
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
-                        modifier = Modifier
-                            .align(animatedAlignment)
-                            .alpha(animatedAlpha.value)) {
-                        val chips = remember(bet) { calculateChipStack(ceil(bet).toLong()) }
-                        PerspectiveChipStack(
-                            chips = chips,
-                            chipSize = 30.dp * scaleMultiplier
-                        )
-                        Text(
-                            text = textBet,
-                            fontSize = 10.sp * scaleMultiplier,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontFamily = MerriWeatherFontFamily,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(
-                                    includeFontPadding = false
-                                )
-                            )
-                        )
-                    }
+                    ChipStackAndText(
+                        bet = bet,
+                        textBet = textBet,
+                        scaleMultiplier = scaleMultiplier,
+                        modifier = Modifier.graphicsLayer {
+                            translationX = animatedX.value
+                            translationY = animatedY.value
+                            alpha = animatedAlpha.value
+                        }
+                    )
                 }
                 if(playerState.player.userId in winnerIds) {
                     val amount = boardResult?.find { it.first == playerState.player.userId }?.second ?: 0L
                     if(amount > 0) {
                         //lastBoardResult = amount
                         onLastBoardResultChange(amount)
-                        val (h, v) = alignments[index]
-                        val (bet, textBet) = if(stackDisplayMode == StackDisplayMode.CHIPS) {
-                            amount.toFloat() to amount.toString()
+                        val (bet, textBet) = remember(amount, stackDisplayMode, gameState?.bigBlindAmount) {
+                            if(stackDisplayMode == StackDisplayMode.CHIPS) {
+                                amount.toFloat() to amount.toString()
+                            }
+                            else {
+                                amount.toBBFloat(gameState?.bigBlindAmount ?: 0L) to amount.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
+                            }
                         }
-                        else {
-                            amount.toBBFloat(gameState?.bigBlindAmount ?: 0L) to amount.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
+                        val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx) {
+                            val (h, v) = alignments[index]
+                            val startAlignment = BiasAlignment(0f, 0f)
+                            val endAlignment = BiasAlignment(h * 0.65f, v * 0.65f)
+                            calculateOffset(startAlignment, endAlignment, parentWidthPx, parentHeightPx)
                         }
-                        val animatedAlpha = remember { Animatable(0f) }
-                        val animatedH = remember { Animatable(0f) }
-                        val animatedV = remember { Animatable(0f) }
 
-                        val animatedAlignment = BiasAlignment(animatedH.value, animatedV.value)
+                        val animatedAlpha = remember { Animatable(0f) }
+                        val animatedX = remember { Animatable(startOffset.x.toFloat()) }
+                        val animatedY = remember { Animatable(startOffset.y.toFloat()) }
+
                         LaunchedEffect(key1 = amount) {
+                            animatedX.snapTo(startOffset.x.toFloat())
+                            animatedY.snapTo(startOffset.y.toFloat())
                             launch {
                                 animatedAlpha.animateTo(1f, animationSpec = tween(200))
                                 animatedAlpha.animateTo(0f, animationSpec = tween(500, delayMillis = 1500))
                             }
-                            launch { animatedH.animateTo(h * 0.65f, animationSpec = tween(2000)) }
-                            launch { animatedV.animateTo(v * 0.65f, animationSpec = tween(2000)) }
+                            launch { animatedX.animateTo(endOffset.x.toFloat(), animationSpec = tween(2000)) }
+                            launch { animatedY.animateTo(endOffset.y.toFloat(), animationSpec = tween(2000)) }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
-                            modifier = Modifier
-                                .align(animatedAlignment)
-                                .alpha(animatedAlpha.value)) {
-                            val chips = remember(bet) { calculateChipStack(ceil(bet).toLong()) }
-                            PerspectiveChipStack(
-                                chips = chips,
-                                chipSize = 30.dp * scaleMultiplier
-                            )
-                            Text(
-                                text = textBet,
-                                fontSize = 10.sp * scaleMultiplier,
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontFamily = MerriWeatherFontFamily,
-                                style = TextStyle(
-                                    platformStyle = PlatformTextStyle(
-                                        includeFontPadding = false
-                                    )
-                                )
-                            )
-                        }
+                        ChipStackAndText(
+                            bet = bet,
+                            textBet = textBet,
+                            scaleMultiplier = scaleMultiplier,
+                            modifier = Modifier.graphicsLayer {
+                                translationX = animatedX.value
+                                translationY = animatedY.value
+                                alpha = animatedAlpha.value
+                            }
+                        )
                     }
                 }
                 PlayerWithEquity(
@@ -1699,6 +1695,35 @@ fun PlayersLayout(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun ChipStackAndText(
+    bet: Float,
+    textBet: String,
+    scaleMultiplier: Float,
+    modifier: Modifier
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy((-3).dp * scaleMultiplier),
+        modifier = modifier) {
+        val chips = remember(bet) { calculateChipStack(ceil(bet).toLong()) }
+        PerspectiveChipStack(
+            chips = chips,
+            chipSize = 30.dp * scaleMultiplier
+        )
+        Text(
+            text = textBet,
+            fontSize = 10.sp * scaleMultiplier,
+            color = Color.White.copy(alpha = 0.8f),
+            fontFamily = MerriWeatherFontFamily,
+            style = TextStyle(
+                platformStyle = PlatformTextStyle(
+                    includeFontPadding = false
+                )
+            )
+        )
     }
 }
 
