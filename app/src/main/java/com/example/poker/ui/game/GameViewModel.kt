@@ -9,13 +9,11 @@ import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameMode
-import com.example.poker.data.remote.dto.GameRoom
-import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.IncomingMessage
 import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.remote.dto.OutsInfo
+import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerAction
-import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
@@ -110,7 +108,7 @@ class GameViewModel @Inject constructor(
     private val _boardRunouts = MutableStateFlow<ImmutableList<ImmutableList<Card>>>(persistentListOf())
     val boardRunouts: StateFlow<ImmutableList<ImmutableList<Card>>> = _boardRunouts.asStateFlow()
 
-    private val _runsCount = MutableStateFlow<Int>(0)
+    private val _runsCount = MutableStateFlow(0)
     val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
 
     private val _gameMode = MutableStateFlow<GameMode?>(null)
@@ -142,7 +140,7 @@ class GameViewModel @Inject constructor(
     private var winnerDisplayJob: Job? = null
 
     val playersOnTable: StateFlow<ImmutableList<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
-        state?.playerStates?.toImmutableList() ?: (room?.players?.map { PlayerState(player = it) }?.toImmutableList() ?: persistentListOf())
+        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) }?.toImmutableList() ?: persistentListOf())
     }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
     private var session: DefaultClientWebSocketSession? = null
@@ -156,7 +154,7 @@ class GameViewModel @Inject constructor(
     private suspend fun loadInitialState() {
         val initialRoom = GameRoomCache.currentRoom
         if (initialRoom != null) {
-            _roomInfo.value = initialRoom
+            _roomInfo.value = initialRoom.toGameRoomUi()
             _specsCount.value = initialRoom.players.filter { it.status == PlayerStatus.SPECTATING }.size
             GameRoomCache.currentRoom = null // Очищаем кэш
             _gameMode.value = initialRoom.gameMode
@@ -168,11 +166,11 @@ class GameViewModel @Inject constructor(
             val roomResult = roomDetailsJob.await()
 
             if (gameStateResult is Result.Success) {
-                _gameState.value = gameStateResult.data
+                _gameState.value = gameStateResult.data.toGameStateUi()
             }
             if(roomResult is Result.Success) {
                 if(roomResult.data != initialRoom) {
-                    _roomInfo.value = roomResult.data
+                    _roomInfo.value = roomResult.data.toGameRoomUi()
                     _specsCount.value = roomResult.data.players.filter { it.status == PlayerStatus.SPECTATING }.size
                 }
                 _gameMode.value = roomResult.data.gameMode
@@ -206,7 +204,7 @@ class GameViewModel @Inject constructor(
                                     is OutgoingMessage.GameStateUpdate -> {
                                         Log.d("testNewState", message.state.toString())
                                         val oldState = _gameState.value
-                                        _gameState.value = message.state
+                                        _gameState.value = message.state?.toGameStateUi()
 
                                         _isActionPanelLocked.value = false
                                         lockJob?.cancel()
@@ -215,7 +213,7 @@ class GameViewModel @Inject constructor(
                                                 currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) }.toImmutableList())
                                             }
                                         } else {
-                                            val newActions = findNewActions(oldState, message.state)
+                                            val newActions = findNewActions(oldState, message.state.toGameStateUi())
                                             newActions.forEach { action ->
                                                 // 1. Делаем действие видимым
                                                 _visibleActionIds.update { (it + action.id).toImmutableSet() }

@@ -1,6 +1,7 @@
 package com.example.poker.ui.game
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -99,11 +100,9 @@ import com.example.poker.R
 import com.example.poker.data.remote.dto.Card
 import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.remote.dto.GameStage
-import com.example.poker.data.remote.dto.GameState
 import com.example.poker.data.remote.dto.OutsInfo
 import com.example.poker.data.remote.dto.Player
 import com.example.poker.data.remote.dto.PlayerAction
-import com.example.poker.data.remote.dto.PlayerState
 import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.domain.model.Suit
 import com.example.poker.ui.theme.MerriWeatherFontFamily
@@ -1623,6 +1622,7 @@ fun PlayersLayout(
     onLastBoardResultChange: (Long) -> Unit
 ) {
     val playersOnTable = playersOnTableProvider()
+    Log.d("testPlayersOnTable", playersOnTable.toString())
     val myUserId = myUserIdProvider()
     val boardResult = boardResultProvider()
     val gameState = gameStateProvider()
