@@ -6,13 +6,6 @@ import kotlinx.serialization.Serializable
 //================================================
 // Вспомогательные классы, используемые в сообщениях
 //================================================
-
-@Serializable
-data class BoardResult(
-    val board: List<Card>,
-    val winnerUsernames: List<String>
-)
-
 @Serializable
 sealed interface OutsInfo {
     @Serializable
@@ -46,10 +39,10 @@ sealed interface OutgoingMessage {
     data class ErrorMessage(val message: String) : OutgoingMessage
     @Serializable
     @SerialName("out.blinds_up")
-    data class BlindsUp(val smallBlind: Long, val bigBlind: Long, val ante: Long, val level: Int) : OutgoingMessage
+    data class BlindsUp(val smallBlind: Long, val bigBlind: Long, val ante: Long, val level: Int, val levelTime: Long) : OutgoingMessage
     @Serializable
     @SerialName("out.tournament_winner")
-    data class TournamentWinner(val winnerUsername: String) : OutgoingMessage
+    data class TournamentWinner(val winnerUserId: String) : OutgoingMessage
     @Serializable
     @SerialName("out.start_board_run")
     data class StartBoardRun(val runIndex: Int, val totalRuns: Int) : OutgoingMessage
@@ -57,14 +50,14 @@ sealed interface OutgoingMessage {
     @SerialName("out.equity_update")
     data class AllInEquityUpdate(val equities: Map<String, Double>, val outs: Map<String, OutsInfo> = emptyMap(), val runIndex: Int) : OutgoingMessage
     @Serializable
-    @SerialName("out.run_multiple_result")
-    data class RunItMultipleTimesResult(val results: List<BoardResult>) : OutgoingMessage
+    @SerialName("out.board_result")
+    data class BoardResult(val payments: List<Pair<String, Long>>) : OutgoingMessage
     @Serializable
     @SerialName("out.run_multiple_offer")
-    data class OfferRunItMultipleTimes(val underdogId: String, val times: Int) : OutgoingMessage
+    data class OfferRunItMultipleTimes(val underdogId: String, val times: Int, val expiresAt: Long) : OutgoingMessage
     @Serializable
     @SerialName("out.run_offer_underdog")
-    data object OfferRunItForUnderdog : OutgoingMessage
+    data class OfferRunItForUnderdog(val expiresAt: Long) : OutgoingMessage
     @Serializable
     @SerialName("out.social_action_broadcast")
     data class SocialActionBroadcast(val fromPlayerId: String, val action: SocialAction) : OutgoingMessage
@@ -77,6 +70,9 @@ sealed interface OutgoingMessage {
     @Serializable
     @SerialName("out.player_status_update")
     data class PlayerStatusUpdate(val userId: String, val status: PlayerStatus, val stack: Long) : OutgoingMessage
+    @Serializable
+    @SerialName("out.connection_status")
+    data class ConnectionStatusUpdate(val userId: String, val isConnected: Boolean) : OutgoingMessage
 }
 
 
@@ -111,7 +107,7 @@ sealed interface IncomingMessage {
     data class SetReady(val isReady: Boolean) : IncomingMessage
     @Serializable
     @SerialName("in.sit_at_table")
-    data class SitAtTable(val buyIn: Long) : IncomingMessage
+    data object SitAtTable : IncomingMessage
 }
 
 @Serializable

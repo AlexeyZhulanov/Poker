@@ -28,8 +28,8 @@ class CreateRoomViewModel @Inject constructor(
     private val _gameMode = MutableStateFlow(GameMode.CASH)
     val gameMode = _gameMode.asStateFlow()
 
-    private val _initialStack = MutableStateFlow("1000")
-    val initialStack = _initialStack.asStateFlow()
+    //private val _initialStack = MutableStateFlow("1000")
+    //val initialStack = _initialStack.asStateFlow()
 
     private val _blindStructureType = MutableStateFlow(BlindStructureType.STANDARD)
     val blindStructureType = _blindStructureType.asStateFlow()
@@ -37,18 +37,23 @@ class CreateRoomViewModel @Inject constructor(
     private val _navigationEvent = MutableSharedFlow<String?>()
     val navigationEvent = _navigationEvent.asSharedFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
     fun onRoomNameChange(name: String) { _roomName.value = name }
     fun onGameModeChange(mode: GameMode) { _gameMode.value = mode }
-    fun onStackChange(stack: String) { _initialStack.value = stack }
+    //fun onStackChange(stack: String) { _initialStack.value = stack }
     fun onBlindStructureChange(type: BlindStructureType) { _blindStructureType.value = type }
 
     fun onCreateClick() {
+        if (_isLoading.value) return
+
         viewModelScope.launch {
+            _isLoading.value = true // Блокируем UI
             val request = CreateRoomRequest(
                 name = roomName.value,
-                gameMode = GameMode.CASH, // todo gamemode.value (не работает пока что)
+                gameMode = _gameMode.value,
                 maxPlayers = 9,
-                initialStack = initialStack.value.toLongOrNull() ?: 1000L,
                 smallBlind = 10, // TODO: брать из полей UI
                 bigBlind = 20,
                 blindStructureType = if (gameMode.value == GameMode.TOURNAMENT) blindStructureType.value else null
@@ -61,6 +66,7 @@ class CreateRoomViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     Log.d("testError", result.message)
+                    _isLoading.value = false
                     _navigationEvent.emit(null) // Сигнал, что можно просто вернуться назад
                 }
             }

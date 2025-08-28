@@ -8,12 +8,11 @@ import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
 import com.example.poker.data.remote.dto.Card
-import com.example.poker.data.remote.dto.GameRoom
-import com.example.poker.data.remote.dto.GameState
+import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.remote.dto.IncomingMessage
 import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.remote.dto.OutsInfo
-import com.example.poker.data.remote.dto.PlayerState
+import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
@@ -29,16 +28,19 @@ import io.ktor.http.HttpMethod
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Base64
@@ -47,15 +49,21 @@ import kotlin.coroutines.cancellation.CancellationException
 
 sealed interface RunItUiState {
     data object Hidden : RunItUiState
-    data object AwaitingUnderdogChoice : RunItUiState
-    data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int) : RunItUiState
+    data class AwaitingUnderdogChoice(val expiresAt: Long) : RunItUiState
+    data class AwaitingFavoriteConfirmation(val underdogId: String, val times: Int, val expiresAt: Long) : RunItUiState
 }
 
 data class AllInEquity(
-    val equities: Map<String, Double>,
-    val outs: Map<String, OutsInfo> = emptyMap(),
+    val equities: ImmutableMap<String, Double>,
+    val outs: ImmutableMap<String, OutsInfo> = persistentMapOf(),
     val runIndex: Int
 )
+
+data class TournamentInfo(val sb: Long, val bb: Long, val ante: Long, val level: Int, val levelTime: Long)
+
+enum class StackDisplayMode {
+    CHIPS, BIG_BLINDS
+}
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -87,31 +95,53 @@ class GameViewModel @Inject constructor(
     private val _allInEquity = MutableStateFlow<AllInEquity?>(null)
     val allInEquity: StateFlow<AllInEquity?> = _allInEquity.asStateFlow()
 
-    private val _staticCommunityCards = MutableStateFlow<List<Card>>(emptyList())
-    val staticCommunityCards: StateFlow<List<Card>> = _staticCommunityCards.asStateFlow()
+    private val _staticCommunityCards = MutableStateFlow<ImmutableList<Card>>(persistentListOf())
+    val staticCommunityCards: StateFlow<ImmutableList<Card>> = _staticCommunityCards.asStateFlow()
 
-    private val _boardRunouts = MutableStateFlow<List<List<Card>>>(emptyList())
-    val boardRunouts: StateFlow<List<List<Card>>> = _boardRunouts.asStateFlow()
+    private val _boardRunouts = MutableStateFlow<ImmutableList<ImmutableList<Card>>>(persistentListOf())
+    val boardRunouts: StateFlow<ImmutableList<ImmutableList<Card>>> = _boardRunouts.asStateFlow()
 
     private val _runsCount = MutableStateFlow(0)
     val runsCount: StateFlow<Int> = _runsCount.asStateFlow()
 
-    val playersOnTable: StateFlow<List<PlayerState>> = combine(_roomInfo, _gameState) { room, state ->
-        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) } ?: emptyList())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    private val _gameMode = MutableStateFlow<GameMode?>(null)
+    val gameMode: StateFlow<GameMode?> = _gameMode.asStateFlow()
+
+    private val _stackDisplayMode = MutableStateFlow(StackDisplayMode.CHIPS)
+    val stackDisplayMode: StateFlow<StackDisplayMode> = _stackDisplayMode.asStateFlow()
+
+    private val _boardResult = MutableStateFlow<ImmutableList<Pair<String, Long>>?>(null)
+    val boardResult: StateFlow<ImmutableList<Pair<String, Long>>?> = _boardResult.asStateFlow()
+
+    private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
+    val tournamentInfo: StateFlow<TournamentInfo?> = _tournamentInfo.asStateFlow()
+
+    private val _tournamentWinner = MutableStateFlow<String?>(null)
+    val tournamentWinner: StateFlow<String?> = _tournamentWinner.asStateFlow()
+
+    private val _scaleMultiplier = MutableStateFlow(1.0f)
+    val scaleMultiplier: StateFlow<Float> = _scaleMultiplier.asStateFlow()
+
+    private val _specsCount = MutableStateFlow(0)
+    val specsCount: StateFlow<Int> = _specsCount.asStateFlow()
+
+    private var winnerDisplayJob: Job? = null
 
     private var session: DefaultClientWebSocketSession? = null
     private var connectionJob: Job? = null
 
     init {
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
+        _scaleMultiplier.value = appSettings.getScaleMultiplier()
     }
 
     private suspend fun loadInitialState() {
         val initialRoom = GameRoomCache.currentRoom
         if (initialRoom != null) {
-            _roomInfo.value = initialRoom
+            _roomInfo.value = initialRoom.toGameRoomUi()
+            _specsCount.value = initialRoom.players.filter { it.status == PlayerStatus.SPECTATING }.size
             GameRoomCache.currentRoom = null // Очищаем кэш
+            _gameMode.value = initialRoom.gameMode
         }
         coroutineScope {
             val gameStateJob = async { gameRepository.getGameState(roomId) }
@@ -120,10 +150,14 @@ class GameViewModel @Inject constructor(
             val roomResult = roomDetailsJob.await()
 
             if (gameStateResult is Result.Success) {
-                _gameState.value = gameStateResult.data
+                _gameState.value = gameStateResult.data.toGameStateUi()
             }
             if(roomResult is Result.Success) {
-                if(roomResult.data != initialRoom) _roomInfo.value = roomResult.data
+                if(roomResult.data != initialRoom) {
+                    _roomInfo.value = roomResult.data.toGameRoomUi()
+                    _specsCount.value = roomResult.data.players.filter { it.status == PlayerStatus.SPECTATING }.size
+                    _gameMode.value = roomResult.data.gameMode
+                }
             }
         }
     }
@@ -133,14 +167,13 @@ class GameViewModel @Inject constructor(
 
         connectionJob = viewModelScope.launch {
             val token = appSettings.getAccessToken() ?: return@launch
-            // 1. Сначала загружаем актуальное состояние комнаты через REST
-            loadInitialState()
-
-            // 2. Потом запускаем цикл переподключения WebSocket
             while (true) {
                 var wasKicked = false // Флаг, чтобы определить причину разрыва
                 try {
+                    // 1. Сначала загружаем актуальное состояние комнаты через REST
+                    loadInitialState()
                     Log.d("testGameWS", "Connecting to room $roomId...")
+                    // 2. Потом запускаем WebSocket
                     apiClient.client.webSocket(
                         method = HttpMethod.Get,
                         host = "amessenger.ru", port = 8080, path = "/play/$roomId",
@@ -154,32 +187,33 @@ class GameViewModel @Inject constructor(
                                 when (val message = AppJson.decodeFromString<OutgoingMessage>(messageJson)) {
                                     is OutgoingMessage.GameStateUpdate -> {
                                         Log.d("testNewState", message.state.toString())
-                                        _gameState.value = message.state
-                                        if(message.state == null) {
-                                            _roomInfo.update { currentRoom ->
-                                                currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) })
-                                            }
-                                        }
+                                        _gameState.value = message.state?.toGameStateUi()
+
                                         _isActionPanelLocked.value = false
                                         lockJob?.cancel()
+                                        if(message.state == null) {
+                                            _roomInfo.update { currentRoom ->
+                                                currentRoom?.copy(players = currentRoom.players.map { it.copy(isReady = false) }.toImmutableList())
+                                            }
+                                        }
                                         // Если идет Run It Multiple times, обновляем нужную доску
                                         if (message.state?.runIndex != null && _boardRunouts.value.isNotEmpty()) {
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = message.state.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[message.state.runIndex - 1] = runoutCards
-                                                }
+                                                    mutableList[message.state.runIndex - 1] = runoutCards.toImmutableList()
+                                                }.toImmutableList()
                                             }
                                         } else {
-                                            _boardRunouts.value = emptyList()
+                                            _boardRunouts.value = persistentListOf()
                                             if(message.state?.runIndex == null) _allInEquity.value = null
                                         }
                                     }
                                     is OutgoingMessage.AllInEquityUpdate -> {
                                         Log.d("testEquity", message.equities.toString())
                                         _allInEquity.value = AllInEquity(
-                                            equities = message.equities,
-                                            outs = message.outs,
+                                            equities = message.equities.toImmutableMap(),
+                                            outs = message.outs.toImmutableMap(),
                                             runIndex = message.runIndex
                                         )
                                     }
@@ -188,45 +222,67 @@ class GameViewModel @Inject constructor(
                                         if(message.totalRuns > 1) {
                                             if (message.runIndex == 1) {
                                                 // Первая крутка: запоминаем статичные карты и создаем первую пустую доску
-                                                _staticCommunityCards.value = _gameState.value?.communityCards ?: emptyList()
+                                                _staticCommunityCards.value = _gameState.value?.communityCards?.toImmutableList() ?: persistentListOf()
                                                 Log.d("testStaticCards", _staticCommunityCards.value.toString())
-                                                _boardRunouts.value = listOf(emptyList())
                                                 _runsCount.value = message.totalRuns
+                                                _boardRunouts.value = persistentListOf(persistentListOf())
                                             } else {
                                                 // Последующие крутки: добавляем еще одну пустую доску
-                                                _boardRunouts.value = _boardRunouts.value + listOf(emptyList())
+                                                _boardRunouts.value = (_boardRunouts.value + persistentListOf(persistentListOf())).toImmutableList()
                                             }
                                         }
                                     }
-                                    is OutgoingMessage.BlindsUp -> println("123") // todo
+                                    is OutgoingMessage.BlindsUp -> {
+                                        Log.d("testBlindsUp", message.toString())
+                                        _tournamentInfo.value = TournamentInfo(
+                                            message.smallBlind, message.bigBlind, message.ante,
+                                            message.level, message.levelTime
+                                        )
+                                    }
                                     is OutgoingMessage.ErrorMessage -> println("123") // todo
                                     is OutgoingMessage.LobbyUpdate -> {} // скипаем, это для другой страницы
                                     is OutgoingMessage.OfferRunItMultipleTimes -> {
                                         _runItUiState.value = RunItUiState.AwaitingFavoriteConfirmation(
                                             underdogId = message.underdogId,
-                                            times = message.times
+                                            times = message.times,
+                                            expiresAt = message.expiresAt
                                         )
                                     }
                                     is OutgoingMessage.OfferRunItForUnderdog -> {
-                                        _runItUiState.value = RunItUiState.AwaitingUnderdogChoice
+                                        _runItUiState.value = RunItUiState.AwaitingUnderdogChoice(
+                                            expiresAt = message.expiresAt
+                                        )
                                     }
                                     is OutgoingMessage.PlayerJoined -> {
                                         Log.d("testPlayerJoined", message.player.toString())
                                         _roomInfo.update { currentRoom ->
-                                            currentRoom?.copy(players = currentRoom.players + message.player)
+                                            currentRoom?.copy(players = (currentRoom.players + message.player).toImmutableList())
                                         }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
                                     }
                                     is OutgoingMessage.PlayerLeft -> {
                                         Log.d("testPlayerLeft", message.userId)
                                         _roomInfo.update { currentRoom ->
-                                            currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId })
+                                            currentRoom?.copy(players = currentRoom.players.filterNot { it.userId == message.userId }.toImmutableList())
+                                        }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
+                                    }
+                                    is OutgoingMessage.BoardResult -> {
+                                        Log.d("testBoardResult", message.payments.toString())
+                                        _boardResult.value = message.payments.toImmutableList()
+                                        // Отменяем предыдущий таймер, если он был
+                                        winnerDisplayJob?.cancel()
+                                        // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
+                                        winnerDisplayJob = viewModelScope.launch {
+                                            delay(3000L)
+                                            _boardResult.value = null
                                         }
                                     }
-                                    is OutgoingMessage.RunItMultipleTimesResult -> {
-                                        Log.d("testRunMulRes", message.results.toString())
-                                    } // todo
                                     is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
-                                    is OutgoingMessage.TournamentWinner -> println("123") // todo
+                                    is OutgoingMessage.TournamentWinner -> {
+                                        Log.d("testTournamentWinner", message.toString())
+                                        _tournamentWinner.value = message.winnerUserId
+                                    }
                                     is OutgoingMessage.PlayerReadyUpdate -> {
                                         Log.d("testPlayerReady", "id: ${message.userId}, isReady: ${message.isReady}")
                                         _roomInfo.update { currentRoom ->
@@ -237,7 +293,7 @@ class GameViewModel @Inject constructor(
                                                     } else {
                                                         player
                                                     }
-                                                }
+                                                }.toImmutableList()
                                             )
                                         }
                                     }
@@ -251,7 +307,28 @@ class GameViewModel @Inject constructor(
                                                     } else {
                                                         player
                                                     }
-                                                }
+                                                }.toImmutableList()
+                                            )
+                                        }
+                                        _specsCount.value = _roomInfo.value?.players?.filter { it.status == PlayerStatus.SPECTATING }?.size ?: 0
+                                    }
+                                    is OutgoingMessage.ConnectionStatusUpdate -> {
+                                        _roomInfo.update { currentRoom ->
+                                            currentRoom?.copy(
+                                                players = currentRoom.players.map {
+                                                    if (it.userId == message.userId) it.copy(isConnected = message.isConnected) else it
+                                                }.toImmutableList()
+                                            )
+                                        }
+                                        _gameState.update { currentState ->
+                                            currentState?.copy(
+                                                playerStates = currentState.playerStates.map {
+                                                    if (it.player.userId == message.userId) {
+                                                        it.copy(player = it.player.copy(isConnected = message.isConnected))
+                                                    } else {
+                                                        it
+                                                    }
+                                                }.toImmutableList()
                                             )
                                         }
                                     }
@@ -316,8 +393,11 @@ class GameViewModel @Inject constructor(
         sendAction(IncomingMessage.AgreeRunCount(accepted))
         _runItUiState.value = RunItUiState.Hidden
     }
-    fun onSitAtTableClick(buyIn: Long) {
-        sendAction(IncomingMessage.SitAtTable(buyIn))
+    fun hideRunItState() {
+        _runItUiState.value = RunItUiState.Hidden
+    }
+    fun onSitAtTableClick() {
+        sendAction(IncomingMessage.SitAtTable)
     }
 
     private fun lockActionPanel() {
@@ -346,5 +426,17 @@ class GameViewModel @Inject constructor(
         } catch (_: Exception) {
             return null
         }
+    }
+
+    fun toggleStackDisplayMode() {
+        _stackDisplayMode.update {
+            if (it == StackDisplayMode.CHIPS) StackDisplayMode.BIG_BLINDS else StackDisplayMode.CHIPS
+        }
+    }
+
+    fun changeScale(change: Float) {
+        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
+        _scaleMultiplier.value = newValue
+        appSettings.saveScaleMultiplier(newValue)
     }
 }

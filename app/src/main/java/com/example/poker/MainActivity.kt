@@ -134,7 +134,13 @@ class MainActivity : ComponentActivity() {
                         )
                     ) {
                         val viewModel: GameViewModel = hiltViewModel()
-                        GameScreen(viewModel = viewModel)
+                        GameScreen(viewModel = viewModel,
+                            onNavigateToLobby = {
+                                navController.navigate(Screen.Lobby.route) {
+                                    popUpTo(0)
+                                }
+                            }
+                        )
                     }
                 }
             }

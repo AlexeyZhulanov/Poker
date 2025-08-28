@@ -14,6 +14,7 @@ import androidx.core.content.edit
 private const val PREF_ACCESS_TOKEN = "access_token"
 private const val PREF_REFRESH_TOKEN = "refresh_token"
 private const val PREFERENCES_FILE_NAME = "poker_app_encrypted_prefs"
+private const val PREFERENCES_SCALE_MULTIPLIER = "scale_multiplier"
 
 @Singleton
 class EncryptedAppSettings @Inject constructor(
@@ -30,17 +31,21 @@ class EncryptedAppSettings @Inject constructor(
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    override fun saveAccessToken(token: String?) {
+    override fun saveAccessToken(token: String?) =
         sharedPreferences.edit { putString(PREF_ACCESS_TOKEN, token) }
-    }
 
     override fun getAccessToken(): String? =
         sharedPreferences.getString(PREF_ACCESS_TOKEN, null)
 
-    override fun saveRefreshToken(token: String?) {
+    override fun saveRefreshToken(token: String?) =
         sharedPreferences.edit { putString(PREF_REFRESH_TOKEN, token) }
-    }
 
     override fun getRefreshToken(): String? =
         sharedPreferences.getString(PREF_REFRESH_TOKEN, null)
+
+    override fun getScaleMultiplier(): Float =
+        sharedPreferences.getFloat(PREFERENCES_SCALE_MULTIPLIER, 1.0f)
+
+    override fun saveScaleMultiplier(value: Float) =
+        sharedPreferences.edit { putFloat(PREFERENCES_SCALE_MULTIPLIER, value) }
 }

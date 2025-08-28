@@ -43,6 +43,7 @@ fun LobbyScreen(
     onNavigateToGame: (roomId: String) -> Unit
 ) {
     val rooms by viewModel.rooms.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
@@ -89,7 +90,7 @@ fun LobbyScreen(
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
             items(rooms) { room ->
-                RoomItem(room = room, onJoinClick = { viewModel.onJoinClick(room.roomId) })
+                RoomItem(room = room, onJoinClick = { viewModel.onJoinClick(room.roomId) }, isEnabled = !isLoading)
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
         }
@@ -97,7 +98,7 @@ fun LobbyScreen(
 }
 
 @Composable
-fun RoomItem(room: GameRoom, onJoinClick: (String) -> Unit) {
+fun RoomItem(room: GameRoom, onJoinClick: (String) -> Unit, isEnabled: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -107,7 +108,7 @@ fun RoomItem(room: GameRoom, onJoinClick: (String) -> Unit) {
             Text(room.name, style = MaterialTheme.typography.titleMedium)
             Text("${room.players.size} / 9 players", style = MaterialTheme.typography.bodySmall)
         }
-        Button(onClick = { onJoinClick(room.roomId) }) {
+        Button(onClick = { onJoinClick(room.roomId) }, enabled = isEnabled) {
             Text("Join")
         }
     }
