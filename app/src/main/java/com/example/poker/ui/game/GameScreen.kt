@@ -27,10 +27,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -131,6 +133,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val gameMode by viewModel.gameMode.collectAsState()
     val specsCount by viewModel.specsCount.collectAsState()
     val tournamentInfo by viewModel.tournamentInfo.collectAsState()
+    val isReconnecting by viewModel.isReconnecting.collectAsState()
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var lastBoardResult by remember { mutableLongStateOf(0L) }
@@ -194,7 +197,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     .height(30.dp)
                     .fillMaxWidth()
             }
-            TopBar(gameMode, tournamentInfo, specsCount, topBarModifier)
+            TopBar(gameMode, tournamentInfo, specsCount, isReconnecting, topBarModifier)
             val boxModifier3 = remember {
                 Modifier
                     .padding(top = 30.dp, bottom = 63.dp)
@@ -278,18 +281,19 @@ fun AnimatedCommunityCards(
             with(density) {
                 val cardWidth = maxWidth / 5
                 val cardWidthPx = cardWidth.toPx()
+                val offsetPx = (2.5.dp).toPx() // 1/2 от нужного отступа
                 object {
-                    val drawCardHeight = (cardWidth - 1.dp) * 1.5f
-                    val drawCardWidth = cardWidth - 1.dp
+                    val drawCardWidth = cardWidth - 5.dp // нужный отступ
+                    val drawCardHeight = drawCardWidth * 1.5f
                     // Начальная позиция "вылета"
                     val startX = (maxWidth * 0.5f).toPx()
                     val startY = (maxHeight * 0.75f).toPx()
                     // Рассчитываем целевые X-позиции для карт
-                    val flopTarget1X = 0f
-                    val flopTarget2X = cardWidthPx
-                    val flopTarget3X = cardWidthPx * 2
-                    val turnTargetX = cardWidthPx * 3
-                    val riverTargetX = cardWidthPx * 4
+                    val flopTarget1X = offsetPx // 0f + offsetPx
+                    val flopTarget2X = cardWidthPx + offsetPx
+                    val flopTarget3X = cardWidthPx * 2 + offsetPx
+                    val turnTargetX = cardWidthPx * 3 + offsetPx
+                    val riverTargetX = cardWidthPx * 4 + offsetPx
                 }
             }
         }
@@ -415,8 +419,8 @@ fun MultiBoardLayout(
     BoxWithConstraints(modifier = modifier) {
         val layoutData = remember(maxWidth, runs) {
             val cardWidth = maxWidth / 5
-            val drawCardWidth = cardWidth - 1.dp
-            val cardHeight = (cardWidth - 1.dp) * 1.5f
+            val drawCardWidth = cardWidth - 5.dp
+            val cardHeight = drawCardWidth * 1.5f
 
             // Вычисляем смещение для текста с банком
             val potTextOffset = if(runs == 2) -(cardHeight / 2) -(cardHeight / 2.5f)
@@ -450,6 +454,7 @@ fun MultiBoardLayout(
 
         // 1. Рисуем статичные карты
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
+            Spacer(Modifier.width(2.5.dp))
             staticCards.forEach { card ->
                 PokerCard(
                     card = card,
@@ -457,7 +462,7 @@ fun MultiBoardLayout(
                         .width(layoutData.drawWidth)
                         .height(layoutData.height)
                 )
-                Spacer(Modifier.width(1.dp))
+                Spacer(Modifier.width(5.dp))
             }
         }
         Column(
@@ -578,9 +583,17 @@ fun ActionPanel(
     }
     // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
     if (showBetSlider && playerState != null && gameState != null) {
+        val imeInsets = WindowInsets.ime
+        val bottomPadding by animateDpAsState(
+            targetValue = with(LocalDensity.current) {
+                imeInsets.getBottom(LocalDensity.current).toDp()
+            },
+            label = "bottom_padding_animation"
+        )
+        val totalPadding = if(bottomPadding > 100.dp) bottomPadding - 100.dp else bottomPadding
         Box(
             contentAlignment = Alignment.TopCenter,
-            modifier = modifier.fillMaxWidth()
+            modifier = modifier.padding(bottom = totalPadding).fillMaxWidth()
         ) {
             BetControls(
                 minBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
@@ -762,20 +775,30 @@ fun PlayerWithEquity(
     isWinner: Boolean = false,
     displayMode: StackDisplayMode,
     bigBlind: Long,
-    scaleMultiplier: Float
+    scaleMultiplier: Float,
+    alignHValue: Float
 ) {
     val equity = allInEquity?.equities?.get(playerState.player.userId)
     val out = allInEquity?.outs?.get(playerState.player.userId)
 
-    val requiredWidth = remember(equity != null, out != null) {
-        when {
-            out != null -> 255.dp * scaleMultiplier
-            equity != null -> 190.dp * scaleMultiplier
-            else -> 70.dp * scaleMultiplier
+    val (requiredWidth, offset) = remember(equity != null, out != null, scaleMultiplier, alignHValue != 0f) {
+        if(alignHValue != 0f) {
+            when {
+                out != null -> 255.dp * scaleMultiplier to 92.5.dp * scaleMultiplier
+                equity != null -> 190.dp * scaleMultiplier to 60.dp * scaleMultiplier
+                else -> 70.dp * scaleMultiplier to 0.dp
+            }
+        } else {
+            when {
+                out != null -> 255.dp * scaleMultiplier to 0.dp
+                equity != null -> 190.dp * scaleMultiplier to 0.dp
+                else -> 70.dp * scaleMultiplier to 0.dp
+            }
         }
     }
+    val m = if(tailDirection == TailDirection.RIGHT) 1 else -1
 
-    Box(modifier = modifier.width(requiredWidth), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.width(requiredWidth).offset(offset * m), contentAlignment = Alignment.Center) {
         PlayerDisplay(
             modifier = Modifier,
             playerState = playerState,
@@ -1441,6 +1464,7 @@ fun TopBar(
     gameMode: GameMode?,
     tournamentInfo: TournamentInfo?,
     specsCount: Int,
+    isReconnecting: Boolean,
     modifier: Modifier
 ) {
     val animatedCount by animateIntAsState(
@@ -1476,17 +1500,23 @@ fun TopBar(
     }
     Box(modifier) {
         if(gameMode == GameMode.CASH) {
-            Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
+            if(isReconnecting) {
+                ReconnectingText(Modifier.align(Alignment.CenterStart).padding(horizontal = 10.dp), 18.sp)
+            } else Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
         } else {
-            val textSize = when(topBarText.length) {
-                in 0..20 -> 14.sp
-                in 21..24 -> 12.sp
-                else -> 11.sp
+            if(isReconnecting) {
+                ReconnectingText(Modifier.align(Alignment.CenterStart).padding(horizontal = 10.dp), 18.sp)
+            } else {
+                val textSize = when(topBarText.length) {
+                    in 0..20 -> 14.sp
+                    in 21..24 -> 12.sp
+                    else -> 11.sp
+                }
+                leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier
+                    .align(Alignment.CenterStart).padding(horizontal = 3.dp),
+                    color = Color.White, fontSize = textSize) }
+                Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
             }
-            leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 3.dp), color = Color.White, fontSize = textSize) }
-            Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
         }
         if (animatedCount != 0) {
             Row(
@@ -1744,7 +1774,8 @@ fun PlayersLayout(
                     scaleMultiplier = scaleMultiplier,
                     displayMode = stackDisplayMode,
                     isWinner = playerState.player.userId in winnerIds,
-                    bigBlind = gameState?.bigBlindAmount ?: 0L
+                    bigBlind = gameState?.bigBlindAmount ?: 0L,
+                    alignHValue = alignments[index].horizontalBias
                 )
             }
         }
@@ -1800,6 +1831,7 @@ fun BottomLayout(
                 derivedStateOf {
                     if(gameState != null) {
                         gameState?.playerStates?.find { it.player.userId == myUserId }?.player
+                            ?: roomInfo?.players?.find { it.userId == myUserId }
                     } else {
                         roomInfo?.players?.find { it.userId == myUserId }
                     }

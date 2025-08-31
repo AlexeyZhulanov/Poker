@@ -125,6 +125,9 @@ class GameViewModel @Inject constructor(
     private val _specsCount = MutableStateFlow(0)
     val specsCount: StateFlow<Int> = _specsCount.asStateFlow()
 
+    private val _isReconnecting = MutableStateFlow(false)
+    val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     private var session: DefaultClientWebSocketSession? = null
@@ -179,6 +182,7 @@ class GameViewModel @Inject constructor(
                         host = "amessenger.ru", port = 8080, path = "/play/$roomId",
                         request = { header(HttpHeaders.Authorization, "Bearer $token") }
                     ) {
+                        _isReconnecting.value = false
                         Log.d("testGameWS", "Connected.")
                         session = this
                         for (frame in incoming) {
@@ -355,6 +359,7 @@ class GameViewModel @Inject constructor(
                 if (wasKicked) {
                     break // Выходим из цикла while(true)
                 }
+                _isReconnecting.value = true
                 Log.d("testGameWS", "Disconnected. Reconnecting in 5 seconds...")
                 delay(5000L) // Пауза перед попыткой переподключения
             }
@@ -369,18 +374,22 @@ class GameViewModel @Inject constructor(
 
     // --- Методы для отправки действий на сервер ---
     fun onFold() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Fold())
     }
     fun onCheck() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Check())
     }
     fun onCall() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Call())
     }
     fun onBet(amount: Long) {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Bet(amount))
     }
@@ -401,10 +410,9 @@ class GameViewModel @Inject constructor(
     }
 
     private fun lockActionPanel() {
-        if (_isActionPanelLocked.value) return
         _isActionPanelLocked.value = true
         lockJob = viewModelScope.launch {
-            delay(3000L)
+            delay(5000L)
             _isActionPanelLocked.value = false
         }
     }
