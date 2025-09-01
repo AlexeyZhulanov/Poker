@@ -94,6 +94,13 @@ fun PokerCard(card: Card?, modifier: Modifier) {
     } ?: CardBack(modifier)
 }
 
+@Composable
+fun SimplePokerCard(card: Card?, modifier: Modifier) {
+    card?.let {
+        CardFaceSimple(it, modifier)
+    } ?: CardBack(modifier)
+}
+
 enum class FlipDirection {
     CLOCKWISE, // По часовой стрелке
     COUNTER_CLOCKWISE // Против часовой стрелки

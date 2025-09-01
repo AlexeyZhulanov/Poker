@@ -7,24 +7,73 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-class TrapezoidShape(private val slantWidth: Float = 20f) : Shape {
+class RoundedTrapezoidShape(
+    private val cornerRadius: Dp = 4.dp,
+    private val cornerCut: Float = 10f
+) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
+        val cornerRadiusPx = with(density) { cornerRadius.toPx() }
         val path = Path().apply {
-            moveTo(0f, 0f) // Верхний левый угол
-            lineTo(size.width, 0f) // Верхний правый угол
-            lineTo(size.width - slantWidth, size.height) // Нижний правый угол (смещенный)
-            lineTo(slantWidth, size.height) // Нижний левый угол (смещенный)
+            // Начинаем с верхнего левого угла, сразу после скругления
+            moveTo(cornerRadiusPx, 0f)
+
+            // Верхняя грань (широкая)
+            lineTo(size.width - cornerRadiusPx, 0f)
+
+            // Правый верхний угол (скругление)
+            arcTo(
+                rect = Rect(size.width - 2 * cornerRadiusPx, 0f, size.width, 2 * cornerRadiusPx),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+
+            // Правая грань (наклонная)
+            lineTo(size.width - cornerCut, size.height - cornerRadiusPx)
+
+            // Правый нижний угол (скругление)
+            arcTo(
+                rect = Rect(size.width - cornerCut - 2 * cornerRadiusPx, size.height - 2 * cornerRadiusPx, size.width - cornerCut, size.height),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+
+            // Нижняя грань (узкая)
+            lineTo(cornerCut + cornerRadiusPx, size.height)
+
+            // Левый нижний угол (скругление)
+            arcTo(
+                rect = Rect(cornerCut, size.height - 2 * cornerRadiusPx, cornerCut + 2 * cornerRadiusPx, size.height),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+
+            // Левая грань (наклонная)
+            lineTo(0f, cornerRadiusPx)
+
+            // Левый верхний угол (скругление)
+            arcTo(
+                rect = Rect(0f, 0f, 2 * cornerRadiusPx, 2 * cornerRadiusPx),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+
             close()
         }
         return Outline.Generic(path)

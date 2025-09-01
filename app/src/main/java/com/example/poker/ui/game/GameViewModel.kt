@@ -128,6 +128,9 @@ class GameViewModel @Inject constructor(
     private val _isReconnecting = MutableStateFlow(false)
     val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
 
+    private val _isPerformanceMode = MutableStateFlow(false)
+    val isPerformanceMode: StateFlow<Boolean> = _isPerformanceMode.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     private var session: DefaultClientWebSocketSession? = null
@@ -136,6 +139,7 @@ class GameViewModel @Inject constructor(
     init {
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
         _scaleMultiplier.value = appSettings.getScaleMultiplier()
+        _isPerformanceMode.value = appSettings.getPerformanceMode()
     }
 
     private suspend fun loadInitialState() {

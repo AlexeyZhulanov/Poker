@@ -15,6 +15,7 @@ private const val PREF_ACCESS_TOKEN = "access_token"
 private const val PREF_REFRESH_TOKEN = "refresh_token"
 private const val PREFERENCES_FILE_NAME = "poker_app_encrypted_prefs"
 private const val PREFERENCES_SCALE_MULTIPLIER = "scale_multiplier"
+private const val PREFERENCES_PERFORMANCE_MODE = "performance_mode"
 
 @Singleton
 class EncryptedAppSettings @Inject constructor(
@@ -48,4 +49,10 @@ class EncryptedAppSettings @Inject constructor(
 
     override fun saveScaleMultiplier(value: Float) =
         sharedPreferences.edit { putFloat(PREFERENCES_SCALE_MULTIPLIER, value) }
+
+    override fun getPerformanceMode(): Boolean =
+        sharedPreferences.getBoolean(PREFERENCES_PERFORMANCE_MODE, false)
+
+    override fun savePerformanceMode(value: Boolean) =
+        sharedPreferences.edit { putBoolean(PREFERENCES_PERFORMANCE_MODE, value) }
 }
