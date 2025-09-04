@@ -21,3 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Poker"
 include(":app")
+include(":shared")
+include(":server")

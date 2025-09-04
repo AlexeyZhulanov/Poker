@@ -1,16 +1,15 @@
 package com.example.poker.ui.game
 
-import com.example.poker.data.remote.dto.BlindLevel
-import com.example.poker.data.remote.dto.BlindStructureType
-import com.example.poker.data.remote.dto.Card
-import com.example.poker.data.remote.dto.GameMode
-import com.example.poker.data.remote.dto.GameRoom
-import com.example.poker.data.remote.dto.GameStage
-import com.example.poker.data.remote.dto.Player
-import com.example.poker.data.remote.dto.PlayerAction
-import com.example.poker.data.remote.dto.PlayerState
+import com.example.poker.shared.dto.BlindLevel
+import com.example.poker.shared.dto.BlindStructureType
+import com.example.poker.shared.dto.GameMode
+import com.example.poker.shared.dto.GameStage
+import com.example.poker.shared.dto.Player
+import com.example.poker.shared.dto.PlayerAction
+import com.example.poker.shared.model.Card
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 data class GameRoom(
     val roomId: String,
@@ -23,17 +22,19 @@ data class GameRoom(
     val blindStructureType: BlindStructureType? = null,
     val blindStructure: ImmutableList<BlindLevel>? = null
 ) {
-    fun toGameRoom(): GameRoom = GameRoom(
-        roomId = roomId,
-        name = name,
-        gameMode = gameMode,
-        players = players,
-        maxPlayers = maxPlayers,
-        ownerId = ownerId,
-        buyIn = buyIn,
-        blindStructureType = blindStructureType,
-        blindStructure = blindStructure
-    )
+    companion object {
+        fun fromUserInput(room: com.example.poker.shared.dto.GameRoom): GameRoom = GameRoom(
+            roomId = room.roomId,
+            name = room.name,
+            gameMode = room.gameMode,
+            players = room.players.toImmutableList(),
+            maxPlayers = room.maxPlayers,
+            ownerId = room.ownerId,
+            buyIn = room.buyIn,
+            blindStructureType = room.blindStructureType,
+            blindStructure = room.blindStructure?.toImmutableList()
+        )
+    }
 }
 
 data class PlayerState(
@@ -46,16 +47,18 @@ data class PlayerState(
     val isAllIn: Boolean = false,
     val lastAction: PlayerAction? = null
 ) {
-    fun toPlayerState(): PlayerState = PlayerState(
-        player = player,
-        cards = cards,
-        currentBet = currentBet,
-        handContribution = handContribution,
-        hasActedThisRound = hasActedThisRound,
-        hasFolded = hasFolded,
-        isAllIn = isAllIn,
-        lastAction = lastAction
-    )
+    companion object {
+        fun fromUserInput(state: com.example.poker.shared.dto.PlayerState): PlayerState = PlayerState(
+            player = state.player,
+            cards = state.cards.toImmutableList(),
+            currentBet = state.currentBet,
+            handContribution = state.handContribution,
+            hasActedThisRound = state.hasActedThisRound,
+            hasFolded = state.hasFolded,
+            isAllIn = state.isAllIn,
+            lastAction = state.lastAction
+        )
+    }
 }
 
 data class GameState(
@@ -63,7 +66,7 @@ data class GameState(
     val stage: GameStage = GameStage.PRE_FLOP,
     val communityCards: ImmutableList<Card> = persistentListOf(),
     val pot: Long = 0,
-    val playerStates: ImmutableList<com.example.poker.ui.game.PlayerState> = persistentListOf(),
+    val playerStates: ImmutableList<PlayerState> = persistentListOf(),
     val dealerPosition: Int = 0,
     val activePlayerPosition: Int = 0,
     val lastRaiseAmount: Long = 0,
@@ -73,19 +76,21 @@ data class GameState(
     val runIndex: Int? = null,
     val turnExpiresAt: Long? = null
 ) {
-    fun toGameState(): GameState = GameState(
-        roomId = roomId,
-        stage = stage,
-        communityCards = communityCards,
-        pot = pot,
-        playerStates = playerStates,
-        dealerPosition = dealerPosition,
-        activePlayerPosition = activePlayerPosition,
-        lastRaiseAmount = lastRaiseAmount,
-        bigBlindAmount = bigBlindAmount,
-        amountToCall = amountToCall,
-        lastAggressorPosition = lastAggressorPosition,
-        runIndex = runIndex,
-        turnExpiresAt = turnExpiresAt
-    )
+    companion object {
+        fun fromUserInput(state: com.example.poker.shared.dto.GameState): GameState = GameState(
+            roomId = state.roomId,
+            stage = state.stage,
+            communityCards = state.communityCards.toImmutableList(),
+            pot = state.pot,
+            playerStates = state.playerStates.map { PlayerState.fromUserInput(it) }.toImmutableList(),
+            dealerPosition = state.dealerPosition,
+            activePlayerPosition = state.activePlayerPosition,
+            lastRaiseAmount = state.lastRaiseAmount,
+            bigBlindAmount = state.bigBlindAmount,
+            amountToCall = state.amountToCall,
+            lastAggressorPosition = state.lastAggressorPosition,
+            runIndex = state.runIndex,
+            turnExpiresAt = state.turnExpiresAt
+        )
+    }
 }

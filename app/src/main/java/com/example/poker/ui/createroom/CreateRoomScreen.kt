@@ -27,8 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.poker.data.remote.dto.BlindStructureType
-import com.example.poker.data.remote.dto.GameMode
+import com.example.poker.shared.dto.BlindStructureType
+import com.example.poker.shared.dto.GameMode
 
 @Composable
 fun CreateRoomScreen(

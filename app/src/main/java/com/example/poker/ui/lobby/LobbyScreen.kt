@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.poker.data.remote.dto.GameRoom
+import com.example.poker.shared.dto.GameRoom
 import com.example.poker.ui.game.ReconnectingText
 
 @OptIn(ExperimentalMaterial3Api::class)

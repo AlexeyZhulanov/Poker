@@ -25,9 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.poker.data.remote.dto.Card
-import com.example.poker.domain.model.Rank
-import com.example.poker.domain.model.Suit
+import com.example.poker.shared.model.Card
+import com.example.poker.shared.model.Rank
+import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.CardCharactersFontFamily
 
 @Composable

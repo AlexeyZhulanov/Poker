@@ -5,13 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
-import com.example.poker.data.remote.dto.GameRoom
-import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
+import com.example.poker.shared.dto.GameRoom
+import com.example.poker.shared.dto.OutgoingMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header

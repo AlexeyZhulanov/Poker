@@ -7,17 +7,17 @@ import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
-import com.example.poker.data.remote.dto.Card
-import com.example.poker.data.remote.dto.GameMode
-import com.example.poker.data.remote.dto.IncomingMessage
-import com.example.poker.data.remote.dto.OutgoingMessage
-import com.example.poker.data.remote.dto.OutsInfo
-import com.example.poker.data.remote.dto.PlayerStatus
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
+import com.example.poker.shared.dto.GameMode
+import com.example.poker.shared.dto.IncomingMessage
+import com.example.poker.shared.dto.OutgoingMessage
+import com.example.poker.shared.dto.OutsInfo
+import com.example.poker.shared.dto.PlayerStatus
+import com.example.poker.shared.model.Card
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.sendSerialized
@@ -153,7 +153,7 @@ class GameViewModel @Inject constructor(
     private suspend fun loadInitialState() {
         val initialRoom = GameRoomCache.currentRoom
         if (initialRoom != null) {
-            _roomInfo.value = initialRoom.toGameRoomUi()
+            _roomInfo.value = GameRoom.fromUserInput(initialRoom)
             _specsCount.value = initialRoom.players.filter { it.status == PlayerStatus.SPECTATING }.size
             GameRoomCache.currentRoom = null // Очищаем кэш
             _gameMode.value = initialRoom.gameMode
@@ -165,11 +165,11 @@ class GameViewModel @Inject constructor(
             val roomResult = roomDetailsJob.await()
 
             if (gameStateResult is Result.Success) {
-                _gameState.value = gameStateResult.data.toGameStateUi()
+                _gameState.value = GameState.fromUserInput(gameStateResult.data)
             }
             if(roomResult is Result.Success) {
                 if(roomResult.data != initialRoom) {
-                    _roomInfo.value = roomResult.data.toGameRoomUi()
+                    _roomInfo.value = GameRoom.fromUserInput(roomResult.data)
                     _specsCount.value = roomResult.data.players.filter { it.status == PlayerStatus.SPECTATING }.size
                     _gameMode.value = roomResult.data.gameMode
                 }
@@ -203,7 +203,7 @@ class GameViewModel @Inject constructor(
                                 when (val message = AppJson.decodeFromString<OutgoingMessage>(messageJson)) {
                                     is OutgoingMessage.GameStateUpdate -> {
                                         Log.d("testNewState", message.state.toString())
-                                        _gameState.value = message.state?.toGameStateUi()
+                                        _gameState.value = message.state?.let { GameState.fromUserInput(it) }
 
                                         _isActionPanelLocked.value = false
                                         lockJob?.cancel()
@@ -213,11 +213,13 @@ class GameViewModel @Inject constructor(
                                             }
                                         }
                                         // Если идет Run It Multiple times, обновляем нужную доску
-                                        if (message.state?.runIndex != null && _boardRunouts.value.isNotEmpty()) {
+                                        val currentState = message.state
+                                        val runIndex = currentState?.runIndex
+                                        if (runIndex != null && _boardRunouts.value.isNotEmpty()) {
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
-                                                    val runoutCards = message.state.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[message.state.runIndex - 1] = runoutCards.toImmutableList()
+                                                    val runoutCards = currentState.communityCards.drop(_staticCommunityCards.value.size)
+                                                    mutableList[runIndex - 1] = runoutCards.toImmutableList()
                                                 }.toImmutableList()
                                             }
                                         } else {

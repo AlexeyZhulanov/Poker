@@ -3,7 +3,7 @@ package com.example.poker.di
 import android.util.Log
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
-import com.example.poker.data.remote.dto.AuthResponse
+import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.data.storage.AppSettings
 import dagger.Module
 import dagger.Provides

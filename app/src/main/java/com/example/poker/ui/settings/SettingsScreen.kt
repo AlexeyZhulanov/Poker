@@ -55,3 +55,27 @@ fun SettingsScreen(
         }
     }
 }
+
+//@Composable
+//fun SettingsIconToggleItem(
+//    title: String,
+//    isPerformanceMode: Boolean,
+//    onModeChange: (Boolean) -> Unit,
+//    modifier: Modifier = Modifier
+//) {
+//    ListItem(
+//        headlineContent = { Text(title) },
+//        trailingContent = {
+//            IconToggleButton(
+//                checked = isPerformanceMode,
+//                onCheckedChange = onModeChange
+//            ) {
+//                if (isPerformanceMode) {
+//                    Icon(painter = painterResource(R.drawable.ic_speed), contentDescription = "Performance Mode")
+//                } else {
+//                    Icon(painter = painterResource(R.drawable.ic_high_quality), contentDescription = "Quality Mode")
+//                }
+//            }
+//        }
+//    )
+//}

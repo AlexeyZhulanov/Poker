@@ -1,9 +1,9 @@
 package com.example.poker.data.repository
 
 import com.example.poker.data.remote.KtorApiClient
-import com.example.poker.data.remote.dto.AuthResponse
-import com.example.poker.data.remote.dto.LoginRequest
-import com.example.poker.data.remote.dto.RegisterRequest
+import com.example.poker.shared.dto.AuthResponse
+import com.example.poker.shared.dto.LoginRequest
+import com.example.poker.shared.dto.RegisterRequest
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody

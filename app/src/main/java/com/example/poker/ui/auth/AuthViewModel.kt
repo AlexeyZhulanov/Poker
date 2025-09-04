@@ -3,8 +3,8 @@ package com.example.poker.ui.auth
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.poker.data.remote.dto.LoginRequest
-import com.example.poker.data.remote.dto.RegisterRequest
+import com.example.poker.shared.dto.LoginRequest
+import com.example.poker.shared.dto.RegisterRequest
 import com.example.poker.data.repository.AuthRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings

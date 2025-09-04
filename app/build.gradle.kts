@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     kotlin("kapt")
     alias(libs.plugins.hilt)
-    kotlin("plugin.serialization") version "2.2.0"
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -33,12 +33,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_22
+        targetCompatibility = JavaVersion.VERSION_22
     }
     kotlin {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_22)
         }
     }
     buildFeatures {
@@ -47,6 +47,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)

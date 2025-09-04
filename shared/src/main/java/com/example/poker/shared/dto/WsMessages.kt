@@ -1,5 +1,6 @@
-package com.example.poker.data.remote.dto
+package com.example.poker.shared.dto
 
+import com.example.poker.shared.model.Card
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

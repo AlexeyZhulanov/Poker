@@ -1,5 +1,9 @@
 package com.example.poker.data.remote.dto
 
+import com.example.poker.shared.dto.IncomingMessage
+import com.example.poker.shared.dto.OutgoingMessage
+import com.example.poker.shared.dto.OutsInfo
+import com.example.poker.shared.dto.SocialAction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic

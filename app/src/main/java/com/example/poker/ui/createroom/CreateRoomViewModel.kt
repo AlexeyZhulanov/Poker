@@ -4,11 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
-import com.example.poker.data.remote.dto.BlindStructureType
-import com.example.poker.data.remote.dto.CreateRoomRequest
-import com.example.poker.data.remote.dto.GameMode
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
+import com.example.poker.shared.dto.BlindStructureType
+import com.example.poker.shared.dto.CreateRoomRequest
+import com.example.poker.shared.dto.GameMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

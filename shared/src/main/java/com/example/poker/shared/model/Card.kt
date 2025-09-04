@@ -1,4 +1,4 @@
-package com.example.poker.domain.model
+package com.example.poker.shared.model
 
 import kotlinx.serialization.Serializable
 
