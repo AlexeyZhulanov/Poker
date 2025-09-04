@@ -95,6 +95,13 @@ fun PokerCard(card: Card?, modifier: Modifier) {
 }
 
 @Composable
+fun ClassicPokerCard(card: Card?, isFourColorMode: Boolean,  modifier: Modifier) {
+    card?.let {
+        CardFaceClassic(it, isFourColorMode, modifier)
+    } ?: CardBack(modifier)
+}
+
+@Composable
 fun SimplePokerCard(card: Card?, modifier: Modifier) {
     card?.let {
         CardFaceSimple(it, modifier)

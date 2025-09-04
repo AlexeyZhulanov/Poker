@@ -131,6 +131,12 @@ class GameViewModel @Inject constructor(
     private val _isPerformanceMode = MutableStateFlow(false)
     val isPerformanceMode: StateFlow<Boolean> = _isPerformanceMode.asStateFlow()
 
+    private val _isClassicCardsEnabled = MutableStateFlow(false)
+    val isClassicCardsEnabled: StateFlow<Boolean> = _isClassicCardsEnabled.asStateFlow()
+
+    private val _isFourColorMode = MutableStateFlow(true)
+    val isFourColorMode: StateFlow<Boolean> = _isFourColorMode.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     private var session: DefaultClientWebSocketSession? = null
@@ -140,6 +146,8 @@ class GameViewModel @Inject constructor(
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
         _scaleMultiplier.value = appSettings.getScaleMultiplier()
         _isPerformanceMode.value = appSettings.getPerformanceMode()
+        _isClassicCardsEnabled.value = appSettings.getClassicCardsEnabled()
+        _isFourColorMode.value = appSettings.getFourColorMode()
     }
 
     private suspend fun loadInitialState() {
@@ -450,5 +458,17 @@ class GameViewModel @Inject constructor(
         val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
+    }
+
+    fun toggleClassicCardsEnabled() {
+        val bool = !isClassicCardsEnabled.value
+        _isClassicCardsEnabled.value = bool
+        appSettings.saveClassicCardsEnabled(bool)
+    }
+
+    fun toggleFourColorMode() {
+        val bool = !isFourColorMode.value
+        _isFourColorMode.value = bool
+        appSettings.saveFourColorMode(bool)
     }
 }

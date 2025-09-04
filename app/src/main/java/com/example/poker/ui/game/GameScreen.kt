@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -143,6 +144,8 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val tournamentInfo by viewModel.tournamentInfo.collectAsState()
     val isReconnecting by viewModel.isReconnecting.collectAsState()
     val isPerformanceMode by viewModel.isPerformanceMode.collectAsState()
+    val isClassicCardsEnabled by viewModel.isClassicCardsEnabled.collectAsState()
+    val isFourColorMode by viewModel.isFourColorMode.collectAsState()
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var lastBoardResult by remember { mutableLongStateOf(0L) }
@@ -243,18 +246,22 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     viewModel = viewModel,
                     stackDisplayMode = stackDisplayMode,
                     specsCount = specsCount,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode,
                     multiboardModifier = Modifier.align(Alignment.CenterStart),
                     singleBoardModifier = Modifier.align(Alignment.Center),
                     waitingModifier = waitingModifier
                 )
                 // Выдвижное меню настроек
                 SettingsMenu(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 60.dp, end = 16.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 60.dp, end = 16.dp),
                     showSettingsMenu = showSettingsMenu,
                     stackDisplayMode = stackDisplayMode,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode,
                     scaleMultiplier = scaleMultiplier,
+                    onToggleClassicCards = { viewModel.toggleClassicCardsEnabled() },
+                    onToggleFourColor = { viewModel.toggleFourColorMode() },
                     onToggleDisplayMode = { viewModel.toggleStackDisplayMode() },
                     onIncreaseScale = { viewModel.changeScale(0.05f) },
                     onDecreaseScale = { viewModel.changeScale(-0.05f) }
@@ -262,6 +269,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             }
             BottomLayout(
                 viewModel = viewModel,
+                isPerformanceMode = isPerformanceMode,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 stackDisplayMode = stackDisplayMode,
                 gameMode = gameMode
@@ -283,7 +291,9 @@ fun AnimatedCommunityCards(
     cards: ImmutableList<Card>,
     modifier: Modifier = Modifier,
     staticCardsSize: Int = 0,
-    isMultiboard: Boolean = false
+    isMultiboard: Boolean = false,
+    isClassicCardsEnabled: Boolean = false,
+    isFourColorMode: Boolean = true
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val density = LocalDensity.current
@@ -380,17 +390,19 @@ fun AnimatedCommunityCards(
                 (staticCardsSize..4).forEach { i ->
                     val card = cards.getOrNull(i)
                     card?.let {
-                        PokerCard(
-                            card = it,
-                            modifier = Modifier
-                                .width(targets.drawCardWidth)
-                                .graphicsLayer {
-                                    alpha = cardAlphas[i].value
-                                    rotationZ = cardRotations[i].value
-                                    translationX = cardOffsetsX[i].value
-                                    translationY = cardOffsetsY[i].value
-                                }
-                        )
+                        val mod = Modifier
+                            .width(targets.drawCardWidth)
+                            .graphicsLayer {
+                                alpha = cardAlphas[i].value
+                                rotationZ = cardRotations[i].value
+                                translationX = cardOffsetsX[i].value
+                                translationY = cardOffsetsY[i].value
+                            }
+                        if(isClassicCardsEnabled) {
+                            ClassicPokerCard(card = it, isFourColorMode = isFourColorMode, modifier = mod)
+                        } else {
+                            PokerCard(card = it, modifier = mod)
+                        }
                     }
                 }
             }
@@ -404,6 +416,8 @@ fun SingleBoardLayout(
     bigBlindAmount: Long,
     communityCards: ImmutableList<Card>,
     displayMode: StackDisplayMode,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
     modifier: Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -412,7 +426,7 @@ fun SingleBoardLayout(
         val text = if(displayMode == StackDisplayMode.CHIPS) pot.toString() else pot.toBB(bigBlindAmount) + " BB"
         Text("Pot: $text", color = Color.White)
         Spacer(modifier = Modifier.height(8.dp))
-        AnimatedCommunityCards(cards = communityCards)
+        AnimatedCommunityCards(cards = communityCards, isClassicCardsEnabled = isClassicCardsEnabled, isFourColorMode = isFourColorMode)
     }
 }
 
@@ -423,6 +437,8 @@ fun MultiBoardLayout(
     runs: Int,
     pot: Long,
     displayMode: StackDisplayMode,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
     bigBlind: Long,
     modifier: Modifier = Modifier
 ) {
@@ -466,12 +482,12 @@ fun MultiBoardLayout(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
             Spacer(Modifier.width(2.5.dp))
             staticCards.forEach { card ->
-                PokerCard(
-                    card = card,
-                    modifier = Modifier
-                        .width(layoutData.drawWidth)
-                        .height(layoutData.height)
-                )
+                val mod = Modifier.width(layoutData.drawWidth).height(layoutData.height)
+                if(isClassicCardsEnabled) {
+                    ClassicPokerCard(card, isFourColorMode, mod)
+                } else {
+                    PokerCard(card, mod)
+                }
                 Spacer(Modifier.width(5.dp))
             }
         }
@@ -501,7 +517,9 @@ fun MultiBoardLayout(
                                 cards = (staticCards + runout).toImmutableList(),
                                 modifier = Modifier,
                                 staticCardsSize = staticCards.size,
-                                isMultiboard = true
+                                isMultiboard = true,
+                                isClassicCardsEnabled = isClassicCardsEnabled,
+                                isFourColorMode = isFourColorMode
                             )
                         }
                     }
@@ -753,7 +771,7 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
     val buttonColors = remember {
         ButtonColors(
             containerColor = Color.Red.copy(alpha = 0.7f),
-            contentColor = Color.Black,
+            contentColor = Color.White.copy(alpha = 0.8f),
             disabledContainerColor = Color(0xFF38070B),
             disabledContentColor = Color.Black
         )
@@ -980,7 +998,7 @@ fun PlayerDisplay(
             Box {
                 RadiantGlowEffectEnhanced(
                     Modifier
-                        .size(52.dp * scaleMultiplier)
+                        .size(40.dp * scaleMultiplier)
                         .align(Alignment.Center),
                     color = Color(0xFFFDFFD8),
                     rayCount = 32,
@@ -988,8 +1006,8 @@ fun PlayerDisplay(
                 )
                 val imageModifier = remember(scaleMultiplier) {
                     Modifier
-                        .width(27.dp * scaleMultiplier)
-                        .height(39.dp * scaleMultiplier)
+                        .width(20.dp * scaleMultiplier)
+                        .height(30.dp * scaleMultiplier)
                         .align(Alignment.Center)
                 }
                 Image(
@@ -1288,15 +1306,17 @@ fun OutsText(outs: List<Card>, isFourColorMode: Boolean, scaleMultiplier: Float,
 @Composable
 fun UnderdogChoiceUi(
     modifier: Modifier,
+    isPerformanceMode: Boolean,
     expiresAt: Long,
     onChoice: (Int) -> Unit,
     onHideRunItState: () -> Unit
 ) {
     var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    val time = if(isPerformanceMode) 1000L else 50L
     LaunchedEffect(expiresAt) {
         while (remainingTime > 0) {
             remainingTime = expiresAt - System.currentTimeMillis()
-            delay(50L) // Обновляем часто для плавной анимации
+            delay(time)
         }
         onHideRunItState
     }
@@ -1346,6 +1366,7 @@ fun UnderdogChoiceUi(
 @Composable
 fun FavoriteConfirmationUi(
     underdogName: String,
+    isPerformanceMode: Boolean,
     times: Int,
     expiresAt: Long,
     modifier: Modifier,
@@ -1353,10 +1374,11 @@ fun FavoriteConfirmationUi(
     onHideRunItState: () -> Unit
 ) {
     var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    val time = if(isPerformanceMode) 1000L else 50L
     LaunchedEffect(expiresAt) {
         while (remainingTime > 0) {
             remainingTime = expiresAt - System.currentTimeMillis()
-            delay(50L) // Обновляем часто для плавной анимации
+            delay(time)
         }
         onHideRunItState
     }
@@ -1690,7 +1712,11 @@ fun SettingsMenu(
     modifier: Modifier,
     showSettingsMenu: Boolean,
     stackDisplayMode: StackDisplayMode,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
     scaleMultiplier: Float,
+    onToggleClassicCards: () -> Unit,
+    onToggleFourColor: () -> Unit,
     onToggleDisplayMode: () -> Unit,
     onIncreaseScale: () -> Unit,
     onDecreaseScale: () -> Unit
@@ -1701,13 +1727,37 @@ fun SettingsMenu(
         enter = slideInHorizontally { it },
         exit = slideOutHorizontally { it }
     ) {
-        Card(elevation = CardDefaults.cardElevation(8.dp)) {
+        Card(elevation = CardDefaults.cardElevation(8.dp), modifier = Modifier.width(IntrinsicSize.Max)) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Classic cards board")
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = isClassicCardsEnabled,
+                    onCheckedChange = { onToggleClassicCards() }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Classic 4 color")
+                Switch(
+                    enabled = isClassicCardsEnabled,
+                    checked = isFourColorMode,
+                    onCheckedChange = { onToggleFourColor() }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("Show stack in BB")
-                Spacer(modifier = Modifier.width(8.dp))
                 Switch(
                     checked = stackDisplayMode == StackDisplayMode.BIG_BLINDS,
                     onCheckedChange = { onToggleDisplayMode() }
@@ -1723,7 +1773,7 @@ fun SettingsMenu(
                 }
 
                 Text(
-                    text = "${(scaleMultiplier * 100).toInt() + 1}%",
+                    text = "${((scaleMultiplier * 100).toInt() / 5f).toInt() * 5}%",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -1821,13 +1871,16 @@ fun PlayersLayout(
                         launch { animatedX.animateTo(endOffset.x.toFloat(), animationSpec = tween(400)) }
                         launch { animatedY.animateTo(endOffset.y.toFloat(), animationSpec = tween(400)) }
                     }
+                    val fixWidth = if(isPerformanceMode && stackDisplayMode == StackDisplayMode.BIG_BLINDS) {
+                        if(textBet.length > 4) chipStackWidthFix * 1.5f else chipStackWidthFix
+                    } else chipStackWidthFix
                     ChipStackAndText(
                         bet = bet,
                         textBet = textBet,
                         scaleMultiplier = scaleMultiplier,
                         isPerformanceMode = isPerformanceMode,
                         modifier = Modifier.graphicsLayer {
-                            translationX = animatedX.value - chipStackWidthFix
+                            translationX = animatedX.value - fixWidth
                             translationY = animatedY.value - chipStackHeightFix
                             alpha = animatedAlpha.value
                         }
@@ -1867,13 +1920,16 @@ fun PlayersLayout(
                             launch { animatedX.animateTo(endOffset.x.toFloat(), animationSpec = tween(2000)) }
                             launch { animatedY.animateTo(endOffset.y.toFloat(), animationSpec = tween(2000)) }
                         }
+                        val fixWidth = if(isPerformanceMode && stackDisplayMode == StackDisplayMode.BIG_BLINDS) {
+                            if(textBet.length > 4) chipStackWidthFix * 1.5f else chipStackWidthFix
+                        } else chipStackWidthFix
                         ChipStackAndText(
                             bet = bet,
                             textBet = textBet,
                             scaleMultiplier = scaleMultiplier,
                             isPerformanceMode = isPerformanceMode,
                             modifier = Modifier.graphicsLayer {
-                                translationX = animatedX.value - chipStackWidthFix
+                                translationX = animatedX.value - fixWidth
                                 translationY = animatedY.value - chipStackHeightFix
                                 alpha = animatedAlpha.value
                             }
@@ -1939,6 +1995,7 @@ fun ChipStackAndText(
 @Composable
 fun BottomLayout(
     viewModel: GameViewModel,
+    isPerformanceMode: Boolean,
     modifier: Modifier,
     stackDisplayMode: StackDisplayMode,
     gameMode: GameMode?
@@ -1982,6 +2039,7 @@ fun BottomLayout(
         is RunItUiState.AwaitingUnderdogChoice -> {
             UnderdogChoiceUi(
                 modifier = modifier,
+                isPerformanceMode = isPerformanceMode,
                 expiresAt = state.expiresAt,
                 onChoice = { times -> viewModel.onRunItChoice(times) },
                 onHideRunItState = { viewModel.hideRunItState() }
@@ -1991,6 +2049,7 @@ fun BottomLayout(
             val underdogName = gameState?.playerStates?.find { it.player.userId == state.underdogId }?.player?.username
             FavoriteConfirmationUi(
                 underdogName = underdogName ?: state.underdogId,
+                isPerformanceMode = isPerformanceMode,
                 times = state.times,
                 expiresAt = state.expiresAt,
                 modifier = modifier,
@@ -2006,6 +2065,8 @@ fun BoardLayout(
     viewModel: GameViewModel,
     stackDisplayMode: StackDisplayMode,
     specsCount: Int,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
     @SuppressLint("ModifierParameter") multiboardModifier: Modifier,
     singleBoardModifier: Modifier,
     waitingModifier: Modifier
@@ -2017,15 +2078,17 @@ fun BoardLayout(
     gameState?.let {
         if(boardRunouts.isNotEmpty()) {
             MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot,
-                displayMode = stackDisplayMode, bigBlind = it.bigBlindAmount,
-                modifier = multiboardModifier)
+                displayMode = stackDisplayMode, isClassicCardsEnabled = isClassicCardsEnabled, bigBlind = it.bigBlindAmount,
+                modifier = multiboardModifier, isFourColorMode = isFourColorMode)
         } else {
             SingleBoardLayout(
-                it.pot,
-                it.bigBlindAmount,
-                it.communityCards,
-                stackDisplayMode,
-                singleBoardModifier
+                pot = it.pot,
+                bigBlindAmount = it.bigBlindAmount,
+                communityCards = it.communityCards,
+                displayMode = stackDisplayMode,
+                isClassicCardsEnabled =  isClassicCardsEnabled,
+                isFourColorMode = isFourColorMode,
+                modifier = singleBoardModifier
             )
         }
     } ?: WaitingPlayersLayout(modifier = waitingModifier, specsCount = specsCount)
