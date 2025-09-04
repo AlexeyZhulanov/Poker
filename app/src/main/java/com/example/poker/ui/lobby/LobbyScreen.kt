@@ -33,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.poker.data.remote.dto.GameRoom
+import com.example.poker.ui.game.ReconnectingText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +45,7 @@ fun LobbyScreen(
 ) {
     val rooms by viewModel.rooms.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isReconnecting by viewModel.isReconnecting.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
@@ -74,7 +76,7 @@ fun LobbyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Poker Rooms") },
+                title = { if(isReconnecting) ReconnectingText() else Text("Poker Rooms") },
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")

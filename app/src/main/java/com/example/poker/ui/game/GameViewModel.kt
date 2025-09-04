@@ -125,6 +125,18 @@ class GameViewModel @Inject constructor(
     private val _specsCount = MutableStateFlow(0)
     val specsCount: StateFlow<Int> = _specsCount.asStateFlow()
 
+    private val _isReconnecting = MutableStateFlow(false)
+    val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
+
+    private val _isPerformanceMode = MutableStateFlow(false)
+    val isPerformanceMode: StateFlow<Boolean> = _isPerformanceMode.asStateFlow()
+
+    private val _isClassicCardsEnabled = MutableStateFlow(false)
+    val isClassicCardsEnabled: StateFlow<Boolean> = _isClassicCardsEnabled.asStateFlow()
+
+    private val _isFourColorMode = MutableStateFlow(true)
+    val isFourColorMode: StateFlow<Boolean> = _isFourColorMode.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     private var session: DefaultClientWebSocketSession? = null
@@ -133,6 +145,9 @@ class GameViewModel @Inject constructor(
     init {
         _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
         _scaleMultiplier.value = appSettings.getScaleMultiplier()
+        _isPerformanceMode.value = appSettings.getPerformanceMode()
+        _isClassicCardsEnabled.value = appSettings.getClassicCardsEnabled()
+        _isFourColorMode.value = appSettings.getFourColorMode()
     }
 
     private suspend fun loadInitialState() {
@@ -179,6 +194,7 @@ class GameViewModel @Inject constructor(
                         host = "amessenger.ru", port = 8080, path = "/play/$roomId",
                         request = { header(HttpHeaders.Authorization, "Bearer $token") }
                     ) {
+                        _isReconnecting.value = false
                         Log.d("testGameWS", "Connected.")
                         session = this
                         for (frame in incoming) {
@@ -355,6 +371,7 @@ class GameViewModel @Inject constructor(
                 if (wasKicked) {
                     break // Выходим из цикла while(true)
                 }
+                _isReconnecting.value = true
                 Log.d("testGameWS", "Disconnected. Reconnecting in 5 seconds...")
                 delay(5000L) // Пауза перед попыткой переподключения
             }
@@ -369,18 +386,22 @@ class GameViewModel @Inject constructor(
 
     // --- Методы для отправки действий на сервер ---
     fun onFold() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Fold())
     }
     fun onCheck() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Check())
     }
     fun onCall() {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Call())
     }
     fun onBet(amount: Long) {
+        if (_isActionPanelLocked.value) return
         lockActionPanel()
         sendAction(IncomingMessage.Bet(amount))
     }
@@ -401,10 +422,9 @@ class GameViewModel @Inject constructor(
     }
 
     private fun lockActionPanel() {
-        if (_isActionPanelLocked.value) return
         _isActionPanelLocked.value = true
         lockJob = viewModelScope.launch {
-            delay(3000L)
+            delay(5000L)
             _isActionPanelLocked.value = false
         }
     }
@@ -438,5 +458,17 @@ class GameViewModel @Inject constructor(
         val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
+    }
+
+    fun toggleClassicCardsEnabled() {
+        val bool = !isClassicCardsEnabled.value
+        _isClassicCardsEnabled.value = bool
+        appSettings.saveClassicCardsEnabled(bool)
+    }
+
+    fun toggleFourColorMode() {
+        val bool = !isFourColorMode.value
+        _isFourColorMode.value = bool
+        appSettings.saveFourColorMode(bool)
     }
 }

@@ -48,6 +48,9 @@ class LobbyViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isReconnecting = MutableStateFlow(false)
+    val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
+
     private var connectionJob: Job? = null
 
     fun connect() {
@@ -70,6 +73,7 @@ class LobbyViewModel @Inject constructor(
                         host = "amessenger.ru", port = 8080, path = "/lobby",
                         request = { header(HttpHeaders.Authorization, "Bearer $token") }
                     ) {
+                        _isReconnecting.value = false
                         Log.d("testLobbyWS", "Connected.")
                         for (frame in incoming) {
                             if (frame is Frame.Text) {
@@ -83,6 +87,7 @@ class LobbyViewModel @Inject constructor(
                 } catch (e: Exception) {
                     if (e !is CancellationException) Log.d("testLobbyWS", "Error: ${e.message}")
                 }
+                _isReconnecting.value = true
                 Log.d("testLobbyWS", "Disconnected. Reconnecting in 5 seconds...")
                 delay(5000L) // Пауза перед попыткой переподключения
             }
