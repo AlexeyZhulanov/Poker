@@ -33,7 +33,7 @@ import com.example.poker.shared.dto.GameMode
 @Composable
 fun CreateRoomScreen(
     viewModel: CreateRoomViewModel,
-    onRoomCreated: (roomId: String) -> Unit,
+    onRoomCreated: (url: String, isOffline: Boolean) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     // Состояния для полей формы
@@ -45,9 +45,9 @@ fun CreateRoomScreen(
 
     // Слушаем событие навигации
     LaunchedEffect(Unit) {
-        viewModel.navigationEvent.collect { roomId ->
-            if (roomId != null) {
-                onRoomCreated(roomId)
+        viewModel.navigationEvent.collect { (url, isOffline) ->
+            if (url != null) {
+                onRoomCreated(url, isOffline)
             } else {
                 onNavigateBack()
             }

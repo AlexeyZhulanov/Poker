@@ -9,19 +9,15 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.example.poker.data.remote.dto.DiscoveredGame
+import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.model.GameRoomService
-import com.example.poker.shared.util.UserAttributeKey
-import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.response.respond
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
@@ -31,7 +27,6 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
-import io.ktor.websocket.send
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,12 +35,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import java.util.UUID
 import java.util.concurrent.Executor
 import kotlin.time.Duration.Companion.seconds
 
 class OfflineHostManager(
-    private val context: Context,
+    context: Context,
     private val gameRoomService: GameRoomService
 ) {
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
@@ -68,9 +62,10 @@ class OfflineHostManager(
 
     // --- Логика Хоста ---
 
-    fun startHost(gameName: String) {
+    fun startHost(request: CreateRoomRequest, userId: String, username: String) {
+        gameRoomService.createRoom(request, userId, username)
         startKtorServer()
-        registerService(gameName)
+        registerService(request.name)
     }
 
     fun lobbyJoin(userId: String) {
@@ -92,7 +87,7 @@ class OfflineHostManager(
                     json()
                 }
                 routing {
-                    webSocket("/game") {
+                    webSocket("/play") {
                         // Читаем параметры из URL
                         val userId = call.request.queryParameters["userId"]
                         val username = call.request.queryParameters["username"]
@@ -109,19 +104,24 @@ class OfflineHostManager(
                             close(CloseReason(CloseReason.Codes.NORMAL, "Room is full or not found."))
                             return@webSocket
                         }
+
+                        // Новый игрок подключился
+                        Log.d("testOfflineHostManager", "Player connected: $username ($userId)")
+
                         // Оповещаем всех о новом игроке
                         player?.let { gameRoomService.broadcast(ROOM_ID, OutgoingMessage.PlayerJoined(it)) }
 
                         val engine = gameRoomService.getEngine(ROOM_ID)
                         val gameState = engine?.getPersonalizedGameStateFor(userId)
 
-                        // todo как-то отправить пользователю updatedRoom и gameState
-                        // todo один из вариантов - stateFlow
-
-                        // Новый игрок подключился
-                        Log.d("testOfflineHostManager", "Player connected: $username ($userId)")
-
                         try {
+                            // Отправляем состояние вместо REST по сокетам
+                            val jsonString1 = Json.encodeToString(OutgoingMessage.serializer(), OutgoingMessage.GameStateUpdateOffline(gameState))
+                            this.send(Frame.Text(jsonString1))
+
+                            val jsonString2 = Json.encodeToString(OutgoingMessage.serializer(), OutgoingMessage.GameRoomUpdateOffline(updatedRoom))
+                            this.send(Frame.Text(jsonString2))
+
                             gameRoomService.onJoin(ROOM_ID, userId, this)
                             for (frame in incoming) {
                                 frame as? Frame.Text ?: continue

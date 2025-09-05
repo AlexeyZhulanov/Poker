@@ -44,6 +44,16 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            // Исключаем файлы, которые вызывают конфликт
+            excludes.add("META-INF/INDEX.LIST")
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/LICENSE.txt")
+            excludes.add("META-INF/NOTICE.txt")
+            excludes.add("META-INF/io.netty.versions.properties")
+        }
+    }
 }
 
 dependencies {

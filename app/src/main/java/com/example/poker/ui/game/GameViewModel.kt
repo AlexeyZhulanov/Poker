@@ -12,19 +12,20 @@ import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
+import com.example.poker.domain.model.OfflineHostManager
 import com.example.poker.shared.dto.GameMode
 import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.dto.OutsInfo
 import com.example.poker.shared.dto.PlayerStatus
 import com.example.poker.shared.model.Card
+import com.example.poker.ui.game.RunItUiState.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.sendSerialized
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.net.URLDecoder
 import java.util.Base64
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -71,10 +73,14 @@ class GameViewModel @Inject constructor(
     private val appSettings: AppSettings,
     private val gameRepository: GameRepository,
     private val authEventBus: AuthEventBus,
+    private val offlineHostManager: OfflineHostManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-
-    private val roomId: String = savedStateHandle.get<String>("roomId") ?: ""
+    private val encodedUrl: String = savedStateHandle.get<String>("gameUrl") ?: ""
+    private val gameUrl: String = URLDecoder.decode(encodedUrl, "UTF-8")
+    private val isOffline: Boolean = savedStateHandle.get<Boolean>("isOffline") ?: false
+    private val isHost: Boolean = isOffline && gameUrl.contains("localhost")
+    private val roomId: String = if(isOffline) "offline_room" else gameUrl.substringAfterLast('/')
 
     private val _gameState = MutableStateFlow<GameState?>(null)
     val gameState: StateFlow<GameState?> = _gameState.asStateFlow()
@@ -85,7 +91,7 @@ class GameViewModel @Inject constructor(
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
     val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
 
-    private val _runItUiState = MutableStateFlow<RunItUiState>(RunItUiState.Hidden)
+    private val _runItUiState = MutableStateFlow<RunItUiState>(Hidden)
     val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
 
     private val _isActionPanelLocked = MutableStateFlow(false)
@@ -181,18 +187,23 @@ class GameViewModel @Inject constructor(
         if (connectionJob?.isActive == true) return
 
         connectionJob = viewModelScope.launch {
-            val token = appSettings.getAccessToken() ?: return@launch
             while (true) {
                 var wasKicked = false // Флаг, чтобы определить причину разрыва
                 try {
-                    // 1. Сначала загружаем актуальное состояние комнаты через REST
-                    loadInitialState()
+                    // 1. Сначала загружаем актуальное состояние комнаты через REST если это онлайн-режим
+                    if(!isOffline) {
+                        loadInitialState()
+                    }
                     Log.d("testGameWS", "Connecting to room $roomId...")
                     // 2. Потом запускаем WebSocket
                     apiClient.client.webSocket(
-                        method = HttpMethod.Get,
-                        host = "amessenger.ru", port = 8080, path = "/play/$roomId",
-                        request = { header(HttpHeaders.Authorization, "Bearer $token") }
+                        urlString = gameUrl,
+                        request = {
+                            if(!isOffline) {
+                            val token = appSettings.getAccessToken()
+                            if(token != null) header(HttpHeaders.Authorization, "Bearer $token")
+                            }
+                        }
                     ) {
                         _isReconnecting.value = false
                         Log.d("testGameWS", "Connected.")
@@ -260,14 +271,14 @@ class GameViewModel @Inject constructor(
                                     is OutgoingMessage.ErrorMessage -> println("123") // todo
                                     is OutgoingMessage.LobbyUpdate -> {} // скипаем, это для другой страницы
                                     is OutgoingMessage.OfferRunItMultipleTimes -> {
-                                        _runItUiState.value = RunItUiState.AwaitingFavoriteConfirmation(
+                                        _runItUiState.value = AwaitingFavoriteConfirmation(
                                             underdogId = message.underdogId,
                                             times = message.times,
                                             expiresAt = message.expiresAt
                                         )
                                     }
                                     is OutgoingMessage.OfferRunItForUnderdog -> {
-                                        _runItUiState.value = RunItUiState.AwaitingUnderdogChoice(
+                                        _runItUiState.value = AwaitingUnderdogChoice(
                                             expiresAt = message.expiresAt
                                         )
                                     }
@@ -350,6 +361,18 @@ class GameViewModel @Inject constructor(
                                             )
                                         }
                                     }
+                                    is OutgoingMessage.GameRoomUpdateOffline -> {
+                                        val room = message.room
+                                        if (room != null) {
+                                            _roomInfo.value = GameRoom.fromUserInput(room)
+                                            _specsCount.value = room.players.filter { it.status == PlayerStatus.SPECTATING }.size
+                                            _gameMode.value = room.gameMode
+                                        }
+                                    }
+                                    is OutgoingMessage.GameStateUpdateOffline -> {
+                                        val state = message.state
+                                        state?.let { _gameState.value = GameState.fromUserInput(it) }
+                                    }
                                 }
                             }
                         }
@@ -410,14 +433,14 @@ class GameViewModel @Inject constructor(
     fun onReadyClick(isReady: Boolean) = sendAction(IncomingMessage.SetReady(isReady))
     fun onRunItChoice(times: Int) {
         sendAction(IncomingMessage.SelectRunCount(times))
-        _runItUiState.value = RunItUiState.Hidden
+        _runItUiState.value = Hidden
     }
     fun onRunItConfirmation(accepted: Boolean) {
         sendAction(IncomingMessage.AgreeRunCount(accepted))
-        _runItUiState.value = RunItUiState.Hidden
+        _runItUiState.value = Hidden
     }
     fun hideRunItState() {
-        _runItUiState.value = RunItUiState.Hidden
+        _runItUiState.value = Hidden
     }
     fun onSitAtTableClick() {
         sendAction(IncomingMessage.SitAtTable)
@@ -472,5 +495,12 @@ class GameViewModel @Inject constructor(
         val bool = !isFourColorMode.value
         _isFourColorMode.value = bool
         appSettings.saveFourColorMode(bool)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        if (isHost) {
+            offlineHostManager.stopAll() // останавливаем локальный сервер
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.example.poker.ui.lobby
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.remote.dto.DiscoveredGame
+import com.example.poker.data.storage.AppSettings
 import com.example.poker.domain.model.OfflineHostManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OfflineLobbyViewModel @Inject constructor(
-    private val offlineHostManager: OfflineHostManager
+    private val offlineHostManager: OfflineHostManager,
+    private val appSettings: AppSettings
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -22,8 +24,9 @@ class OfflineLobbyViewModel @Inject constructor(
     val discoveredGames = offlineHostManager.discoveredGames
 
     fun startDiscovery() {
+        val userId = appSettings.getUserId()
+        offlineHostManager.lobbyJoin(userId)
         offlineHostManager.discoverGames()
-        // todo вызывать отсюда offlineHostManager.lobbyJoin(userId)
     }
 
     fun stopDiscovery() {

@@ -44,6 +44,5 @@ dependencies {
     implementation(libs.logback.classic)
 
     // Testing
-    testImplementation(libs.ktor.server.tests)
     testImplementation(libs.kotlin.test.junit)
 }

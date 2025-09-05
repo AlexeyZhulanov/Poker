@@ -99,7 +99,7 @@ fun LobbyScreen(
                     onCreateGame = { onNavigateToCreateRoom(true) },
                     onJoinGame = { game ->
                         // Для оффлайн игры мы формируем URL из IP
-                        val encodedUrl = URLEncoder.encode("ws://${game.hostAddress}:${game.port}/game", "UTF-8")
+                        val encodedUrl = URLEncoder.encode("ws://${game.hostAddress}:${game.port}/play", "UTF-8")
                         onNavigateToOfflineGame(encodedUrl)
                     }
                 )

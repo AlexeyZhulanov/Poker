@@ -33,6 +33,8 @@ val AppJson = Json {
             subclass(OutgoingMessage.PlayerReadyUpdate::class)
             subclass(OutgoingMessage.PlayerStatusUpdate::class)
             subclass(OutgoingMessage.ConnectionStatusUpdate::class)
+            subclass(OutgoingMessage.GameStateUpdateOffline::class)
+            subclass(OutgoingMessage.GameRoomUpdateOffline::class)
         }
         // Регистрируем иерархию для IncomingMessage
         polymorphic(IncomingMessage::class) {
