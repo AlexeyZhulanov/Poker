@@ -52,6 +52,7 @@ class LobbyViewModel @Inject constructor(
     val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
 
     private var connectionJob: Job? = null
+    private var isConnectingToGame: Boolean = false
 
     fun connect() {
         if (connectionJob?.isActive == true) return
@@ -87,7 +88,7 @@ class LobbyViewModel @Inject constructor(
                 } catch (e: Exception) {
                     if (e !is CancellationException) Log.d("testLobbyWS", "Error: ${e.message}")
                 }
-                _isReconnecting.value = true
+                if(!isConnectingToGame) _isReconnecting.value = true
                 Log.d("testLobbyWS", "Disconnected. Reconnecting in 5 seconds...")
                 delay(5000L) // Пауза перед попыткой переподключения
             }
@@ -108,12 +109,14 @@ class LobbyViewModel @Inject constructor(
                 _isLoading.value = true // Блокируем UI
                 when (val result = gameRepository.joinRoom(roomId)) {
                     is Result.Success -> {
+                        isConnectingToGame = true
                         GameRoomCache.currentRoom = result.data
                         _navigateToGameEvent.emit(roomId)
                     }
                     is Result.Error -> {
                         // TODO: Показать ошибку пользователю
                         println("Join error: ${result.message}")
+                        isConnectingToGame = false
                     }
                 }
             } finally {

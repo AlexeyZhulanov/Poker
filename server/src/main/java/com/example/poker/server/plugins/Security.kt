@@ -3,7 +3,7 @@ package com.example.poker.server.plugins
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poker.server.data.repository.UserRepository
-import com.example.poker.server.util.UserAttributeKey
+import com.example.poker.shared.util.UserAttributeKey
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*

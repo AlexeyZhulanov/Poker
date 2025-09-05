@@ -32,7 +32,7 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
-    val username by viewModel.username.collectAsState()
+    val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -61,7 +61,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            OutlinedTextField(value = username, onValueChange = viewModel::onUsernameChange, label = { Text("Username") })
+            OutlinedTextField(value = email, onValueChange = viewModel::onEmailChange, label = { Text("Email") })
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(value = password, onValueChange = viewModel::onPasswordChange, label = { Text("Password") })
             Spacer(modifier = Modifier.height(32.dp))

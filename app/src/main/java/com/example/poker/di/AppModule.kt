@@ -1,13 +1,17 @@
 package com.example.poker.di
 
+import android.content.Context
 import android.util.Log
 import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.data.remote.dto.AppJson
 import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.data.storage.AppSettings
+import com.example.poker.domain.model.OfflineHostManager
+import com.example.poker.shared.model.GameRoomService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
 import io.ktor.client.call.*
@@ -98,5 +102,20 @@ object AppModule {
     @Singleton
     fun provideKtorApiClient(httpClient: HttpClient): KtorApiClient {
         return KtorApiClient(httpClient)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGameRoomService(): GameRoomService {
+        return GameRoomService()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOfflineHostManager(
+        @ApplicationContext context: Context,
+        gameRoomService: GameRoomService
+    ): OfflineHostManager {
+        return OfflineHostManager(context, gameRoomService)
     }
 }

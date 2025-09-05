@@ -308,6 +308,18 @@ class GameRoomService : CoroutineScope {
             .take(limit)
     }
 
+    fun onLobbyJoinInOffline(userId: String) {
+        // Проверяем, был ли игрок в какой-то комнате
+        val previousRoomId = playerLocations[userId]
+        if (previousRoomId != null) {
+            // Если был, то немедленно удаляем его из той комнаты
+            println("Player $userId connected to lobby, removing from room $previousRoomId")
+            reconnectionTimers[userId]?.cancel()
+            reconnectionTimers.remove(userId)
+            onLeave(previousRoomId, userId)
+        }
+    }
+
     fun onLobbyJoin(userId: String, session: WebSocketSession) {
         // Проверяем, был ли игрок в какой-то комнате
         val previousRoomId = playerLocations[userId]

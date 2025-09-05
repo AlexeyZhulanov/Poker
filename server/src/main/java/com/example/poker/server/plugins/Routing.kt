@@ -4,12 +4,13 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poker.server.data.repository.UserRepository
 import com.example.poker.server.services.TokenService
-import com.example.poker.server.util.UserAttributeKey
+import com.example.poker.shared.util.UserAttributeKey
 import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.LoginRequest
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.dto.RegisterRequest
+import com.example.poker.shared.dto.UpdateUsernameRequest
 import com.example.poker.shared.dto.UserResponse
 import com.example.poker.shared.model.GameRoomService
 import io.ktor.http.HttpStatusCode
@@ -38,21 +39,28 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                 // 1. Проверяем, не занят ли username
                 val existingUser = userRepository.findByUsername(request.username)
                 if (existingUser != null) {
-                    call.respond(HttpStatusCode.Conflict, "User with such username or email already exists.")
+                    call.respond(HttpStatusCode.Conflict, "User with such username already exists.")
                     return@post
                 }
 
-                // 2. Хэшируем пароль
+                // 2. Проверяем, не занят ли email
+                val existingEmail = userRepository.findByEmail(request.email)
+                if(existingEmail != null) {
+                    call.respond(HttpStatusCode.Conflict, "User with such email already exists.")
+                    return@post
+                }
+
+                // 3. Хэшируем пароль
                 val hashedPassword = BCrypt.hashpw(request.password, BCrypt.gensalt())
 
-                // 3. Создаем пользователя
+                // 4. Создаем пользователя
                 val newUser = userRepository.create(request, hashedPassword)
                 if (newUser == null) {
                     call.respond(HttpStatusCode.InternalServerError, "Failed to create user.")
                     return@post
                 }
 
-                // 4. Генерируем JWT-токены
+                // 5. Генерируем JWT-токены
                 val (accessToken, refreshToken) = tokenService.generateTokens(newUser.id)
 
                 call.respond(HttpStatusCode.Created, AuthResponse(accessToken, refreshToken))
@@ -62,9 +70,9 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                 val request = call.receive<LoginRequest>()
 
                 // 1. Ищем пользователя в БД
-                val user = userRepository.findByUsername(request.username)
+                val user = userRepository.findByEmail(request.email)
                 if (user == null) {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid username or password")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid email or password")
                     return@post
                 }
 
@@ -130,6 +138,27 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                     cashBalance = user.cashBalance.toDouble()
                 )
                 call.respond(HttpStatusCode.OK, userResponse)
+            }
+
+            put("/me/username") {
+                val user = call.attributes[UserAttributeKey]
+                val request = call.receive<UpdateUsernameRequest>()
+
+                // Проверяем, не занят ли username
+                val existingUser = userRepository.findByUsername(request.newUsername)
+                if (existingUser != null) {
+                    call.respond(HttpStatusCode.Conflict, "User with such username already exists.")
+                    return@put
+                }
+
+                val success = userRepository.updateUsername(user.id, request.newUsername)
+                if (success) {
+                    call.respond(HttpStatusCode.OK, "Username updated successfully")
+                } else {
+                    // Эта ошибка вряд ли произойдет, так как authenticate уже нашел юзера,
+                    // но это хорошая практика на случай рассинхронизации.
+                    call.respond(HttpStatusCode.NotFound, "User not found")
+                }
             }
 
             route("/rooms") {

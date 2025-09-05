@@ -4,8 +4,11 @@ import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.shared.dto.LoginRequest
 import com.example.poker.shared.dto.RegisterRequest
+import com.example.poker.shared.dto.UpdateUsernameRequest
+import com.example.poker.shared.dto.UserResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -43,6 +46,37 @@ class AuthRepository @Inject constructor(
                 Result.Success(response.body())
             } else {
                 Result.Error("User with this email or username already exists")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "An unknown error occurred")
+        }
+    }
+
+    suspend fun meInfo(): Result<UserResponse> {
+        return try {
+            val response = apiClient.client.post("http://amessenger.ru:8080/me") {
+                contentType(ContentType.Application.Json)
+            }
+            if (response.status == HttpStatusCode.OK) {
+                Result.Success(response.body())
+            } else {
+                Result.Error("User not found")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "An unknown error occurred")
+        }
+    }
+
+    suspend fun updateUsername(request: UpdateUsernameRequest): Result<Unit> {
+        return try {
+            val response = apiClient.client.put("http://amessenger.ru:8080/me/username") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            if(response.status == HttpStatusCode.OK) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Username already exists")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "An unknown error occurred")

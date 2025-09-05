@@ -76,7 +76,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            val result = authRepository.login(LoginRequest(username.value, password.value))
+            val result = authRepository.login(LoginRequest(email.value, password.value))
             when(result) {
                 is Result.Success -> {
                     Log.d("testLogin", result.toString())

@@ -1,4 +1,4 @@
-package com.example.poker.server.domain.model
+package com.example.poker.shared.model
 
 import java.math.BigDecimal
 import java.util.UUID

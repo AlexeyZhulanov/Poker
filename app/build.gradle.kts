@@ -68,6 +68,13 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.collections.immutable)
+
+    // Для оффлайн-режима
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.websockets)
+    implementation(libs.ktor.server.content.negotiation)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

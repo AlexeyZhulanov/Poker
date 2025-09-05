@@ -60,7 +60,7 @@ fun Application.configureSockets(gameRoomService: GameRoomService) {
 
                         val engine = gameRoomService.getEngine(roomId)
 
-                        val currentGameState = engine?.getCurrentGameState() // Нужно добавить этот метод в GameEngine
+                        val currentGameState = engine?.getCurrentGameState()
                         val activePlayerId = currentGameState?.playerStates?.getOrNull(currentGameState.activePlayerPosition)?.player?.userId
 
                         val isActiveFlag = activePlayerId == userId
