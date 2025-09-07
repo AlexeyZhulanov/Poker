@@ -5,7 +5,6 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,12 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.poker.data.remote.dto.DiscoveredGame
 import com.example.poker.ui.game.ReconnectingText
-import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +61,11 @@ fun LobbyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { if(isReconnecting) ReconnectingText() else Text("Poker Rooms") },
+                title = {
+                    if(selectedTab == 0) {
+                        if(isReconnecting) ReconnectingText() else Text("Poker Rooms")
+                    } else Text("Poker Rooms")
+                        },
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
@@ -83,7 +85,7 @@ fun LobbyScreen(
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        text = { Text(text = title) }
+                        text = { Text(text = title, fontSize = 18.sp) }
                     )
                 }
             }
@@ -96,12 +98,7 @@ fun LobbyScreen(
                 )
                 1 -> OfflineLobbyContent(
                     viewModel = offlineViewModel,
-                    onCreateGame = { onNavigateToCreateRoom(true) },
-                    onJoinGame = { game ->
-                        // Для оффлайн игры мы формируем URL из IP
-                        val encodedUrl = URLEncoder.encode("ws://${game.hostAddress}:${game.port}/play", "UTF-8")
-                        onNavigateToOfflineGame(encodedUrl)
-                    }
+                    onJoinGame = { url -> onNavigateToOfflineGame(url) }
                 )
             }
         }
@@ -150,8 +147,7 @@ fun OnlineLobbyContent(
 @Composable
 fun OfflineLobbyContent(
     viewModel: OfflineLobbyViewModel,
-    onCreateGame: () -> Unit,
-    onJoinGame: (discoveredGame: DiscoveredGame) -> Unit
+    onJoinGame: (url: String) -> Unit
 ) {
     val discoveredGames by viewModel.discoveredGames.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -170,10 +166,6 @@ fun OfflineLobbyContent(
         Spacer(Modifier.height(8.dp))
         Button(onClick = { context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }) {
             Text("Открыть настройки Wi-Fi")
-        }
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onCreateGame, modifier = Modifier.fillMaxWidth()) {
-            Text("Создать игру (быть Хостом)")
         }
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         Text("Найденные игры:", style = MaterialTheme.typography.titleMedium)

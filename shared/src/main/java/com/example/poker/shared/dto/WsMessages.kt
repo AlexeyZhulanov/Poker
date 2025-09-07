@@ -76,7 +76,7 @@ sealed interface OutgoingMessage {
     data class ConnectionStatusUpdate(val userId: String, val isConnected: Boolean) : OutgoingMessage
     @Serializable
     @SerialName("out.game_state_offline")
-    data class GameStateUpdateOffline(val state: GameState?) : OutgoingMessage
+    data class GameStateUpdateOffline(val state: GameState) : OutgoingMessage
     @Serializable
     @SerialName("out.game_room_offline")
     data class GameRoomUpdateOffline(val room: GameRoom?) : OutgoingMessage

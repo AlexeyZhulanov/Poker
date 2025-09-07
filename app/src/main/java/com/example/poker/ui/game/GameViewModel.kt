@@ -149,7 +149,9 @@ class GameViewModel @Inject constructor(
     private var connectionJob: Job? = null
 
     init {
-        _myUserId.value = decodeJwtAndGetUserId(appSettings.getAccessToken())
+        _myUserId.value = if(isOffline) appSettings.getUserId()
+         else decodeJwtAndGetUserId(appSettings.getAccessToken())
+        
         _scaleMultiplier.value = appSettings.getScaleMultiplier()
         _isPerformanceMode.value = appSettings.getPerformanceMode()
         _isClassicCardsEnabled.value = appSettings.getClassicCardsEnabled()
@@ -362,6 +364,7 @@ class GameViewModel @Inject constructor(
                                         }
                                     }
                                     is OutgoingMessage.GameRoomUpdateOffline -> {
+                                        Log.d("testGameRoomOffline", message.room.toString())
                                         val room = message.room
                                         if (room != null) {
                                             _roomInfo.value = GameRoom.fromUserInput(room)
@@ -370,8 +373,9 @@ class GameViewModel @Inject constructor(
                                         }
                                     }
                                     is OutgoingMessage.GameStateUpdateOffline -> {
+                                        Log.d("testGameStateOffline", message.state.toString())
                                         val state = message.state
-                                        state?.let { _gameState.value = GameState.fromUserInput(it) }
+                                        _gameState.value = GameState.fromUserInput(state)
                                     }
                                 }
                             }

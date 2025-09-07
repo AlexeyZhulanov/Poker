@@ -14,6 +14,7 @@ import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.model.GameRoomService
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.ApplicationStarted
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -27,6 +28,7 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -62,8 +64,8 @@ class OfflineHostManager(
 
     // --- Логика Хоста ---
 
-    fun startHost(request: CreateRoomRequest, userId: String, username: String) {
-        gameRoomService.createRoom(request, userId, username)
+    suspend fun startHost(request: CreateRoomRequest, userId: String, username: String) {
+        gameRoomService.createRoom(request, userId, username, roomId = ROOM_ID)
         startKtorServer()
         registerService(request.name)
     }
@@ -72,8 +74,11 @@ class OfflineHostManager(
         gameRoomService.onLobbyJoinInOffline(userId)
     }
 
-    private fun startKtorServer() {
+    private suspend fun startKtorServer() {
         if (serverJob?.isActive == true) return
+
+        // Для того, чтобы viewModel дожидалась завершения запуска сервера
+        val serverReady = CompletableDeferred<Unit>()
 
         serverJob = coroutineScope.launch {
             embeddedServer(Netty, port = SERVICE_PORT) {
@@ -85,6 +90,10 @@ class OfflineHostManager(
                 }
                 install(ContentNegotiation) {
                     json()
+                }
+                // Когда сервер готов, отправляем сигнал
+                monitor.subscribe(ApplicationStarted) {
+                    serverReady.complete(Unit)
                 }
                 routing {
                     webSocket("/play") {
@@ -116,9 +125,10 @@ class OfflineHostManager(
 
                         try {
                             // Отправляем состояние вместо REST по сокетам
-                            val jsonString1 = Json.encodeToString(OutgoingMessage.serializer(), OutgoingMessage.GameStateUpdateOffline(gameState))
-                            this.send(Frame.Text(jsonString1))
-
+                            gameState?.let {
+                                val jsonString1 = Json.encodeToString(OutgoingMessage.serializer(), OutgoingMessage.GameStateUpdateOffline(it))
+                                this.send(Frame.Text(jsonString1))
+                            }
                             val jsonString2 = Json.encodeToString(OutgoingMessage.serializer(), OutgoingMessage.GameRoomUpdateOffline(updatedRoom))
                             this.send(Frame.Text(jsonString2))
 
@@ -155,21 +165,35 @@ class OfflineHostManager(
             }.start(wait = true)
         }
         Log.d("testOfflineHostManager", "Ktor server job started")
+        serverReady.await() // Ждем сигнала о том, что сервер запустился
     }
 
-    private fun registerService(gameName: String) {
+    private suspend fun registerService(gameName: String) {
+        // Точно так же ждем выполнения из viewModel
+        val registrationComplete = CompletableDeferred<Unit>()
+
         registrationListener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
                 Log.d("testOfflineHostManager", "Service registered: $gameName")
+                registrationComplete.complete(Unit)
             }
             override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
                 Log.d("testOfflineHostManager", "Service registration failed, errorCode:$errorCode")
+                registrationComplete.completeExceptionally(
+                    RuntimeException("NSD registration failed with error code: $errorCode")
+                )
             }
             override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
                 Log.d("testOfflineHostManager", "Service unregistered: $gameName")
+                registrationComplete.completeExceptionally(
+                    RuntimeException("Service unregistered: $gameName")
+                )
             }
             override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
                 Log.d("testOfflineHostManager", "Service unregistration failed, errorCode:$errorCode")
+                registrationComplete.completeExceptionally(
+                    RuntimeException("Service unregistration failed, errorCode:$errorCode")
+                )
             }
         }
         val serviceInfo = NsdServiceInfo().apply {
@@ -178,6 +202,11 @@ class OfflineHostManager(
             this.port = SERVICE_PORT
         }
         nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        try {
+            registrationComplete.await()
+        } catch (e: Exception) {
+            Log.e("testOfflineHostManager", "Could not await service registration", e)
+        }
     }
 
     // --- Логика Клиента ---

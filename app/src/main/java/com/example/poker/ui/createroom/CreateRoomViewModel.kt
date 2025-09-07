@@ -82,7 +82,7 @@ class CreateRoomViewModel @Inject constructor(
             is Result.Success -> {
                 GameRoomCache.currentRoom = result.data
                 val url = "ws://amessenger.ru:8080/play/${result.data.roomId}"
-                _navigationEvent.emit(encodeUrlWithCredentials(url) to false)
+                _navigationEvent.emit(URLEncoder.encode(url, "UTF-8") to false)
             }
             is Result.Error -> {
                 Log.d("testError", result.message)
@@ -95,14 +95,14 @@ class CreateRoomViewModel @Inject constructor(
     private fun createOfflineRoom(request: CreateRoomRequest) {
         val userId = appSettings.getUserId()
         val username = appSettings.getUsername()
-        offlineHostManager.startHost(request, userId, username)
-        val url = "ws://localhost:8080/play"
         viewModelScope.launch {
-            _navigationEvent.emit(encodeUrlWithCredentials(url) to true)
+            offlineHostManager.startHost(request, userId, username)
+            _navigationEvent.emit(encodeUrlWithCredentialsOffline() to true)
         }
     }
 
-    private fun encodeUrlWithCredentials(baseUrl: String): String {
+    private fun encodeUrlWithCredentialsOffline(): String {
+        val baseUrl = "ws://localhost:8080/play"
         val userId = appSettings.getUserId()
         val username = URLEncoder.encode(appSettings.getUsername(), "UTF-8")
         val fullUrl = "$baseUrl?userId=$userId&username=$username"

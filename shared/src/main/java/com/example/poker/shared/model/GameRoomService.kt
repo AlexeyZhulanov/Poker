@@ -34,9 +34,7 @@ class GameRoomService : CoroutineScope {
     private val reconnectionTimers = ConcurrentHashMap<String, Job>()
     private val playerLocations = ConcurrentHashMap<String, String>()
 
-    fun createRoom(request: CreateRoomRequest, ownerId: String, ownerUsername: String): GameRoom {
-        val roomId = UUID.randomUUID().toString()
-
+    fun createRoom(request: CreateRoomRequest, ownerId: String, ownerUsername: String, roomId: String = UUID.randomUUID().toString()): GameRoom {
         // Определяем структуру блайндов в зависимости от режима
         val blindStructure = if (request.gameMode == GameMode.TOURNAMENT) {
             // Выбираем структуру на основе запроса
