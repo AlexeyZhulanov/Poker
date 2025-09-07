@@ -4,6 +4,7 @@ import com.example.poker.data.remote.KtorApiClient
 import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.GameRoom
 import com.example.poker.shared.dto.GameState
+import com.example.poker.shared.dto.LeaveRequest
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -68,6 +69,23 @@ class GameRepository @Inject constructor(
             } else {
                 Result.Error("Game state not found")
             }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    suspend fun leaveOfflineGame(hostUrl: String, userId: String): Result<Unit> {
+        // Превращаем WebSocket URL (ws://...) в HTTP URL (http://...)
+        val httpUrl = hostUrl
+            .replace("ws://", "http://")
+            .substringBefore("/play") // Убираем путь к сокету
+
+        return try {
+            apiClient.client.post("$httpUrl/leave") {
+                contentType(ContentType.Application.Json)
+                setBody(LeaveRequest(userId))
+            }
+            Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e.message ?: "Unknown error")
         }

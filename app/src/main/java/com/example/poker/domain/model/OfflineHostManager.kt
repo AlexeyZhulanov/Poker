@@ -11,14 +11,19 @@ import androidx.core.content.ContextCompat
 import com.example.poker.data.remote.dto.DiscoveredGame
 import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.IncomingMessage
+import com.example.poker.shared.dto.LeaveRequest
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.model.GameRoomService
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.ApplicationStarted
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
@@ -70,10 +75,6 @@ class OfflineHostManager(
         registerService(request.name)
     }
 
-    fun lobbyJoin(userId: String) {
-        gameRoomService.onLobbyJoinInOffline(userId)
-    }
-
     private suspend fun startKtorServer() {
         if (serverJob?.isActive == true) return
 
@@ -96,6 +97,16 @@ class OfflineHostManager(
                     serverReady.complete(Unit)
                 }
                 routing {
+                    post("/leave") {
+                        try {
+                            val request = call.receive<LeaveRequest>()
+                            Log.d("testOfflineHostManager", "Received leave request from ${request.userId}")
+                            gameRoomService.onLobbyJoinInOffline(request.userId)
+                            call.respond(HttpStatusCode.OK)
+                        } catch (e: Exception) {
+                            call.respond(HttpStatusCode.BadRequest, e.message ?: "Invalid request")
+                        }
+                    }
                     webSocket("/play") {
                         // Читаем параметры из URL
                         val userId = call.request.queryParameters["userId"]

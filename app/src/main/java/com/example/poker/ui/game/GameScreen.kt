@@ -156,8 +156,6 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 viewModel.connect()
-            } else if (event == Lifecycle.Event.ON_STOP) {
-                viewModel.disconnect()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

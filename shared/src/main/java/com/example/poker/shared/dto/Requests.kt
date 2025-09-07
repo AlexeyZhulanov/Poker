@@ -15,6 +15,9 @@ data class AuthResponse(val accessToken: String, val refreshToken: String)
 data class UpdateUsernameRequest(val newUsername: String)
 
 @Serializable
+data class LeaveRequest(val userId: String)
+
+@Serializable
 data class CreateRoomRequest(
     val name: String,
     val gameMode: GameMode,

@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.net.URLDecoder
 import java.util.Base64
 import javax.inject.Inject
@@ -505,6 +506,12 @@ class GameViewModel @Inject constructor(
         super.onCleared()
         if (isHost) {
             offlineHostManager.stopAll() // останавливаем локальный сервер
+        } else if(isOffline) {
+            runBlocking {
+                val userId = appSettings.getUserId()
+                gameRepository.leaveOfflineGame(gameUrl, userId)
+            }
         }
+        disconnect()
     }
 }

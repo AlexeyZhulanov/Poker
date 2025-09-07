@@ -25,8 +25,6 @@ class OfflineLobbyViewModel @Inject constructor(
     val discoveredGames = offlineHostManager.discoveredGames
 
     fun startDiscovery() {
-        val userId = appSettings.getUserId()
-        offlineHostManager.lobbyJoin(userId)
         offlineHostManager.discoverGames()
     }
 
