@@ -1,5 +1,9 @@
 package com.example.poker.data.remote.dto
 
+import com.example.poker.shared.dto.IncomingMessage
+import com.example.poker.shared.dto.OutgoingMessage
+import com.example.poker.shared.dto.OutsInfo
+import com.example.poker.shared.dto.SocialAction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
@@ -29,6 +33,8 @@ val AppJson = Json {
             subclass(OutgoingMessage.PlayerReadyUpdate::class)
             subclass(OutgoingMessage.PlayerStatusUpdate::class)
             subclass(OutgoingMessage.ConnectionStatusUpdate::class)
+            subclass(OutgoingMessage.GameStateUpdateOffline::class)
+            subclass(OutgoingMessage.GameRoomUpdateOffline::class)
         }
         // Регистрируем иерархию для IncomingMessage
         polymorphic(IncomingMessage::class) {

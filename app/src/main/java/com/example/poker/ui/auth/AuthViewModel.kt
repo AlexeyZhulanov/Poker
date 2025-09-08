@@ -3,8 +3,8 @@ package com.example.poker.ui.auth
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.poker.data.remote.dto.LoginRequest
-import com.example.poker.data.remote.dto.RegisterRequest
+import com.example.poker.shared.dto.LoginRequest
+import com.example.poker.shared.dto.RegisterRequest
 import com.example.poker.data.repository.AuthRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
@@ -76,7 +76,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            val result = authRepository.login(LoginRequest(username.value, password.value))
+            val result = authRepository.login(LoginRequest(email.value, password.value))
             when(result) {
                 is Result.Success -> {
                     Log.d("testLogin", result.toString())

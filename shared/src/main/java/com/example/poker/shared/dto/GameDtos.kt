@@ -1,10 +1,9 @@
-package com.example.poker.data.remote.dto
+package com.example.poker.shared.dto
 
-import com.example.poker.domain.model.Rank
-import com.example.poker.domain.model.Suit
-import kotlinx.collections.immutable.toImmutableList
+import com.example.poker.shared.model.Card
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.util.UUID
 
 @Serializable
 enum class GameMode {
@@ -21,25 +20,31 @@ enum class BlindStructureType {
 
 @Serializable
 sealed interface PlayerAction {
-    val id: String
+    val id: String // Уникальный ID для отслеживания анимации
+
     @Serializable
     @SerialName("action.fold")
-    data class Fold(override val id: String) : PlayerAction
+    data class Fold(override val id: String = UUID.randomUUID().toString()) : PlayerAction
+
     @Serializable
     @SerialName("action.check")
-    data class Check(override val id: String) : PlayerAction
+    data class Check(override val id: String = UUID.randomUUID().toString()) : PlayerAction
+
     @Serializable
     @SerialName("action.call")
-    data class Call(val amount: Long, override val id: String) : PlayerAction
+    data class Call(val amount: Long, override val id: String = UUID.randomUUID().toString()) : PlayerAction
+
     @Serializable
     @SerialName("action.bet")
-    data class Bet(val amount: Long, override val id: String) : PlayerAction
+    data class Bet(val amount: Long, override val id: String = UUID.randomUUID().toString()) : PlayerAction
+
     @Serializable
     @SerialName("action.raise")
-    data class Raise(val amount: Long, override val id: String) : PlayerAction
+    data class Raise(val amount: Long, override val id: String = UUID.randomUUID().toString()) : PlayerAction
+
     @Serializable
     @SerialName("action.allin")
-    data class AllIn(override val id: String) : PlayerAction
+    data class AllIn(override val id: String = UUID.randomUUID().toString()) : PlayerAction
 }
 
 @Serializable
@@ -61,19 +66,7 @@ data class GameRoom(
     val buyIn: Long,
     val blindStructureType: BlindStructureType? = null,
     val blindStructure: List<BlindLevel>? = null
-) {
-    fun toGameRoomUi(): com.example.poker.ui.game.GameRoom = com.example.poker.ui.game.GameRoom(
-        roomId = roomId,
-        name = name,
-        gameMode = gameMode,
-        players = players.toImmutableList(),
-        maxPlayers = maxPlayers,
-        ownerId = ownerId,
-        buyIn = buyIn,
-        blindStructureType = blindStructureType,
-        blindStructure = blindStructure?.toImmutableList()
-    )
-}
+)
 
 @Serializable
 data class Player(
@@ -90,9 +83,6 @@ data class Player(
 enum class GameStage { PRE_FLOP, FLOP, TURN, RIVER, SHOWDOWN }
 
 @Serializable
-data class Card(val rank: Rank, val suit: Suit)
-
-@Serializable
 data class PlayerState(
     val player: Player,
     val cards: List<Card> = emptyList(),
@@ -102,18 +92,7 @@ data class PlayerState(
     val hasFolded: Boolean = false,
     val isAllIn: Boolean = false,
     val lastAction: PlayerAction? = null
-) {
-    fun toPlayerStateUi(): com.example.poker.ui.game.PlayerState = com.example.poker.ui.game.PlayerState(
-        player = player,
-        cards = cards.toImmutableList(),
-        currentBet = currentBet,
-        handContribution = handContribution,
-        hasActedThisRound = hasActedThisRound,
-        hasFolded = hasFolded,
-        isAllIn = isAllIn,
-        lastAction = lastAction
-    )
-}
+)
 
 @Serializable
 data class GameState(
@@ -130,23 +109,7 @@ data class GameState(
     val lastAggressorPosition: Int? = null,
     val runIndex: Int? = null,
     val turnExpiresAt: Long? = null
-) {
-    fun toGameStateUi(): com.example.poker.ui.game.GameState = com.example.poker.ui.game.GameState(
-        roomId = roomId,
-        stage = stage,
-        communityCards = communityCards.toImmutableList(),
-        pot = pot,
-        playerStates = playerStates.map { it.toPlayerStateUi() }.toImmutableList(),
-        dealerPosition = dealerPosition,
-        activePlayerPosition = activePlayerPosition,
-        lastRaiseAmount = lastRaiseAmount,
-        bigBlindAmount = bigBlindAmount,
-        amountToCall = amountToCall,
-        lastAggressorPosition = lastAggressorPosition,
-        runIndex = runIndex,
-        turnExpiresAt = turnExpiresAt
-    )
-}
+)
 
 @Serializable
 enum class PlayerStatus {

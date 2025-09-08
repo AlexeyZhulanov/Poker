@@ -1,4 +1,4 @@
-package com.example.poker.data.remote.dto
+package com.example.poker.shared.dto
 
 import kotlinx.serialization.Serializable
 
@@ -6,10 +6,16 @@ import kotlinx.serialization.Serializable
 data class RegisterRequest(val username: String, val email: String, val password: String)
 
 @Serializable
-data class LoginRequest(val username: String, val password: String)
+data class LoginRequest(val email: String, val password: String)
 
 @Serializable
 data class AuthResponse(val accessToken: String, val refreshToken: String)
+
+@Serializable
+data class UpdateUsernameRequest(val newUsername: String)
+
+@Serializable
+data class LeaveRequest(val userId: String)
 
 @Serializable
 data class CreateRoomRequest(
@@ -19,4 +25,12 @@ data class CreateRoomRequest(
     val smallBlind: Long?,
     val bigBlind: Long?,
     val blindStructureType: BlindStructureType? = null
+)
+
+@Serializable
+data class UserResponse(
+    val id: String,
+    val username: String,
+    val email: String,
+    val cashBalance: Double // Используем Double для простоты сериализации в JSON
 )

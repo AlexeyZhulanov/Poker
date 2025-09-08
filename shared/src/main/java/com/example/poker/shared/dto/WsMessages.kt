@@ -1,5 +1,6 @@
-package com.example.poker.data.remote.dto
+package com.example.poker.shared.dto
 
+import com.example.poker.shared.model.Card
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -73,6 +74,12 @@ sealed interface OutgoingMessage {
     @Serializable
     @SerialName("out.connection_status")
     data class ConnectionStatusUpdate(val userId: String, val isConnected: Boolean) : OutgoingMessage
+    @Serializable
+    @SerialName("out.game_state_offline")
+    data class GameStateUpdateOffline(val state: GameState) : OutgoingMessage
+    @Serializable
+    @SerialName("out.game_room_offline")
+    data class GameRoomUpdateOffline(val room: GameRoom?) : OutgoingMessage
 }
 
 

@@ -1,0 +1,68 @@
+package com.example.poker.server.data.repository
+
+import com.example.poker.server.data.entity.Users
+import com.example.poker.server.data.DatabaseFactory.dbQuery
+import com.example.poker.shared.model.User
+import com.example.poker.shared.dto.RegisterRequest
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
+import java.math.BigDecimal
+import java.util.UUID
+
+class UserRepository {
+
+    // Вспомогательная функция для конвертации
+    private fun toUser(row: ResultRow): User = User(
+        id = row[Users.id],
+        username = row[Users.username],
+        email = row[Users.email],
+        passwordHash = row[Users.passwordHash],
+        cashBalance = row[Users.cashBalance]
+    )
+
+    suspend fun findById(id: UUID): User? {
+        return dbQuery {
+            Users.selectAll().where { Users.id eq id }
+                .map(::toUser)
+                .singleOrNull()
+        }
+    }
+
+    suspend fun findByEmail(email: String): User? {
+        return dbQuery {
+            Users.selectAll().where { Users.email eq email }
+                .map(::toUser)
+                .singleOrNull()
+        }
+    }
+
+    suspend fun findByUsername(username: String): User? {
+        return dbQuery {
+            Users.selectAll().where { Users.username eq username }
+                .map(::toUser)
+                .singleOrNull()
+        }
+    }
+
+    suspend fun updateUsername(userId: UUID, newUsername: String): Boolean {
+        return dbQuery {
+            val updatedRows = Users.update({ Users.id eq userId }) {
+                it[username] = newUsername
+            }
+            updatedRows > 0 // Возвращаем true, если обновление прошло успешно
+        }
+    }
+
+    suspend fun create(request: RegisterRequest, hashedPassword: String): User? {
+        return dbQuery {
+            Users.insert {
+                it[username] = request.username
+                it[email] = request.email
+                it[passwordHash] = hashedPassword
+                it[cashBalance] = BigDecimal(1000)
+            }.resultedValues?.firstOrNull()?.let(::toUser)
+        }
+    }
+}

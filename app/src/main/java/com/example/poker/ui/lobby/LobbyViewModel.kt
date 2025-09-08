@@ -5,18 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.GameRoomCache
 import com.example.poker.data.remote.KtorApiClient
-import com.example.poker.data.remote.dto.GameRoom
-import com.example.poker.data.remote.dto.OutgoingMessage
 import com.example.poker.data.repository.GameRepository
 import com.example.poker.data.repository.Result
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
+import com.example.poker.shared.dto.GameRoom
+import com.example.poker.shared.dto.OutgoingMessage
+import com.example.poker.util.serverSocketUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.Job
@@ -52,6 +52,7 @@ class LobbyViewModel @Inject constructor(
     val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
 
     private var connectionJob: Job? = null
+    private var isConnectingToGame: Boolean = false
 
     fun connect() {
         if (connectionJob?.isActive == true) return
@@ -69,8 +70,7 @@ class LobbyViewModel @Inject constructor(
                 try {
                     Log.d("testLobbyWS", "Connecting...")
                     apiClient.client.webSocket(
-                        method = HttpMethod.Get,
-                        host = "amessenger.ru", port = 8080, path = "/lobby",
+                        urlString = "$serverSocketUrl/lobby",
                         request = { header(HttpHeaders.Authorization, "Bearer $token") }
                     ) {
                         _isReconnecting.value = false
@@ -87,7 +87,7 @@ class LobbyViewModel @Inject constructor(
                 } catch (e: Exception) {
                     if (e !is CancellationException) Log.d("testLobbyWS", "Error: ${e.message}")
                 }
-                _isReconnecting.value = true
+                if(!isConnectingToGame) _isReconnecting.value = true
                 Log.d("testLobbyWS", "Disconnected. Reconnecting in 5 seconds...")
                 delay(5000L) // Пауза перед попыткой переподключения
             }
@@ -108,12 +108,14 @@ class LobbyViewModel @Inject constructor(
                 _isLoading.value = true // Блокируем UI
                 when (val result = gameRepository.joinRoom(roomId)) {
                     is Result.Success -> {
+                        isConnectingToGame = true
                         GameRoomCache.currentRoom = result.data
                         _navigateToGameEvent.emit(roomId)
                     }
                     is Result.Error -> {
                         // TODO: Показать ошибку пользователю
                         println("Join error: ${result.message}")
+                        isConnectingToGame = false
                     }
                 }
             } finally {

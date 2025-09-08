@@ -13,4 +13,7 @@ interface AppSettings {
     fun saveClassicCardsEnabled(value: Boolean)
     fun getFourColorMode(): Boolean
     fun saveFourColorMode(value: Boolean)
+    fun getUserId(): String
+    fun getUsername(): String
+    fun saveUsername(value: String)
 }

@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     kotlin("kapt")
     alias(libs.plugins.hilt)
-    kotlin("plugin.serialization") version "2.2.0"
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -33,20 +33,31 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_22
+        targetCompatibility = JavaVersion.VERSION_22
     }
     kotlin {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_22)
         }
     }
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            // Исключаем файлы, которые вызывают конфликт
+            excludes.add("META-INF/INDEX.LIST")
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/LICENSE.txt")
+            excludes.add("META-INF/NOTICE.txt")
+            excludes.add("META-INF/io.netty.versions.properties")
+        }
+    }
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
@@ -67,6 +78,13 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.collections.immutable)
+
+    // Для оффлайн-режима
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.websockets)
+    implementation(libs.ktor.server.content.negotiation)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

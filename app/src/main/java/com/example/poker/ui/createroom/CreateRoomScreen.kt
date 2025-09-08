@@ -27,13 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.poker.data.remote.dto.BlindStructureType
-import com.example.poker.data.remote.dto.GameMode
+import com.example.poker.shared.dto.BlindStructureType
+import com.example.poker.shared.dto.GameMode
 
 @Composable
 fun CreateRoomScreen(
     viewModel: CreateRoomViewModel,
-    onRoomCreated: (roomId: String) -> Unit,
+    onRoomCreated: (url: String, isOffline: Boolean) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     // Состояния для полей формы
@@ -45,9 +45,9 @@ fun CreateRoomScreen(
 
     // Слушаем событие навигации
     LaunchedEffect(Unit) {
-        viewModel.navigationEvent.collect { roomId ->
-            if (roomId != null) {
-                onRoomCreated(roomId)
+        viewModel.navigationEvent.collect { (url, isOffline) ->
+            if (url != null) {
+                onRoomCreated(url, isOffline)
             } else {
                 onNavigateBack()
             }

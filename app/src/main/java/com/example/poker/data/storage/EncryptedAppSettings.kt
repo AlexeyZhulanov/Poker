@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
+import java.util.UUID
 
 private const val PREF_ACCESS_TOKEN = "access_token"
 private const val PREF_REFRESH_TOKEN = "refresh_token"
@@ -18,6 +19,8 @@ private const val PREFERENCES_SCALE_MULTIPLIER = "scale_multiplier"
 private const val PREFERENCES_PERFORMANCE_MODE = "performance_mode"
 private const val PREFERENCES_CLASSIC_CARDS = "classic_cards"
 private const val PREFERENCES_FOUR_COLOR = "four_color"
+private const val PREFERENCES_USER_ID = "user_id"
+private const val PREFERENCES_USERNAME = "username"
 
 @Singleton
 class EncryptedAppSettings @Inject constructor(
@@ -69,4 +72,19 @@ class EncryptedAppSettings @Inject constructor(
 
     override fun saveFourColorMode(value: Boolean) =
         sharedPreferences.edit { putBoolean(PREFERENCES_FOUR_COLOR, value) }
+
+    override fun getUserId(): String {
+        var savedId = sharedPreferences.getString(PREFERENCES_USER_ID, null)
+        if(savedId == null) {
+            savedId = UUID.randomUUID().toString()
+            sharedPreferences.edit { putString(PREFERENCES_USER_ID, savedId) }
+        }
+        return savedId
+    }
+
+    override fun getUsername(): String =
+        sharedPreferences.getString(PREFERENCES_USERNAME, "Player${getUserId().takeLast(4)}") ?: "Player${getUserId().takeLast(4)}"
+
+    override fun saveUsername(value: String) =
+        sharedPreferences.edit { putString(PREFERENCES_USERNAME, value) }
 }

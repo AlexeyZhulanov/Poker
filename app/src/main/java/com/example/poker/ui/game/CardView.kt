@@ -25,9 +25,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.poker.data.remote.dto.Card
-import com.example.poker.domain.model.Rank
-import com.example.poker.domain.model.Suit
+import com.example.poker.shared.model.Card
+import com.example.poker.shared.model.Rank
+import com.example.poker.shared.model.Suit
 
 @Composable
 fun CardBack(modifier: Modifier = Modifier) {

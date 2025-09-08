@@ -24,9 +24,11 @@ import com.example.poker.ui.game.GameScreen
 import com.example.poker.ui.game.GameViewModel
 import com.example.poker.ui.lobby.LobbyScreen
 import com.example.poker.ui.lobby.LobbyViewModel
+import com.example.poker.ui.lobby.OfflineLobbyViewModel
 import com.example.poker.ui.settings.SettingsScreen
 import com.example.poker.ui.settings.SettingsViewModel
 import com.example.poker.ui.theme.PokerTheme
+import com.example.poker.util.serverSocketUrl
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -97,12 +99,22 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable(Screen.Lobby.route) {
-                        val viewModel: LobbyViewModel = hiltViewModel()
+                        val onlineViewModel: LobbyViewModel = hiltViewModel()
+                        val offlineViewModel: OfflineLobbyViewModel = hiltViewModel()
                         LobbyScreen(
-                            viewModel = viewModel,
+                            onlineViewModel = onlineViewModel,
+                            offlineViewModel = offlineViewModel,
                             onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                            onNavigateToCreateRoom = { navController.navigate(Screen.CreateRoom.route) },
-                            onNavigateToGame = { roomId -> navController.navigate(Screen.Game.createRoute(roomId)) }
+                            onNavigateToCreateRoom = { isOffline ->
+                                navController.navigate(Screen.CreateRoom.createRoute(isOffline))
+                            },
+                            onNavigateToOnlineGame = { roomId ->
+                                val url = "$serverSocketUrl/play/$roomId"
+                                navController.navigate(Screen.Game.createRoute(url, isOffline = false))
+                            },
+                            onNavigateToOfflineGame = { gameUrl ->
+                                navController.navigate(Screen.Game.createRoute(gameUrl, isOffline = true))
+                            }
                         )
                     }
                     composable(Screen.Settings.route) {
@@ -114,14 +126,16 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                    composable(Screen.CreateRoom.route) {
+                    composable(
+                        route = Screen.CreateRoom.route,
+                        arguments = listOf(navArgument("isOffline") { type = NavType.BoolType })
+                    ) {
                         val viewModel: CreateRoomViewModel = hiltViewModel()
                         CreateRoomScreen(
                             viewModel = viewModel,
                             onNavigateBack = { navController.popBackStack() },
-                            onRoomCreated = { roomId ->
-                                navController.navigate(Screen.Game.createRoute(roomId)) {
-                                    // Очищаем стек до лобби, чтобы нельзя было вернуться на экран создания
+                            onRoomCreated = { url, isOffline ->
+                                navController.navigate(Screen.Game.createRoute(url, isOffline)) {
                                     popUpTo(Screen.Lobby.route)
                                 }
                             }
@@ -130,7 +144,8 @@ class MainActivity : ComponentActivity() {
                     composable(
                         route = Screen.Game.route,
                         arguments = listOf(
-                            navArgument("roomId") { type = NavType.StringType }
+                            navArgument("gameUrl") { type = NavType.StringType },
+                            navArgument("isOffline") { type = NavType.BoolType }
                         )
                     ) {
                         val viewModel: GameViewModel = hiltViewModel()
