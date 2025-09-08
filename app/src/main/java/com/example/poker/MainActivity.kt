@@ -28,6 +28,7 @@ import com.example.poker.ui.lobby.OfflineLobbyViewModel
 import com.example.poker.ui.settings.SettingsScreen
 import com.example.poker.ui.settings.SettingsViewModel
 import com.example.poker.ui.theme.PokerTheme
+import com.example.poker.util.serverSocketUrl
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -108,7 +109,7 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate(Screen.CreateRoom.createRoute(isOffline))
                             },
                             onNavigateToOnlineGame = { roomId ->
-                                val url = "ws://amessenger.ru:8080/play/$roomId"
+                                val url = "$serverSocketUrl/play/$roomId"
                                 navController.navigate(Screen.Game.createRoute(url, isOffline = false))
                             },
                             onNavigateToOfflineGame = { gameUrl ->

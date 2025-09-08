@@ -5,6 +5,7 @@ import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.GameRoom
 import com.example.poker.shared.dto.GameState
 import com.example.poker.shared.dto.LeaveRequest
+import com.example.poker.util.serverUrl
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -21,7 +22,7 @@ class GameRepository @Inject constructor(
 ) {
     suspend fun createRoom(request: CreateRoomRequest): Result<GameRoom> {
         return try {
-            val response = apiClient.client.post("http://amessenger.ru:8080/rooms") {
+            val response = apiClient.client.post("$serverUrl/rooms") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
@@ -37,7 +38,7 @@ class GameRepository @Inject constructor(
 
     suspend fun joinRoom(roomId: String): Result<GameRoom> {
         return try {
-            val response = apiClient.client.post("http://amessenger.ru:8080/rooms/$roomId/join")
+            val response = apiClient.client.post("$serverUrl/rooms/$roomId/join")
             if (response.status == HttpStatusCode.OK) {
                 Result.Success(response.body())
             } else {
@@ -50,7 +51,7 @@ class GameRepository @Inject constructor(
 
     suspend fun getRoomDetails(roomId: String): Result<GameRoom> {
         return try {
-            val response = apiClient.client.get("http://amessenger.ru:8080/rooms/$roomId")
+            val response = apiClient.client.get("$serverUrl/rooms/$roomId")
             if (response.status == HttpStatusCode.OK) {
                 Result.Success(response.body())
             } else {
@@ -63,7 +64,7 @@ class GameRepository @Inject constructor(
 
     suspend fun getGameState(roomId: String): Result<GameState> {
         return try {
-            val response = apiClient.client.get("http://amessenger.ru:8080/rooms/$roomId/state")
+            val response = apiClient.client.get("$serverUrl/rooms/$roomId/state")
             if (response.status == HttpStatusCode.OK) {
                 Result.Success(response.body())
             } else {

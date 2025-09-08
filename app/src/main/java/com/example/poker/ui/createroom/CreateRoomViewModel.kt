@@ -12,6 +12,7 @@ import com.example.poker.domain.model.OfflineHostManager
 import com.example.poker.shared.dto.BlindStructureType
 import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.GameMode
+import com.example.poker.util.serverSocketUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,7 +82,7 @@ class CreateRoomViewModel @Inject constructor(
         when(result) {
             is Result.Success -> {
                 GameRoomCache.currentRoom = result.data
-                val url = "ws://amessenger.ru:8080/play/${result.data.roomId}"
+                val url = "$serverSocketUrl/play/${result.data.roomId}"
                 _navigationEvent.emit(URLEncoder.encode(url, "UTF-8") to false)
             }
             is Result.Error -> {

@@ -20,6 +20,7 @@ import com.example.poker.shared.dto.OutsInfo
 import com.example.poker.shared.dto.PlayerStatus
 import com.example.poker.shared.model.Card
 import com.example.poker.ui.game.RunItUiState.*
+import com.example.poker.util.ROOM_ID
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.sendSerialized
@@ -81,7 +82,7 @@ class GameViewModel @Inject constructor(
     private val gameUrl: String = URLDecoder.decode(encodedUrl, "UTF-8")
     private val isOffline: Boolean = savedStateHandle.get<Boolean>("isOffline") ?: false
     private val isHost: Boolean = isOffline && gameUrl.contains("localhost")
-    private val roomId: String = if(isOffline) "offline_room" else gameUrl.substringAfterLast('/')
+    private val roomId: String = if(isOffline) ROOM_ID else gameUrl.substringAfterLast('/')
 
     private val _gameState = MutableStateFlow<GameState?>(null)
     val gameState: StateFlow<GameState?> = _gameState.asStateFlow()

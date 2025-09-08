@@ -6,7 +6,9 @@ import com.example.poker.shared.dto.LoginRequest
 import com.example.poker.shared.dto.RegisterRequest
 import com.example.poker.shared.dto.UpdateUsernameRequest
 import com.example.poker.shared.dto.UserResponse
+import com.example.poker.util.serverUrl
 import io.ktor.client.call.body
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -22,7 +24,7 @@ class AuthRepository @Inject constructor(
 ) {
     suspend fun login(request: LoginRequest): Result<AuthResponse> {
         return try {
-            val response = apiClient.client.post("http://amessenger.ru:8080/auth/login") {
+            val response = apiClient.client.post("$serverUrl/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
@@ -38,7 +40,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun register(request: RegisterRequest): Result<AuthResponse> {
         return try {
-            val response = apiClient.client.post("http://amessenger.ru:8080/auth/register") {
+            val response = apiClient.client.post("$serverUrl/auth/register") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
@@ -54,7 +56,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun meInfo(): Result<UserResponse> {
         return try {
-            val response = apiClient.client.post("http://amessenger.ru:8080/me") {
+            val response = apiClient.client.get("$serverUrl/me") {
                 contentType(ContentType.Application.Json)
             }
             if (response.status == HttpStatusCode.OK) {
@@ -69,7 +71,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun updateUsername(request: UpdateUsernameRequest): Result<Unit> {
         return try {
-            val response = apiClient.client.put("http://amessenger.ru:8080/me/username") {
+            val response = apiClient.client.put("$serverUrl/me/username") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }

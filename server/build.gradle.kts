@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktor)
+    application
+    id("com.gradleup.shadow") version "9.1.0"
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_22
@@ -14,7 +16,7 @@ kotlin {
     }
 }
 application {
-    mainClass = "io.ktor.server.netty.EngineMain"
+    mainClass = "com.example.poker.server.ApplicationKt"
 }
 dependencies {
     implementation(project(":shared"))

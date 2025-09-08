@@ -14,6 +14,7 @@ import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.LeaveRequest
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.model.GameRoomService
+import com.example.poker.util.ROOM_ID
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.ApplicationStarted
@@ -64,7 +65,6 @@ class OfflineHostManager(
     companion object {
         const val SERVICE_TYPE = "_poker._tcp."
         const val SERVICE_PORT = 8080
-        const val ROOM_ID = "offline_room"
     }
 
     // --- Логика Хоста ---

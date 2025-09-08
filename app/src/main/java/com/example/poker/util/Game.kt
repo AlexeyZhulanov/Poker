@@ -8,6 +8,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.standardChipSet
 
+const val serverUrl = "https://poker.amessenger.ru"
+const val serverSocketUrl = "wss://poker.amessenger.ru"
+const val ROOM_ID = "offline_room"
+
 fun calculateChipStack(amount: Long): List<Chip> {
     if (amount <= 0) return emptyList()
 

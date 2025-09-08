@@ -43,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.poker.ui.game.ReconnectingText
+import com.example.poker.util.ROOM_ID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,7 +172,7 @@ fun OfflineLobbyContent(
         Text("Найденные игры:", style = MaterialTheme.typography.titleMedium)
         LazyColumn {
             items(discoveredGames) { game ->
-                RoomItem("offline_room", game.serviceName, 1,
+                RoomItem(ROOM_ID, game.serviceName, 1,
                     { viewModel.joinGame(game, onJoinGame) }, !isLoading)
             }
         }

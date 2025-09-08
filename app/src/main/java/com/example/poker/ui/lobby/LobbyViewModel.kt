@@ -12,11 +12,11 @@ import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
 import com.example.poker.shared.dto.GameRoom
 import com.example.poker.shared.dto.OutgoingMessage
+import com.example.poker.util.serverSocketUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.Job
@@ -70,8 +70,7 @@ class LobbyViewModel @Inject constructor(
                 try {
                     Log.d("testLobbyWS", "Connecting...")
                     apiClient.client.webSocket(
-                        method = HttpMethod.Get,
-                        host = "amessenger.ru", port = 8080, path = "/lobby",
+                        urlString = "$serverSocketUrl/lobby",
                         request = { header(HttpHeaders.Authorization, "Bearer $token") }
                     ) {
                         _isReconnecting.value = false

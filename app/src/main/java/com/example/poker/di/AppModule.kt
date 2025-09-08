@@ -8,6 +8,7 @@ import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.data.storage.AppSettings
 import com.example.poker.domain.model.OfflineHostManager
 import com.example.poker.shared.model.GameRoomService
+import com.example.poker.util.serverUrl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -68,7 +69,7 @@ object AppModule {
 
                         val response = try {
                             // Делаем запрос на наш эндпоинт /auth/refresh
-                            refreshClient.post("http://amessenger.ru:8080/auth/refresh") {
+                            refreshClient.post("$serverUrl/auth/refresh") {
                                 header("Authorization", "Bearer $refreshToken")
                             }
                         } catch (e: Exception) {

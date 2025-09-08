@@ -1,5 +1,6 @@
 package com.example.poker.ui.settings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.poker.data.repository.AuthRepository
@@ -39,9 +40,11 @@ class SettingsViewModel @Inject constructor(
         _isPerformanceMode.value = appSettings.getPerformanceMode()
         viewModelScope.launch {
             val res = authRepository.meInfo()
+            Log.d("testMeInfo", res.toString())
             val user = when(res) {
                 is Result.Success -> {
                     appSettings.saveUsername(res.data.username)
+                    Log.d("testMeInfoSuccess", res.data.toString())
                     res.data
                 }
                 is Result.Error -> {
