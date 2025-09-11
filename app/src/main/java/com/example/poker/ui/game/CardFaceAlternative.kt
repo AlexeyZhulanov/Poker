@@ -29,9 +29,10 @@ import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.CardCharactersFontFamily
+import com.example.poker.util.getCardName
 
 @Composable
-fun CardFaceAlternative(card: Card, modifier: Modifier) {
+fun CardFaceAlternative(card: Card, modifier: Modifier, scaleMultiplier: Float) {
     val rank = card.rank
     val suit = card.suit
     val suitData = remember(suit) {
@@ -60,15 +61,22 @@ fun CardFaceAlternative(card: Card, modifier: Modifier) {
             val brush = Brush.linearGradient(colors = listOf(border, color))
         }
     }
+    val scaleData = remember(scaleMultiplier) {
+        object {
+            val shape = RoundedCornerShape(8.dp * scaleMultiplier)
+            val borderWidth = 2.dp * scaleMultiplier
+            val paddingAll = 3.dp * scaleMultiplier
+        }
+    }
     val cardName = remember(rank) { getCardName(rank) }
     val isTen = rank == Rank.TEN
     Box(
         modifier = modifier.background(
             brush = suitData.brush,
-            shape = RoundedCornerShape(8.dp)
-        ).border(2.dp, suitData.border, RoundedCornerShape(8.dp))
+            shape = scaleData.shape
+        ).border(scaleData.borderWidth, suitData.border, scaleData.shape)
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(3.dp)) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(scaleData.paddingAll)) {
             val sizes = remember(isTen, maxWidth, maxHeight) {
                 object {
                     val topTextSize = if(isTen) (maxHeight.value / 5).sp else (maxHeight.value / 4).sp
@@ -104,18 +112,6 @@ fun CardFaceAlternative(card: Card, modifier: Modifier) {
                 modifier = Modifier.align(BiasAlignment(0.7f, 1f)),
                 letterSpacing = if (isTen) sizes.bottomSpacing else TextUnit.Unspecified
             )
-        }
-    }
-}
-
-fun getCardName(rank: Rank): String {
-    return if(rank.value < 11) rank.value.toString() else {
-        when(rank) {
-            Rank.JACK -> "J"
-            Rank.QUEEN -> "Q"
-            Rank.KING -> "K"
-            Rank.ACE -> "A"
-            else -> ""
         }
     }
 }

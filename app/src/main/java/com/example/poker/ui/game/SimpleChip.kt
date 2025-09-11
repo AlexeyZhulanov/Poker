@@ -16,12 +16,10 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.poker.domain.model.Chip
-import com.example.poker.domain.model.standardChipSet
 
 @Composable
 fun SimpleChip(
@@ -99,7 +97,7 @@ fun SimpleChip(
                 x = center.x - textLayoutResult.size.width / 2,
                 y = center.y - textLayoutResult.size.height / 2
             )
-            val shadowOffset = Offset(0.5.dp.toPx(), 0.5.dp.toPx())
+            val shadowOffset = Offset(0.25.dp.toPx(), 0.25.dp.toPx())
 
             // Сначала рисуем тень
             drawText(
@@ -111,15 +109,20 @@ fun SimpleChip(
             drawText(
                 textLayoutResult = textLayoutResult,
                 color = topChip.baseColor,
-                topLeft = textTopLeft
+                topLeft = textTopLeft - shadowOffset
             )
         }
     }
 }
 
-@Composable
-@Preview
-fun TestSimpleChip() {
-    val chip = standardChipSet[4]
-    SimpleChip(listOf(chip))
-}
+//@Composable
+//@Preview
+//fun TestSimpleChip() {
+//    val chip = standardChipSet[4]
+//    Box(modifier = Modifier.fillMaxSize().graphicsLayer {
+//        translationX = -20f
+//        translationY = -20f
+//    }, contentAlignment = Alignment.Center) {
+//        SimpleChip(listOf(chip), chipSize = 20.dp * 1.3f)
+//    }
+//}

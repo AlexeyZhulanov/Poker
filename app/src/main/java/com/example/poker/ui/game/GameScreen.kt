@@ -24,11 +24,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -93,14 +95,11 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -114,11 +113,12 @@ import com.example.poker.shared.dto.Player
 import com.example.poker.shared.dto.PlayerAction
 import com.example.poker.shared.dto.PlayerStatus
 import com.example.poker.shared.model.Card
-import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.MerriWeatherFontFamily
+import com.example.poker.util.OutDisplayItem
 import com.example.poker.util.calculateChipStack
 import com.example.poker.util.calculateOffset
 import com.example.poker.util.calculatePlayerPosition
+import com.example.poker.util.prepareOutDisplayItems
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
 import com.example.poker.util.toMinutesSeconds
@@ -132,6 +132,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 @Composable
@@ -252,7 +253,9 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 )
                 // Выдвижное меню настроек
                 SettingsMenu(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 60.dp, end = 16.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 60.dp, end = 16.dp),
                     showSettingsMenu = showSettingsMenu,
                     stackDisplayMode = stackDisplayMode,
                     isClassicCardsEnabled = isClassicCardsEnabled,
@@ -480,7 +483,9 @@ fun MultiBoardLayout(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
             Spacer(Modifier.width(2.5.dp))
             staticCards.forEach { card ->
-                val mod = Modifier.width(layoutData.drawWidth).height(layoutData.height)
+                val mod = Modifier
+                    .width(layoutData.drawWidth)
+                    .height(layoutData.height)
                 if(isClassicCardsEnabled) {
                     ClassicPokerCard(card, isFourColorMode, mod)
                 } else {
@@ -619,7 +624,9 @@ fun ActionPanel(
         val totalPadding = if(bottomPadding > 100.dp) bottomPadding - 100.dp else bottomPadding
         Box(
             contentAlignment = Alignment.TopCenter,
-            modifier = modifier.padding(bottom = totalPadding).fillMaxWidth()
+            modifier = modifier
+                .padding(bottom = totalPadding)
+                .fillMaxWidth()
         ) {
             BetControls(
                 minBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
@@ -775,7 +782,9 @@ fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, mod
         )
     }
     FilledTonalButton(
-        modifier = modifier.height(60.dp).padding(horizontal = 1.dp),
+        modifier = modifier
+            .height(60.dp)
+            .padding(horizontal = 1.dp),
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
@@ -817,8 +826,8 @@ fun PlayerWithEquity(
     val (requiredWidth, offset) = remember(equity != null, out != null, scaleMultiplier, alignHValue != 0f) {
         if(alignHValue != 0f) {
             when {
-                out != null -> 255.dp * scaleMultiplier to 92.5.dp * scaleMultiplier
-                equity != null -> 190.dp * scaleMultiplier to 60.dp * scaleMultiplier
+                out != null -> 255.dp * scaleMultiplier to 92.5.dp * scaleMultiplier * alignHValue
+                equity != null -> 190.dp * scaleMultiplier to 60.dp * scaleMultiplier * alignHValue
                 else -> 70.dp * scaleMultiplier to 0.dp
             }
         } else {
@@ -829,9 +838,9 @@ fun PlayerWithEquity(
             }
         }
     }
-    val m = if(tailDirection == TailDirection.RIGHT) 1 else -1
-
-    Box(modifier = modifier.width(requiredWidth).offset(offset * m), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier
+        .width(requiredWidth)
+        .offset(offset), contentAlignment = Alignment.Center) {
         PlayerDisplay(
             modifier = Modifier,
             playerState = playerState,
@@ -884,14 +893,14 @@ fun PlayerDisplay(
     val boxModifier = remember(scaleMultiplier) {
         modifier
             .width(70.dp * scaleMultiplier)
-            .height(75.dp * scaleMultiplier)
+            .height(80.dp * scaleMultiplier)
             .padding(horizontal = 5.dp * scaleMultiplier)
     }
     Box(modifier = boxModifier) {
         val iconModifier = remember(scaleMultiplier) {
             Modifier
                 .padding(top = 5.dp * scaleMultiplier)
-                .size(50.dp * scaleMultiplier)
+                .size(55.dp * scaleMultiplier)
                 .align(Alignment.TopCenter)
                 .clip(CircleShape)
                 .background(Color.DarkGray)
@@ -927,33 +936,20 @@ fun PlayerDisplay(
                     val arrangement2 = if(isPerformanceMode) Arrangement.Center else Arrangement.spacedBy((-20).dp * scaleMultiplier)
                     Row(horizontalArrangement = arrangement2) {
                         if(isPerformanceMode) {
-                            val cardModifier = remember(scaleMultiplier) {
-                                Modifier.width(30.dp * scaleMultiplier).height(45.dp * scaleMultiplier)
-                            }
-                            SimplePokerCard(card1, cardModifier)
-                            SimplePokerCard(card2, cardModifier)
+                            SimplePokerCard(card1, scaleMultiplier)
+                            SimplePokerCard(card2, scaleMultiplier)
                         } else {
-                            val firstCardModifier = remember(scaleMultiplier) {
-                                Modifier
-                                    .width(40.dp * scaleMultiplier)
-                                    .height(60.dp * scaleMultiplier)
-                                    .graphicsLayer { rotationZ = -10f }
-                            }
                             FlippingPokerCard(
                                 card = card1,
                                 flipDirection = FlipDirection.COUNTER_CLOCKWISE,
-                                modifier = firstCardModifier
+                                scaleMultiplier = scaleMultiplier,
+                                rotation = -10f
                             )
-                            val secondCardModifier = remember(scaleMultiplier) {
-                                Modifier
-                                    .width(40.dp * scaleMultiplier)
-                                    .height(60.dp * scaleMultiplier)
-                                    .graphicsLayer { rotationZ = 10f }
-                            }
                             FlippingPokerCard(
                                 card = card2,
                                 flipDirection = FlipDirection.CLOCKWISE,
-                                modifier = secondCardModifier
+                                scaleMultiplier = scaleMultiplier,
+                                rotation = 10f
                             )
                         }
                     }
@@ -1042,7 +1038,7 @@ fun PlayerInfoWithTimer(
                 if (newRemaining == 0L) break
                 delay(time)
             }
-        }
+        } else remainingTime = 0
     }
     // Рассчитываем прогресс от 1.0f (полный) до 0.0f (пустой)
     val progress = remember(remainingTime) {
@@ -1050,7 +1046,16 @@ fun PlayerInfoWithTimer(
     }
     // Анимируем цвет от зеленого к красному
     val progressColor = lerp(Color.Red, Color(0xFF00C853), progress)
-    val shape = remember { RoundedTrapezoidShape(cornerRadius = 4.dp) }
+    val scaleData = remember(scaleMultiplier) {
+        object {
+            val shape = RoundedTrapezoidShape(cornerRadius = 4.dp * scaleMultiplier)
+            val drawWidth = 3.dp * scaleMultiplier
+            val columnModifier = Modifier
+                .clip(shape)
+                .background(Color.Black)
+            val verticalPadding = 1.dp * scaleMultiplier
+        }
+    }
 
     Box(
         // Применяем модификатор, который будет рисовать контур
@@ -1061,7 +1066,7 @@ fun PlayerInfoWithTimer(
                 // Если это активный игрок и время еще есть, рисуем контур
                 if (isActivePlayer && progress > 0f) {
                     // Получаем контур нашей фигуры
-                    val outline = shape.createOutline(size, layoutDirection, this)
+                    val outline = scaleData.shape.createOutline(size, layoutDirection, this)
                     if (outline is Outline.Generic) {
                         val path = outline.path
                         val pathMeasure = PathMeasure()
@@ -1081,19 +1086,14 @@ fun PlayerInfoWithTimer(
                         drawPath(
                             path = segmentPath,
                             color = progressColor,
-                            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                            style = Stroke(width = scaleData.drawWidth.toPx(), cap = StrokeCap.Round)
                         )
                     }
                 }
             }
     ) {
         // Основной контент
-        val columnModifier = remember {
-            Modifier
-                .clip(shape)
-                .background(Color.Black)
-        }
-        Column(modifier = columnModifier) {
+        Column(modifier = scaleData.columnModifier) {
             val (s, pd) = remember(playerState.player.username.length) {
                 when(playerState.player.username.length) {
                     in 0..8 -> 10.sp to 0.dp
@@ -1109,7 +1109,7 @@ fun PlayerInfoWithTimer(
                 fontSize = s * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(3.dp, 1.dp + pd),
+                    .padding(scaleData.drawWidth, scaleData.verticalPadding + pd),
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -1133,7 +1133,7 @@ fun PlayerInfoWithTimer(
                 fontSize = 11.sp * scaleMultiplier,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(vertical = 1.dp),
+                    .padding(vertical = scaleData.verticalPadding),
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -1177,11 +1177,64 @@ fun EquityBubble(
                 text = "$equity%",
                 color = Color(0xFF62CF1E),
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp * scaleMultiplier
+                fontSize = 12.sp * scaleMultiplier,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(
+                        includeFontPadding = false
+                    ),
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both
+                    )
+                )
             )
         }
     }
 }
+
+@Composable
+fun ModernOutsBubble(
+    displayItems: List<OutDisplayItem>,
+    scaleMultiplier: Float,
+    modifier: Modifier = Modifier
+) {
+    if (displayItems.isEmpty()) return
+    val width = remember(displayItems.size) {
+        when(displayItems.size) {
+            in 1..3 -> 25.dp * scaleMultiplier
+            in 4..8 -> 15.dp * scaleMultiplier
+            else -> 12.dp * scaleMultiplier
+        }
+    }
+
+    FlowRow(
+        modifier = modifier.padding(horizontal = 8.dp * scaleMultiplier),
+        horizontalArrangement = Arrangement.spacedBy(3.dp * scaleMultiplier, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(3.dp * scaleMultiplier),
+        maxItemsInEachRow = 5
+    ) {
+        displayItems.forEach { item ->
+            Box(
+                modifier = Modifier
+                    .width(width)
+                    .aspectRatio(0.8f),
+                contentAlignment = Alignment.Center
+            ) {
+                when (item) {
+                    is OutDisplayItem.FullCard -> CardFaceSimple(card = item.card, Modifier, 1f, false, 0.5f)
+                    is OutDisplayItem.RankGroup -> RankGroupCard(rank = item.rank)
+                    is OutDisplayItem.SuitGroup -> SuitGroupCard(suit = item.suit)
+                }
+            }
+        }
+    }
+}
+
+//@Composable
+//@Preview
+//fun TestOutsBubble() {
+//    OutsBubble(37.56, OutsInfo.DirectOuts(listOf(Card(Rank.TWO, Suit.SPADES), Card(Rank.TWO, Suit.DIAMONDS), Card(Rank.TWO, Suit.HEARTS), Card(Rank.QUEEN, Suit.SPADES), Card(Rank.QUEEN, Suit.DIAMONDS), Card(Rank.QUEEN, Suit.CLUBS))), 1f)
+//}
 
 @Composable
 fun OutsBubble(
@@ -1209,21 +1262,50 @@ fun OutsBubble(
             when (outsInfo) {
                 is OutsInfo.DirectOuts -> {
                     val outs = outsInfo.cards
-                    if(outs.size > 18) {
-                        Text("${outs.size} Outs", color = Color.LightGray, fontSize = 14.sp * scaleMultiplier, fontFamily = MerriWeatherFontFamily)
+                    val displayItems = prepareOutDisplayItems(outs)
+                    if(displayItems.size > 10) {
+                        Text("${outs.size} Outs", color = Color.LightGray, fontSize = 14.sp * scaleMultiplier, fontFamily = MerriWeatherFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                ),
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Center,
+                                    trim = LineHeightStyle.Trim.Both
+                                )
+                            ),
+                            modifier = Modifier.align(BiasAlignment(0f, -0.2f))
+                        )
                     } else {
-                        OutsText(outs, true, scaleMultiplier, Modifier.align(BiasAlignment(0f, -0.2f)))
+                        ModernOutsBubble(displayItems, scaleMultiplier, Modifier.align(BiasAlignment(0f, -0.2f)))
                     }
                     Text(
                         text = "$equity%",
                         color = Color(0xFFE61D2A),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp * scaleMultiplier,
-                        modifier = Modifier.align(BiasAlignment(0f, 0.6f))
+                        modifier = Modifier.align(BiasAlignment(0f, 0.6f)),
+                        style = TextStyle(
+                            platformStyle = PlatformTextStyle(
+                                includeFontPadding = false
+                            ),
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both
+                            )
+                        )
                     )
                 }
                 is OutsInfo.RunnerRunner -> {
-                    Text("Runner\nRunner", color = Color.LightGray, fontSize = 14.sp * scaleMultiplier, fontFamily = MerriWeatherFontFamily)
+                    Text("Runner\nRunner", color = Color.LightGray, fontSize = 14.sp * scaleMultiplier, fontFamily = MerriWeatherFontFamily, style = TextStyle(
+                        platformStyle = PlatformTextStyle(
+                            includeFontPadding = false
+                        ),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
+                    ))
                 }
                 is OutsInfo.DrawingDead -> {
                     Column(
@@ -1233,72 +1315,37 @@ fun OutsBubble(
                             "Drawing",
                             color = Color.LightGray,
                             fontSize = 14.sp * scaleMultiplier,
-                            fontFamily = MerriWeatherFontFamily
+                            fontFamily = MerriWeatherFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                ),
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Center,
+                                    trim = LineHeightStyle.Trim.Both
+                                )
+                            )
                         )
                         Text(
                             "Dead",
                             color = Color.LightGray,
                             fontSize = 14.sp * scaleMultiplier,
-                            fontFamily = MerriWeatherFontFamily
+                            fontFamily = MerriWeatherFontFamily,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(
+                                    includeFontPadding = false
+                                ),
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Center,
+                                    trim = LineHeightStyle.Trim.Both
+                                )
+                            )
                         )
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun OutsText(outs: List<Card>, isFourColorMode: Boolean, scaleMultiplier: Float, modifier: Modifier) {
-    val textModifier = remember(modifier) {
-        modifier
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Gray)
-    }
-    Text(
-        buildAnnotatedString {
-            outs.forEach { card ->
-                // Определяем цвет для этой карты
-                val suitColor = if (isFourColorMode) {
-                    when (card.suit) {
-                        Suit.HEARTS -> Color.Red
-                        Suit.DIAMONDS -> Color.Blue
-                        Suit.CLUBS -> Color.Green
-                        Suit.SPADES -> Color.Black
-                    }
-                } else {
-                    if (card.suit == Suit.HEARTS || card.suit == Suit.DIAMONDS) Color.Red else Color.Black
-                }
-
-                // Определяем символ масти
-                val suitSymbol = when (card.suit) {
-                    Suit.HEARTS -> "\u2661"
-                    Suit.DIAMONDS -> "\u2662"
-                    Suit.CLUBS -> "\u2667"
-                    Suit.SPADES -> "\u2664"
-                }
-
-                // Добавляем ранг и масть с нужным цветом
-                withStyle(style = SpanStyle(color = suitColor)) {
-                    append("${getCardName(card.rank)}$suitSymbol")
-                }
-            }
-        },
-        fontSize = 8.sp * scaleMultiplier,
-        maxLines = 3,
-        textAlign = TextAlign.Center,
-        modifier = textModifier,
-        style = TextStyle(
-            platformStyle = PlatformTextStyle(
-                includeFontPadding = false
-            ),
-            lineHeightStyle = LineHeightStyle(
-                alignment = LineHeightStyle.Alignment.Center,
-                trim = LineHeightStyle.Trim.Both
-            )
-        )
-    )
 }
 
 @Composable
@@ -1477,7 +1524,15 @@ fun PlayerAction(action: PlayerAction, scaleMultiplier: Float) {
     Box(contentAlignment = Alignment.Center,
         modifier = mainModifier.border(border, shape)
     ) {
-        Text(text = text, color = brightColor, fontSize = 12.sp * scaleMultiplier)
+        Text(text = text, color = brightColor, fontSize = 12.sp * scaleMultiplier, style = TextStyle(
+            platformStyle = PlatformTextStyle(
+                includeFontPadding = false
+            ),
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.Both
+            )
+        ))
     }
 }
 
@@ -1632,11 +1687,15 @@ fun TopBar(
     Box(modifier) {
         if(gameMode == GameMode.CASH) {
             if(isReconnecting) {
-                ReconnectingText(Modifier.align(Alignment.CenterStart).padding(horizontal = 10.dp), 18.sp)
+                ReconnectingText(Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 10.dp), 18.sp)
             } else Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White)
         } else {
             if(isReconnecting) {
-                ReconnectingText(Modifier.align(Alignment.CenterStart).padding(horizontal = 10.dp), 18.sp)
+                ReconnectingText(Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 10.dp), 18.sp)
             } else {
                 val textSize = when(topBarText.length) {
                     in 0..20 -> 14.sp
@@ -1644,7 +1703,8 @@ fun TopBar(
                     else -> 11.sp
                 }
                 leftText?.let { Text(it, textAlign = TextAlign.Start, modifier = Modifier
-                    .align(Alignment.CenterStart).padding(horizontal = 3.dp),
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 3.dp),
                     color = Color.White, fontSize = textSize) }
                 Text(topBarText, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = textSize)
             }
@@ -1727,7 +1787,9 @@ fun SettingsMenu(
     ) {
         Card(elevation = CardDefaults.cardElevation(8.dp), modifier = Modifier.width(IntrinsicSize.Max)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1739,7 +1801,9 @@ fun SettingsMenu(
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1751,7 +1815,9 @@ fun SettingsMenu(
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1771,7 +1837,7 @@ fun SettingsMenu(
                 }
 
                 Text(
-                    text = "${((scaleMultiplier * 100).toInt() / 5f).toInt() * 5}%",
+                    text = "${(scaleMultiplier * 100).roundToInt()}%",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -1793,10 +1859,55 @@ fun PlayersLayout(
     onLastBoardResultChange: (Long) -> Unit
 ) {
     val roomInfo by viewModel.roomInfo.collectAsState()
+//    val roomInfo = GameRoom("", "", GameMode.CASH,
+//        persistentListOf(
+//
+//            Player("2", "test2", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("3", "test3", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("4", "test4", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("5", "test5", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("6", "test6", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("7", "test7", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("8", "test8", 1000L, PlayerStatus.SITTING_OUT),
+//            Player("9", "test9", 1000L, PlayerStatus.SITTING_OUT),
+//        ), ownerId = "1", buyIn = 1000L)
     val gameState by viewModel.gameState.collectAsState()
+//    val gameState = GameState("123", playerStates = persistentListOf(
+//        PlayerState(Player("1", "test1", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("2", "test2", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("3", "test3", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("4", "test4", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("5", "test5", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("6", "test6", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("7", "test7", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("8", "test8", 1000L, PlayerStatus.SITTING_OUT)),
+//        PlayerState(Player("9", "test9", 1000L, PlayerStatus.SITTING_OUT)),
+//    ))
     val myUserId by viewModel.myUserId.collectAsState()
     val boardResult by viewModel.boardResult.collectAsState()
     val allInEquity by viewModel.allInEquity.collectAsState()
+//    val allInEquity = AllInEquity(persistentMapOf(
+//        "1" to 0.0,
+//        "2" to 0.0,
+//        "3" to 0.0,
+//        "4" to 0.0,
+//        "5" to 0.0,
+//        "6" to 0.0,
+//        "7" to 0.0,
+//        "8" to 0.0,
+//        "9" to 0.0,
+//        ),
+//        persistentMapOf(
+//            "1" to OutsInfo.RunnerRunner,
+//            "2" to OutsInfo.RunnerRunner,
+//            "3" to OutsInfo.RunnerRunner,
+//            "4" to OutsInfo.RunnerRunner,
+//            "5" to OutsInfo.RunnerRunner,
+//            "6" to OutsInfo.RunnerRunner,
+//            "7" to OutsInfo.RunnerRunner,
+//            "8" to OutsInfo.RunnerRunner,
+//            "9" to OutsInfo.RunnerRunner,
+//        ), 1)
     val playersOnTable by remember {
         derivedStateOf {
             if (gameState != null) {
@@ -1851,10 +1962,15 @@ fun PlayersLayout(
                             playerState.currentBet.toBBFloat(gameState?.bigBlindAmount ?: 0L) to playerState.currentBet.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
                         }
                     }
-                    val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx) {
+                    val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx, scaleMultiplier) {
                         val (h, v) = alignments[index]
-                        val startAlignment = BiasAlignment(h * 0.8f, v * 0.8f)
-                        val endAlignment = BiasAlignment(h * 0.55f, v * 0.55f)
+                        val maxDistance = 0.82f
+                        val minDistance = 0.47f
+                        val baseDistance = 0.64f
+                        val endCorrection = if(scaleMultiplier <= 1) maxDistance + (baseDistance - maxDistance) * ((scaleMultiplier - 0.5f) / 0.5f)
+                                else baseDistance + (minDistance - baseDistance) * ((scaleMultiplier - 1.0f) / 0.5f)
+                        val startAlignment = BiasAlignment(h * 0.85f, v * 0.85f)
+                        val endAlignment = BiasAlignment(h * endCorrection, v * endCorrection)
                         calculateOffset(startAlignment, endAlignment, parentWidthPx, parentHeightPx)
                     }
 
@@ -1897,10 +2013,15 @@ fun PlayersLayout(
                                 amount.toBBFloat(gameState?.bigBlindAmount ?: 0L) to amount.toBB(gameState?.bigBlindAmount ?: 0L) + " BB"
                             }
                         }
-                        val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx) {
+                        val (startOffset, endOffset) = remember(alignments[index], parentWidthPx, parentHeightPx, scaleMultiplier) {
                             val (h, v) = alignments[index]
+                            val maxDistance = 0.85f
+                            val minDistance = 0.55f
+                            val baseDistance = 0.7f
+                            val endCorrection = if(scaleMultiplier <= 1) maxDistance + (baseDistance - maxDistance) * ((scaleMultiplier - 0.5f) / 0.5f)
+                            else baseDistance + (minDistance - baseDistance) * ((scaleMultiplier - 1.0f) / 0.5f)
                             val startAlignment = BiasAlignment(0f, 0f)
-                            val endAlignment = BiasAlignment(h * 0.6f, v * 0.6f)
+                            val endAlignment = BiasAlignment(h * endCorrection, v * endCorrection)
                             calculateOffset(startAlignment, endAlignment, parentWidthPx, parentHeightPx)
                         }
 
@@ -1937,7 +2058,9 @@ fun PlayersLayout(
                 PlayerWithEquity(
                     allInEquity = allInEquity,
                     tailDirection = tailDirection,
-                    modifier = Modifier.align(alignments[index]).padding(3.dp),
+                    modifier = Modifier
+                        .align(alignments[index])
+                        .padding(3.dp),
                     playerState = playerState,
                     myUserId = myUserId,
                     isActivePlayer = isActivePlayer,
