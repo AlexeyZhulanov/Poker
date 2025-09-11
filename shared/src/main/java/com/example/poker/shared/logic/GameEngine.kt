@@ -775,6 +775,7 @@ class GameEngine(
 
         val contenders = gameState.playerStates.filter { !it.hasFolded }
         val initialCommunityCards = gameState.communityCards
+        val allDealtCards = initialCommunityCards.toMutableList()
 
         val cardsNeededPerStreet = listOf(3, 1, 1).drop(initialCommunityCards.size.takeIf { it > 0 }?.let { if (it < 3) 1 else it - 2 } ?: 0)
         
@@ -791,12 +792,14 @@ class GameEngine(
                 // Считаем и отправляем эквити для текущего состояния
                 if(isFirst) isFirst = false
                 else {
-                    calculateAndBroadcastEquity(currentRunCommunityCards, run)
+                    calculateAndBroadcastEquity(allDealtCards, run)
                     delay(4000)
                 }
 
                 // Раздаем карты для следующей улицы
-                currentRunCommunityCards.addAll(deck.deal(cardsToDeal))
+                val newCards = deck.deal(cardsToDeal)
+                currentRunCommunityCards.addAll(newCards)
+                allDealtCards.addAll(newCards)
 
                 // Обновляем GameState для этого прогона
                 val tempGameState = gameState.copy(
@@ -807,7 +810,7 @@ class GameEngine(
             }
 
             // Финальное эквити, когда уже 5 карт на столе
-            calculateAndBroadcastEquity(currentRunCommunityCards, run)
+            calculateAndBroadcastEquity(allDealtCards, run)
 
             // Определяем победителя для этой доски
             val hands = contenders.map { ps -> ps.player.userId to HandEvaluator.evaluate(ps.cards + currentRunCommunityCards) }
