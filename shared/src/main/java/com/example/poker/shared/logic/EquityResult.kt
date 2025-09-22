@@ -9,9 +9,10 @@ data class EquityResult(val wins: List<Double>)
 fun calculateEquity(
     players: List<List<Card>>,
     community: List<Card>,
+    allUsedCommunityCards: List<Card>,
     iterations: Int = 10_000
 ): EquityResult {
-    val usedCards = players.flatten() + community
+    val usedCards = players.flatten() + allUsedCommunityCards
     val deck = CardDeck.buildFullDeck().filter { it !in usedCards }.toMutableList()
 
     val equityShares = DoubleArray(players.size)
@@ -49,11 +50,12 @@ fun calculateEquity(
 fun calculateLiveOuts(
     player: List<Card>,
     opponents: List<List<Card>>,
-    community: List<Card>
+    community: List<Card>,
+    allUsedCommunityCards: List<Card>,
 ): Pair<List<Card>, Boolean> {
     if (community.isEmpty()) return Pair(emptyList(), false)
 
-    val usedCards = player + community + opponents.flatten()
+    val usedCards = player + allUsedCommunityCards + opponents.flatten()
     val deck = CardDeck.buildFullDeck().filter { it !in usedCards }
     val missing = 5 - community.size
 

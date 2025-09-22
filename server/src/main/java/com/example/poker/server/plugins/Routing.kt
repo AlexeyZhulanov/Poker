@@ -4,7 +4,6 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poker.server.data.repository.UserRepository
 import com.example.poker.server.services.TokenService
-import com.example.poker.shared.util.UserAttributeKey
 import com.example.poker.shared.dto.AuthResponse
 import com.example.poker.shared.dto.CreateRoomRequest
 import com.example.poker.shared.dto.LoginRequest
@@ -13,9 +12,11 @@ import com.example.poker.shared.dto.RegisterRequest
 import com.example.poker.shared.dto.UpdateUsernameRequest
 import com.example.poker.shared.dto.UserResponse
 import com.example.poker.shared.model.GameRoomService
+import com.example.poker.shared.model.User
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.principal
 import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
@@ -129,36 +130,39 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
 
         authenticate("auth-jwt") {
             get("/me") {
-                // Получаем пользователя напрямую из атрибутов
-                val user = call.attributes[UserAttributeKey]
-                val userResponse = UserResponse(
-                    id = user.id.toString(),
-                    username = user.username,
-                    email = user.email,
-                    cashBalance = user.cashBalance.toDouble()
-                )
-                call.respond(HttpStatusCode.OK, userResponse)
+                val user = call.principal<User>()
+                if (user != null) {
+                    val userResponse = UserResponse(
+                        id = user.id.toString(),
+                        username = user.username,
+                        email = user.email,
+                        cashBalance = user.cashBalance.toDouble()
+                    )
+                    call.respond(HttpStatusCode.OK, userResponse)
+                } else call.respond(HttpStatusCode.Unauthorized)
             }
 
             put("/me/username") {
-                val user = call.attributes[UserAttributeKey]
-                val request = call.receive<UpdateUsernameRequest>()
+                val user = call.principal<User>()
+                if(user != null) {
+                    val request = call.receive<UpdateUsernameRequest>()
 
-                // Проверяем, не занят ли username
-                val existingUser = userRepository.findByUsername(request.newUsername)
-                if (existingUser != null) {
-                    call.respond(HttpStatusCode.Conflict, "User with such username already exists.")
-                    return@put
-                }
+                    // Проверяем, не занят ли username
+                    val existingUser = userRepository.findByUsername(request.newUsername)
+                    if (existingUser != null) {
+                        call.respond(HttpStatusCode.Conflict, "User with such username already exists.")
+                        return@put
+                    }
 
-                val success = userRepository.updateUsername(user.id, request.newUsername)
-                if (success) {
-                    call.respond(HttpStatusCode.OK, "Username updated successfully")
-                } else {
-                    // Эта ошибка вряд ли произойдет, так как authenticate уже нашел юзера,
-                    // но это хорошая практика на случай рассинхронизации.
-                    call.respond(HttpStatusCode.NotFound, "User not found")
-                }
+                    val success = userRepository.updateUsername(user.id, request.newUsername)
+                    if (success) {
+                        call.respond(HttpStatusCode.OK, "Username updated successfully")
+                    } else {
+                        // Эта ошибка вряд ли произойдет, так как authenticate уже нашел юзера,
+                        // но это хорошая практика на случай рассинхронизации.
+                        call.respond(HttpStatusCode.NotFound, "User not found")
+                    }
+                } else call.respond(HttpStatusCode.Unauthorized)
             }
 
             route("/rooms") {
@@ -177,10 +181,11 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                     println("Received raw JSON for /rooms: $rawJsonBody")
 
                     val request = Json.decodeFromString<CreateRoomRequest>(rawJsonBody) // Получаем DTO из тела запроса
-                    val user = call.attributes[UserAttributeKey]
-
-                    val newRoom = gameRoomService.createRoom(request, user.id.toString(), user.username)
-                    call.respond(HttpStatusCode.Created, newRoom)
+                    val user = call.principal<User>()
+                    if(user != null) {
+                        val newRoom = gameRoomService.createRoom(request, user.id.toString(), user.username)
+                        call.respond(HttpStatusCode.Created, newRoom)
+                    } else call.respond(HttpStatusCode.Unauthorized)
                 }
 
                 get("/{roomId}") {
@@ -195,21 +200,22 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
 
                 get("/{roomId}/state") {
                     val roomId = call.parameters["roomId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                    val user = call.attributes[UserAttributeKey]
+                    val user = call.principal<User>()
 
                     val engine = gameRoomService.getEngine(roomId)
                     if (engine == null) {
                         call.respond(HttpStatusCode.NotFound, "Game not active in this room.")
                         return@get
                     }
-
-                    // Получаем персонализированное состояние игры для запросившего пользователя
-                    val personalizedState = engine.getPersonalizedGameStateFor(user.id.toString())
-                    if(personalizedState == null) {
-                        call.respond(HttpStatusCode.NotFound, "Game not active in this room.")
-                        return@get
-                    }
-                    call.respond(HttpStatusCode.OK, personalizedState)
+                    if(user != null) {
+                        // Получаем персонализированное состояние игры для запросившего пользователя
+                        val personalizedState = engine.getPersonalizedGameStateFor(user.id.toString())
+                        if(personalizedState == null) {
+                            call.respond(HttpStatusCode.NotFound, "Game not active in this room.")
+                            return@get
+                        }
+                        call.respond(HttpStatusCode.OK, personalizedState)
+                    } else call.respond(HttpStatusCode.Unauthorized)
                 }
 
                 // Присоединиться к комнате
@@ -221,20 +227,22 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                         println("400 room id is missing")
                         return@post
                     }
-                    val user = call.attributes[UserAttributeKey]
+                    val user = call.principal<User>()
 
-                    // 3. Создаем объект Player и пытаемся присоединиться к комнате
-                    val (updatedRoom, player) = gameRoomService.joinRoom(roomId, user.id.toString(), user.username)
-                    println("updated room: $updatedRoom")
-                    // 4. Отправляем ответ
-                    if (updatedRoom == null) {
-                        call.respond(HttpStatusCode.NotFound, "Room not found or is full")
-                    } else {
-                        player?.let {
-                            gameRoomService.broadcast(roomId, OutgoingMessage.PlayerJoined(it))
+                    if(user != null) {
+                        // 3. Создаем объект Player и пытаемся присоединиться к комнате
+                        val (updatedRoom, player) = gameRoomService.joinRoom(roomId, user.id.toString(), user.username)
+                        println("updated room: $updatedRoom")
+                        // 4. Отправляем ответ
+                        if (updatedRoom == null) {
+                            call.respond(HttpStatusCode.NotFound, "Room not found or is full")
+                        } else {
+                            player?.let {
+                                gameRoomService.broadcast(roomId, OutgoingMessage.PlayerJoined(it))
+                            }
+                            call.respond(HttpStatusCode.OK, updatedRoom)
                         }
-                        call.respond(HttpStatusCode.OK, updatedRoom)
-                    }
+                    } else call.respond(HttpStatusCode.Unauthorized)
                 }
             }
         }

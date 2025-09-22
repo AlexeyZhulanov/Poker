@@ -2,9 +2,9 @@ package com.example.poker.server.plugins
 
 import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.model.GameRoomService
+import com.example.poker.shared.model.User
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
-import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -22,8 +22,13 @@ fun Application.configureSockets(gameRoomService: GameRoomService) {
     routing {
         authenticate("auth-jwt") {
             webSocket("/lobby") {
-                val principal = call.principal<JWTPrincipal>()!!
-                val userId = principal.payload.getClaim("userId").asString()
+                val user = call.principal<User>()
+                if (user == null) {
+                    // Если пользователя нет, разрываем соединение
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Authentication failed."))
+                    return@webSocket
+                }
+                val userId = user.id.toString()
 
                 try {
                     // Добавляем пользователя в список "слушающих" лобби
@@ -39,8 +44,12 @@ fun Application.configureSockets(gameRoomService: GameRoomService) {
                 }
             }
             webSocket("/play/{roomId}") {
-                val principal = call.principal<JWTPrincipal>() ?: return@webSocket
-                val userId = principal.payload.getClaim("userId").asString()
+                val user = call.principal<User>()
+                if (user == null) {
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Authentication failed."))
+                    return@webSocket
+                }
+                val userId = user.id.toString()
                 val roomId = call.parameters["roomId"] ?: return@webSocket
 
                 val player = gameRoomService.getRoom(roomId)?.players?.find { it.userId == userId }

@@ -1,6 +1,7 @@
 package com.example.poker.util
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.unit.IntOffset
@@ -11,6 +12,8 @@ import com.example.poker.domain.model.standardChipSet
 import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 const val serverUrl = "https://poker.amessenger.ru"
 const val serverSocketUrl = "wss://poker.amessenger.ru"
@@ -109,6 +112,66 @@ fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<B
     return list to equityList
 }
 
+fun calculatePlayerPositionLandscape(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
+    val list = mutableListOf(BiasAlignment(0f, 1f)) // first
+    val equityList = mutableListOf(true) // right = false, left = true
+    when(playersCount) {
+        1 -> return list to equityList
+        2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
+        3 -> {
+            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
+            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
+        }
+        4 -> {
+            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
+            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
+        }
+        5 -> {
+            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
+            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
+        }
+        6 -> {
+            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
+            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
+        }
+        7 -> {
+            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
+            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0.3f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
+        }
+        8 -> {
+            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
+            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
+            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
+        }
+        9 -> {
+            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
+            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
+            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(false)
+            list.add(BiasAlignment(0.3f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
+            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
+            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
+        }
+        else -> return Pair(listOf(), listOf())
+    }
+    return list to equityList
+}
+
 fun calculateOffset(
     startAlignment: Alignment,
     endAlignment: Alignment,
@@ -184,3 +247,8 @@ fun prepareOutDisplayItems(outs: List<Card>): List<OutDisplayItem> {
 
     return displayItems
 }
+
+val CardListSaver = Saver<ImmutableList<Card>, List<Card>>(
+    save = { it.toList() },
+    restore = { it.toImmutableList() }
+)
