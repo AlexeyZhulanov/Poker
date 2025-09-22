@@ -29,7 +29,7 @@ class GameRepository @Inject constructor(
             if (response.status == HttpStatusCode.Created) {
                 Result.Success(response.body())
             } else {
-                Result.Error(response.toString())
+                Result.Error(response.body())
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Unknown error")

@@ -73,14 +73,14 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
                 // 1. Ищем пользователя в БД
                 val user = userRepository.findByEmail(request.email)
                 if (user == null) {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid email or password")
+                    call.respond(HttpStatusCode.NotFound, "User with this email does not exist")
                     return@post
                 }
 
                 // 2. Проверяем пароль
                 val passwordMatches = BCrypt.checkpw(request.password, user.passwordHash)
                 if (!passwordMatches) {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid username or password")
+                    call.respond(HttpStatusCode.Forbidden, "Incorrect password")
                     return@post
                 }
 
