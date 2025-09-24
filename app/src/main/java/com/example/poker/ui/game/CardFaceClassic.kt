@@ -6,8 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,15 +23,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.poker.R
@@ -38,7 +43,7 @@ import com.example.poker.ui.theme.GreenCard
 import com.example.poker.ui.theme.OswaldFontFamily
 
 @Composable
-fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
+fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier, scaleMultiplier: Float = 1f) {
     val cardData = remember(card, isFourColorMode) {
         val suitVector = when (card.suit) {
             Suit.HEARTS -> CardSuits.Heart
@@ -88,13 +93,15 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
             val color = suitColor
             val imageId = drawableId
             val description = contentDescription
+            val isTen = card.rank.value == 10
         }
     }
-
+    val (shapeSize, borderSize) = if(scaleMultiplier < 1f) 6.dp * scaleMultiplier to 1.dp * scaleMultiplier else 6.dp to 1.dp
+    val padding = if(scaleMultiplier < 1f) 3.dp * scaleMultiplier else 3.dp
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, Color.Gray),
+        shape = RoundedCornerShape(shapeSize),
+        border = BorderStroke(borderSize, Color.Gray),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         if (cardData.imageId != null) {
@@ -105,249 +112,111 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier) {
                 contentScale = ContentScale.FillBounds
             )
         } else {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(3.dp)) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding)) {
                 val sizes = remember(maxHeight) {
                     object {
-                        val cornerFontSize = (maxHeight.value * 0.16f).sp
-                        val standardIconSize = maxHeight / 6.66f
-                        val aceIconSize = maxHeight / 5f
+                        val cornerFontSize = (maxHeight.value * 0.55f).sp
+                        val cornerIconSize = maxHeight * 0.4f
+                        val cornerOffset = -maxHeight * 0.15f
+                        val cornerSpace = -maxHeight * 0.25f
+                        val topSpacing = (maxWidth.value * -0.05f).sp
+                        val offsetAce = maxWidth * 0.54f
                         val paddingValue = maxHeight / 12f
-                        val tenIconSize = maxHeight / 10f
-                        val dpEqual28 = maxHeight / 4.28f
-                        val dpEqual23 = maxHeight / 5.2f
+                        val spacingValue = maxHeight / 15f
                     }
                 }
-                Column(Modifier.align(Alignment.TopStart).width(IntrinsicSize.Min), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = getCardNameClassic(cardData.rank), color = cardData.color, fontSize = sizes.cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
+                val fraction = if(cardData.isTen) 0.6f else 0.5f
+                Column(Modifier.align(Alignment.TopStart).fillMaxWidth(fraction = fraction), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(sizes.cornerSpace)) {
+                    val (spacing, fontWeight) = if(cardData.isTen) sizes.topSpacing to FontWeight.Normal else TextUnit.Unspecified to FontWeight.SemiBold
+                    Text(text = getCardNameClassic(cardData.rank), color = cardData.color, fontSize = sizes.cornerFontSize, fontWeight = fontWeight, fontFamily = OswaldFontFamily,
                         style = TextStyle(
                             platformStyle = PlatformTextStyle(
                                 includeFontPadding = false
-                            )
-                        )
+                            ),
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both
+                            ),
+                            letterSpacing = spacing
+                        ),
+                        modifier = Modifier.offset(y = sizes.cornerOffset)
                     )
                     Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color,
-                        modifier = Modifier.size(sizes.paddingValue))
+                        modifier = Modifier.size(sizes.cornerIconSize))
                 }
-                when(cardData.rank) {
-                    Rank.ACE -> {
-                        Box(Modifier.align(Alignment.Center)) {
+                val (count, totalFraction) = if(cardData.rank.value == 14) 1 to 1f else cardData.rank.value to 1f - fraction
+                val size = when(cardData.rank.value) {
+                    14 -> maxHeight
+                    in 1..4 -> maxHeight * 0.6f / 4
+                    5 -> maxHeight * 0.6f / 5
+                    in 6..9 -> maxHeight * 0.6f / 6
+                    else -> maxHeight * 0.6f / 8
+                }
+                Box(Modifier.fillMaxHeight().fillMaxWidth(fraction = totalFraction).align(Alignment.CenterEnd).padding(vertical = sizes.paddingValue)) {
+                    when(count) {
+                        1 -> {
                             Icon(
                                 imageVector = cardData.vector,
                                 contentDescription = null,
                                 tint = cardData.color,
-                                modifier = Modifier.size(sizes.aceIconSize)
+                                modifier = Modifier.size(size).offset(x = sizes.offsetAce)
                             )
                         }
-                    }
-                    Rank.TWO -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
+                        in 2..4 -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+                                repeat(count) {
+                                    Icon(
+                                        imageVector = cardData.vector,
+                                        contentDescription = null,
+                                        tint = cardData.color,
+                                        modifier = Modifier.size(size)
+                                    )
+                                }
+                            }
+                        }
+                        else -> {
+                            val bigHalf = if(count % 2 == 0) count / 2 else count / 2 + 1
+                            val smallHalf = count / 2
+                            Row(horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
+                                    repeat(smallHalf) {
+                                        Icon(
+                                            imageVector = cardData.vector,
+                                            contentDescription = null,
+                                            tint = cardData.color,
+                                            modifier = Modifier.size(size)
+                                        )
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
+                                    repeat(bigHalf) {
+                                        Icon(
+                                            imageVector = cardData.vector,
+                                            contentDescription = null,
+                                            tint = cardData.color,
+                                            modifier = Modifier.size(size)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
-                    Rank.THREE -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                    }
-                    Rank.FOUR -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                    }
-                    Rank.FIVE -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Box(
-                            Modifier.align(Alignment.Center)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                        }
-                    }
-                    Rank.SIX -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                    }
-                    Rank.SEVEN -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Box(
-                            Modifier.align(BiasAlignment(0f, -0.4f))
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                        }
-                    }
-                    Rank.EIGHT -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.dpEqual28),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                    }
-                    Rank.NINE -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue / 2),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue / 2),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.55f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize).graphicsLayer(rotationZ = 180f))
-                        }
-                        Box(Modifier.align(Alignment.Center)) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.standardIconSize))
-                        }
-                    }
-                    Rank.TEN -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(0.4f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.graphicsLayer(rotationZ = 180f).size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.graphicsLayer(rotationZ = 180f).size(sizes.tenIconSize))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.paddingValue),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = BiasAlignment.Horizontal(-0.4f)
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.graphicsLayer(rotationZ = 180f).size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.graphicsLayer(rotationZ = 180f).size(sizes.tenIconSize))
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(vertical = sizes.dpEqual23),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.tenIconSize))
-                            Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.graphicsLayer(rotationZ = 180f).size(sizes.tenIconSize))
-                        }
-                    }
-                    else -> {}
-                }
-                Column(Modifier.align(Alignment.BottomEnd).width(IntrinsicSize.Min).graphicsLayer(rotationZ = 180f),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = getCardNameClassic(cardData.rank), color = cardData.color, fontSize = sizes.cornerFontSize, fontWeight = FontWeight.SemiBold, fontFamily = OswaldFontFamily,
-                        style = TextStyle(
-                            platformStyle = PlatformTextStyle(
-                                includeFontPadding = false
-                            )
-                        ))
-                    Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color, modifier = Modifier.size(sizes.paddingValue))
                 }
             }
         }
     }
 }
 
+@Composable
+@Preview
+fun TestClassicFace() {
+    CardFaceClassic(Card(Rank.SEVEN, Suit.SPADES), true, Modifier.width(80.dp).height(120.dp))
+}
+
 private fun getCardNameClassic(rank: Rank): String {
-    return if(rank.value < 11) rank.value.toString() else "A"
+    return when(rank.value) {
+        14 -> "A"
+        10 -> "l0"
+        else -> rank.value.toString()
+    }
 }

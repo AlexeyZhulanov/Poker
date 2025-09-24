@@ -101,10 +101,20 @@ fun PokerCard(card: Card?, modifier: Modifier, scaleMultiplier: Float = 1f) {
 }
 
 @Composable
-fun ClassicPokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier) {
+fun ClassicPokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier, scaleMultiplier: Float = 1f) {
     card?.let {
-        CardFaceClassic(it, isFourColorMode, modifier)
-    } ?: CardBack(modifier, 1f)
+        CardFaceClassic(it, isFourColorMode, modifier, scaleMultiplier)
+    } ?: CardBack(modifier, scaleMultiplier)
+}
+
+@Composable
+fun ClassicPlayerPokerCard(card: Card?, isFourColorMode: Boolean, scaleMultiplier: Float) {
+    val cardModifier = remember(scaleMultiplier) {
+        Modifier.width(30.dp * scaleMultiplier).height(45.dp * scaleMultiplier)
+    }
+    card?.let {
+        CardFaceClassic(it, isFourColorMode, cardModifier, scaleMultiplier)
+    } ?: CardBack(cardModifier, scaleMultiplier, minMultiplier = 0.6f)
 }
 
 @Composable
@@ -123,7 +133,7 @@ enum class FlipDirection {
 }
 
 @Composable
-fun FlippingPokerCard(card: Card?, flipDirection: FlipDirection = FlipDirection.CLOCKWISE, scaleMultiplier: Float, rotation: Float) {
+fun FlippingPokerCard(card: Card?, flipDirection: FlipDirection = FlipDirection.CLOCKWISE, scaleMultiplier: Float, rotation: Float, isClassicFace: Boolean, isFourColorMode: Boolean = true) {
     val density = LocalDensity.current.density
     val isFaceUp = card != null
 
@@ -160,11 +170,20 @@ fun FlippingPokerCard(card: Card?, flipDirection: FlipDirection = FlipDirection.
     } else {
         // Поворачиваем лицо карты обратно, чтобы оно не было зеркальным
         if (card != null) {
-            CardFaceAlternative(
-                card = card,
-                modifier = cardModifier.graphicsLayer { rotationY = 180f },
-                scaleMultiplier
-            )
+            if(isClassicFace) {
+                CardFaceClassic(
+                    card = card,
+                    isFourColorMode = isFourColorMode,
+                    modifier = cardModifier.graphicsLayer { rotationY = 180f },
+                    scaleMultiplier = scaleMultiplier
+                )
+            } else {
+                CardFaceAlternative(
+                    card = card,
+                    modifier = cardModifier.graphicsLayer { rotationY = 180f },
+                    scaleMultiplier
+                )
+            }
         } else CardBack(modifier = cardModifier.graphicsLayer { rotationY = 180f }, scaleMultiplier, 0.8f)
     }
 }

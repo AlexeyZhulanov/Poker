@@ -264,6 +264,8 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     stackDisplayMode = stackDisplayMode,
                     isPerformanceMode = isPerformanceMode,
                     isLandscape = isLandscape,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode,
                     onLastBoardResultChange = { amount -> lastBoardResult = amount }
                 )
                 val waitingModifier = remember {
@@ -885,7 +887,9 @@ fun PlayerWithEquity(
     displayMode: StackDisplayMode,
     bigBlind: Long,
     scaleMultiplier: Float,
-    alignHValue: Float
+    alignHValue: Float,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
 ) {
     val equity = allInEquity?.equities?.get(playerState.player.userId)
     val out = allInEquity?.outs?.get(playerState.player.userId)
@@ -919,7 +923,9 @@ fun PlayerWithEquity(
             scaleMultiplier = scaleMultiplier,
             displayMode = displayMode,
             isWinner = isWinner,
-            bigBlind = bigBlind
+            bigBlind = bigBlind,
+            isClassicCardsEnabled = isClassicCardsEnabled,
+            isFourColorMode = isFourColorMode
         )
         val mod = if(tailDirection == TailDirection.RIGHT) Modifier.align(Alignment.CenterStart) else Modifier.align(Alignment.CenterEnd)
 
@@ -955,7 +961,9 @@ fun PlayerDisplay(
     isWinner: Boolean = false,
     displayMode: StackDisplayMode,
     bigBlind: Long,
-    scaleMultiplier: Float
+    scaleMultiplier: Float,
+    isClassicCardsEnabled: Boolean = false,
+    isFourColorMode: Boolean = false,
 ) {
     val boxModifier = remember(scaleMultiplier) {
         modifier
@@ -1003,20 +1011,29 @@ fun PlayerDisplay(
                     val arrangement2 = if(isPerformanceMode) Arrangement.Center else Arrangement.spacedBy((-20).dp * scaleMultiplier)
                     Row(horizontalArrangement = arrangement2) {
                         if(isPerformanceMode) {
-                            SimplePokerCard(card1, scaleMultiplier)
-                            SimplePokerCard(card2, scaleMultiplier)
+                            if(isClassicCardsEnabled) {
+                                ClassicPlayerPokerCard(card1, isFourColorMode, scaleMultiplier)
+                                ClassicPlayerPokerCard(card2, isFourColorMode, scaleMultiplier)
+                            } else {
+                                SimplePokerCard(card1, scaleMultiplier)
+                                SimplePokerCard(card2, scaleMultiplier)
+                            }
                         } else {
                             FlippingPokerCard(
                                 card = card1,
                                 flipDirection = FlipDirection.COUNTER_CLOCKWISE,
                                 scaleMultiplier = scaleMultiplier,
-                                rotation = -10f
+                                rotation = -10f,
+                                isClassicFace = isClassicCardsEnabled,
+                                isFourColorMode = isFourColorMode
                             )
                             FlippingPokerCard(
                                 card = card2,
                                 flipDirection = FlipDirection.CLOCKWISE,
                                 scaleMultiplier = scaleMultiplier,
-                                rotation = 10f
+                                rotation = 10f,
+                                isClassicFace = isClassicCardsEnabled,
+                                isFourColorMode = isFourColorMode
                             )
                         }
                     }
@@ -1969,6 +1986,8 @@ fun PlayersLayout(
     stackDisplayMode: StackDisplayMode,
     isPerformanceMode: Boolean,
     isLandscape: Boolean,
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
     onLastBoardResultChange: (Long) -> Unit
 ) {
     val roomInfo by viewModel.roomInfo.collectAsStateWithLifecycle()
@@ -2208,7 +2227,9 @@ fun PlayersLayout(
                     displayMode = stackDisplayMode,
                     isWinner = playerState.player.userId in winnerIds,
                     bigBlind = gameState?.bigBlindAmount ?: 0L,
-                    alignHValue = alignments[index].horizontalBias
+                    alignHValue = alignments[index].horizontalBias,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode
                 )
             }
         }

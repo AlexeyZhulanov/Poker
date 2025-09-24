@@ -1,8 +1,6 @@
 package com.example.poker.ui.game
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,38 +14,63 @@ import androidx.compose.ui.tooling.preview.Preview
 @Composable
 fun PokerTableBackground(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.fillMaxSize()) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
+        val railHeight = size.height * 0.08f // Ширина бортика (8% от высоты стола)
 
-        // Определяем цвета стола
-        val feltColor = Color(0xFF00693E) // Темно-зеленый
-        val woodColorDark = Color(0xFF5C3A21)
-        val woodColorLight = Color(0xFF8B5A2B)
-        val lineColor = Color.Yellow.copy(alpha = 0.6f)
+        // --- Определяем цвета ---
+        val feltColorDark = Color(0xFF004D2B)   // Основной цвет сукна
+        val feltColorLight = Color(0xFF00693E)  // "Блик" света в центре
 
-        // 1. Рисуем деревянный бортик (с градиентом для объема)
+        val railColorDark = Color(0xFF4A2A14)   // Темная часть дерева
+        val railColorMedium = Color(0xFF7B4A23) // Средняя часть дерева
+        val railColorLight = Color(0xFF8B5A2B)  // Светлая часть дерева
+
+        val innerShadowColor = Color.Black.copy(alpha = 0.4f)
+        val bettingLineColor = Color(0xFFE0B314).copy(alpha = 0.8f)
+
+        // --- Рисуем слои стола ---
+
+        // 1. Рисуем внешний деревянный бортик "с фаской"
+        // Используем толстый контур с градиентом для имитации объема
+        drawOval(
+            brush = Brush.linearGradient(
+                colors = listOf(railColorLight, railColorDark, railColorMedium),
+                start = Offset(0f, 0f),
+                end = Offset(size.width, size.height)
+            ),
+            size = size,
+            style = Stroke(width = railHeight * 2) // Ширина контура равна ширине бортика
+        )
+
+        // 2. Рисуем внутреннюю тень для эффекта глубины
+        // Это заставляет сукно выглядеть "утопленным" в стол
         drawOval(
             brush = Brush.radialGradient(
-                colors = listOf(woodColorLight, woodColorDark),
+                colors = listOf(Color.Transparent, innerShadowColor),
                 center = center,
-                radius = canvasWidth / 2
+                radius = (size.height - railHeight) / 2
             ),
-            size = Size(canvasWidth, canvasHeight)
+            topLeft = Offset(railHeight / 2, railHeight / 2),
+            size = Size(size.width - railHeight, size.height - railHeight)
         )
 
-        // 2. Рисуем зеленое сукно стола (чуть меньше бортика)
+        // 3. Рисуем зеленое сукно с эффектом освещения
+        // Радиальный градиент от светлого в центре к темному по краям
         drawOval(
-            color = feltColor,
-            topLeft = Offset(20f, 20f),
-            size = Size(canvasWidth - 40f, canvasHeight - 40f)
+            brush = Brush.radialGradient(
+                colors = listOf(feltColorLight, feltColorDark),
+                center = center,
+                radius = size.height / 2.5f
+            ),
+            topLeft = Offset(railHeight, railHeight),
+            size = Size(size.width - railHeight * 2, size.height - railHeight * 2)
         )
 
-        // 3. Рисуем желтую линию разметки
+        // 4. Рисуем желтую линию для ставок
         drawOval(
-            color = lineColor,
-            topLeft = Offset(40f, 40f),
-            size = Size(canvasWidth - 80f, canvasHeight - 80f),
-            style = Stroke(width = 5f) // Рисуем только контур
+            color = bettingLineColor,
+            topLeft = Offset(railHeight * 1.5f, railHeight * 1.5f),
+            size = Size(size.width - railHeight * 3, size.height - railHeight * 3),
+            style = Stroke(width = 4f)
         )
     }
 }
