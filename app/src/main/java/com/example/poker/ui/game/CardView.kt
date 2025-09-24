@@ -7,8 +7,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,13 +32,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.CardCharactersFontFamily
+import com.example.poker.ui.theme.OswaldFontFamily
 import com.example.poker.util.getCardName
 
 @Composable
@@ -221,28 +224,30 @@ fun SuitGroupCard(suit: Suit, modifier: Modifier = Modifier) {
 @Composable
 fun RankGroupCard(rank: Rank, modifier: Modifier = Modifier) {
     BoxWithConstraints(contentAlignment = Alignment.Center, modifier = modifier) {
-        val fontSize = with(LocalDensity.current) {
-            if(rank == Rank.TEN) (maxHeight * 0.7f).toSp() else (maxHeight * 0.85f).toSp()
-        }
+        val isTen = rank == Rank.TEN
+        val (fontSize, spacing) = with(LocalDensity.current) { if(isTen) (maxHeight * 0.83f).toSp() to -(maxWidth * 0.02f).toSp() else (maxHeight * 0.85f).toSp() to TextUnit.Unspecified }
         val cardName = remember(rank) { getCardName(rank) }
-        Text(text = cardName, color = Color.White, fontWeight = FontWeight.SemiBold, fontFamily = CardCharactersFontFamily,
+        val (fontFamily, fontWeight) = if(isTen) OswaldFontFamily to FontWeight.Normal else CardCharactersFontFamily to FontWeight.SemiBold
+        val modifier = if(isTen) Modifier.offset(x = maxWidth * 0.03f, y = maxHeight * -0.15f) else Modifier
+        Text(text = cardName, color = Color.White, fontWeight = fontWeight, fontFamily = fontFamily,
             style = TextStyle(
                 platformStyle = PlatformTextStyle(
                     includeFontPadding = false
                 ),
                 lineHeight = TextUnit.Unspecified,
-                letterSpacing = if(rank == Rank.TEN) -(5).sp else TextUnit.Unspecified
+                letterSpacing = spacing
             ),
             softWrap = false,
             fontSize = fontSize,
+            modifier = modifier
         )
     }
 }
 
-//@Composable
-//@Preview
-//fun TestSimpleCard2() {
-//    Box(modifier = Modifier.width(30.dp).aspectRatio(0.8f), contentAlignment = Alignment.Center) {
-//        SuitGroupCard(Suit.SPADES)
-//    }
-//}
+@Composable
+@Preview
+fun TestSimpleCard2() {
+    Box(modifier = Modifier.width(30.dp).aspectRatio(0.8f), contentAlignment = Alignment.Center) {
+        RankGroupCard(Rank.TEN)
+    }
+}

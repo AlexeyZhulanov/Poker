@@ -184,8 +184,9 @@ fun calculateOffset(
 }
 
 fun getCardName(rank: Rank): String {
-    return if(rank.value < 11) rank.value.toString() else {
+    return if(rank.value < 10) rank.value.toString() else {
         when(rank) {
+            Rank.TEN -> "l0"
             Rank.JACK -> "J"
             Rank.QUEEN -> "Q"
             Rank.KING -> "K"

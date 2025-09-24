@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.CardCharactersFontFamily
+import com.example.poker.ui.theme.OswaldFontFamily
 import com.example.poker.util.getCardName
 
 @Composable
@@ -66,10 +68,10 @@ fun CardFaceSimple(card: Card, modifier: Modifier, scaleMultiplier: Float, isNee
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modFinal) {
         BoxWithConstraints(Modifier.weight(1.5f).fillMaxWidth(),
             contentAlignment = Alignment.TopCenter) {
-            val fontSize = with(LocalDensity.current) {
-                if(isTen) (maxHeight * 0.7f).toSp() else (maxHeight * 0.85f).toSp()
-            }
-            Text(text = cardName, color = Color.White, fontWeight = FontWeight.SemiBold, fontFamily = CardCharactersFontFamily,
+            val fontSize = with(LocalDensity.current) { if(isTen) (maxHeight * 0.83f).toSp() else (maxHeight * 0.85f).toSp() }
+            val (fontFamily, fontWeight) = if(isTen) OswaldFontFamily to FontWeight.Normal else CardCharactersFontFamily to FontWeight.SemiBold
+            val modifier = if(isTen) Modifier.offset(x = maxWidth * 0.04f, y = maxHeight * -0.15f) else Modifier
+            Text(text = cardName, color = Color.White, fontWeight = fontWeight, fontFamily = fontFamily,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -77,7 +79,8 @@ fun CardFaceSimple(card: Card, modifier: Modifier, scaleMultiplier: Float, isNee
                     lineHeight = TextUnit.Unspecified
                 ),
                 softWrap = false,
-                fontSize = fontSize
+                fontSize = fontSize,
+                modifier = modifier
             )
         }
         Icon(
@@ -92,5 +95,5 @@ fun CardFaceSimple(card: Card, modifier: Modifier, scaleMultiplier: Float, isNee
 @Composable
 @Preview
 fun TestSimpleCard() {
-    CardFaceSimple(Card(Rank.ACE, Suit.SPADES), Modifier.width(30.dp).height(45.dp), 1f, false)
+    CardFaceSimple(Card(Rank.TEN, Suit.SPADES), Modifier.width(30.dp).height(45.dp), 1f, false)
 }
