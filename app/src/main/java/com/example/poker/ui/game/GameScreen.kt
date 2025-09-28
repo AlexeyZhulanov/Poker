@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -12,6 +13,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -83,6 +85,7 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -106,6 +109,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -125,6 +129,7 @@ import com.example.poker.util.calculateChipStack
 import com.example.poker.util.calculateOffset
 import com.example.poker.util.calculatePlayerPosition
 import com.example.poker.util.calculatePlayerPositionLandscape
+import com.example.poker.util.getStickerResource
 import com.example.poker.util.prepareOutDisplayItems
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
@@ -2018,6 +2023,8 @@ fun PlayersLayout(
     val myUserId by viewModel.myUserId.collectAsStateWithLifecycle()
     val boardResult by viewModel.boardResult.collectAsStateWithLifecycle()
     val allInEquity by viewModel.allInEquity.collectAsStateWithLifecycle()
+    val showStickerActions by viewModel.showStickerActions.collectAsStateWithLifecycle()
+    var isShowStickersMenu by remember { mutableStateOf(false) }
 //    val allInEquity = AllInEquity(persistentMapOf(
 //        "1" to 0.0,
 //        "2" to 0.0,
@@ -2103,6 +2110,22 @@ fun PlayersLayout(
                 val maxDist2 = maxD2
             }
         }
+
+        if(isShowStickersMenu) {
+            Popup(
+                alignment = Alignment.BottomCenter,
+                onDismissRequest = { isShowStickersMenu = false }
+            ) {
+                StickerSelectionMenu(
+                    onStickerSelected = { stickerId ->
+                        isShowStickersMenu = false
+                        viewModel.onStickerSelected(stickerId)
+                    },
+                    onDismiss = { isShowStickersMenu = false }
+                )
+            }
+        }
+
         reorderedPlayers.forEachIndexed { index, playerState ->
             key(playerState.player.userId) {
                 val tailDirection = if(equityPositions[index]) TailDirection.RIGHT else TailDirection.LEFT
@@ -2210,8 +2233,10 @@ fun PlayersLayout(
                     }
                 }
                 val mod = remember(isLandscape, index == 0) {
-                    if(isLandscape && index == 0) Modifier.align(alignments[index]).offset(y = 50.dp).padding(3.dp)
-                    else Modifier.align(alignments[index]).padding(3.dp)
+                    if(index == 0) {
+                        if(isLandscape) Modifier.align(alignments[index]).offset(y = 50.dp).padding(3.dp).clickable(onClick = { isShowStickersMenu = true })
+                        else Modifier.align(alignments[index]).padding(3.dp).clickable(onClick = { isShowStickersMenu = true })
+                    } else Modifier.align(alignments[index]).padding(3.dp)
                 }
                 PlayerWithEquity(
                     allInEquity = allInEquity,
@@ -2231,6 +2256,36 @@ fun PlayersLayout(
                     isClassicCardsEnabled = isClassicCardsEnabled,
                     isFourColorMode = isFourColorMode
                 )
+
+                AnimatedVisibility(
+                    visible = playerState.player.userId in showStickerActions.keys,
+                    // Анимация при появлении: увеличение с 50% и плавное проявление
+                    enter = fadeIn(animationSpec = tween(200)), // todo возможно убрать
+                    exit = scaleOut(animationSpec = tween(200)) + fadeOut(animationSpec = tween(200)),
+                    modifier = Modifier.align(alignments[index])
+                ) {
+                    val scale = remember { Animatable(0.5f) }
+
+                    // Запускаем медленную анимацию, как только стикер появляется
+                    LaunchedEffect(showStickerActions[playerState.player.userId]) {
+                        // Сбрасываем масштаб в начальное состояние
+                        scale.snapTo(0.5f)
+                        // Запускаем плавную анимацию до 1x за 3 секунды
+                        scale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = 3000, easing = LinearEasing)
+                        )
+                    }
+
+                    val stickerId = showStickerActions[playerState.player.userId]
+                    stickerId?.let {
+                        Image(
+                            painter = painterResource(id = getStickerResource(it)),
+                            contentDescription = "Sticker",
+                            modifier = Modifier.size(85.dp * scaleMultiplier).scale(scale.value)
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.example.poker.util
 
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Alignment
@@ -7,6 +8,7 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import com.example.poker.R
 import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.standardChipSet
 import com.example.poker.shared.model.Card
@@ -253,3 +255,76 @@ val CardListSaver = Saver<ImmutableList<Card>, List<Card>>(
     save = { it.toList() },
     restore = { it.toImmutableList() }
 )
+
+@DrawableRes
+fun getStickerResource(stickerId: String): Int {
+    return when (stickerId) {
+        "durak1" -> R.drawable.sticker_durak1
+        "durak2" -> R.drawable.sticker_durak2
+        "durak3" -> R.drawable.sticker_durak3
+        "durak4" -> R.drawable.sticker_durak4
+        "durak5" -> R.drawable.sticker_durak5
+        "durak6" -> R.drawable.sticker_durak6
+        "durak7" -> R.drawable.sticker_durak7
+        "durak8" -> R.drawable.sticker_durak8
+        "durak9" -> R.drawable.sticker_durak9
+        "durak10" -> R.drawable.sticker_durak10
+        "durak11" -> R.drawable.sticker_durak11
+        "durak12" -> R.drawable.sticker_durak12
+        "durak13" -> R.drawable.sticker_durak13
+        "durak14" -> R.drawable.sticker_durak14
+        "durak15" -> R.drawable.sticker_durak15
+        "durak16" -> R.drawable.sticker_durak16
+        "durak17" -> R.drawable.sticker_durak17
+        "durak18" -> R.drawable.sticker_durak18
+        "durak19" -> R.drawable.sticker_durak19
+        "durak20" -> R.drawable.sticker_durak20
+        "durak21" -> R.drawable.sticker_durak21
+        "durak22" -> R.drawable.sticker_durak22
+        "durak23" -> R.drawable.sticker_durak23
+        "durak24" -> R.drawable.sticker_durak24
+
+        "snake1" -> R.drawable.sticker_snake1
+        "snake2" -> R.drawable.sticker_snake2
+        "snake3" -> R.drawable.sticker_snake3
+        "snake4" -> R.drawable.sticker_snake4
+        "snake5" -> R.drawable.sticker_snake5
+        "snake6" -> R.drawable.sticker_snake6
+        "snake7" -> R.drawable.sticker_snake7
+        "snake8" -> R.drawable.sticker_snake8
+        "snake9" -> R.drawable.sticker_snake9
+        "snake10" -> R.drawable.sticker_snake10
+        "snake11" -> R.drawable.sticker_snake11
+        "snake12" -> R.drawable.sticker_snake12
+        "snake13" -> R.drawable.sticker_snake13
+        "snake14" -> R.drawable.sticker_snake14
+        "snake15" -> R.drawable.sticker_snake15
+        "snake16" -> R.drawable.sticker_snake16
+        "snake17" -> R.drawable.sticker_snake17
+        "snake18" -> R.drawable.sticker_snake18
+        "snake19" -> R.drawable.sticker_snake19
+        "snake20" -> R.drawable.sticker_snake20
+        "snake21" -> R.drawable.sticker_snake21
+        "snake22" -> R.drawable.sticker_snake22
+        "snake23" -> R.drawable.sticker_snake23
+
+        "sponge1" -> R.drawable.sticker_sponge1
+        "sponge2" -> R.drawable.sticker_sponge2
+        "sponge3" -> R.drawable.sticker_sponge3
+        "sponge4" -> R.drawable.sticker_sponge4
+        "sponge5" -> R.drawable.sticker_sponge5
+        "sponge6" -> R.drawable.sticker_sponge6
+        "sponge7" -> R.drawable.sticker_sponge7
+        "sponge8" -> R.drawable.sticker_sponge8
+        "sponge9" -> R.drawable.sticker_sponge9
+        "sponge10" -> R.drawable.sticker_sponge10
+        "sponge11" -> R.drawable.sticker_sponge11
+        "sponge12" -> R.drawable.sticker_sponge12
+        "sponge13" -> R.drawable.sticker_sponge13
+        "sponge14" -> R.drawable.sticker_sponge14
+        "sponge15" -> R.drawable.sticker_sponge15
+        "sponge16" -> R.drawable.sticker_sponge16
+
+        else -> R.drawable.sticker_durak1
+    }
+}
