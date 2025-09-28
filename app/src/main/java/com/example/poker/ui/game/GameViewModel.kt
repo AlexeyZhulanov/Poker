@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.URLDecoder
 import java.util.Base64
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -72,6 +73,11 @@ data class TournamentInfo(val sb: Long, val bb: Long, val ante: Long, val level:
 enum class StackDisplayMode {
     CHIPS, BIG_BLINDS
 }
+
+data class StickerDisplay(
+    val stickerId: String,
+    val instanceId: UUID = UUID.randomUUID()
+)
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -125,8 +131,8 @@ class GameViewModel @Inject constructor(
     private val _boardResult = MutableStateFlow<ImmutableList<Pair<String, Long>>?>(null)
     val boardResult: StateFlow<ImmutableList<Pair<String, Long>>?> = _boardResult.asStateFlow()
 
-    private val _showStickerActions = MutableStateFlow<PersistentMap<String, String>>(persistentMapOf())
-    val showStickerActions: StateFlow<ImmutableMap<String, String>> = _showStickerActions.asStateFlow() // key userId, value stickerId
+    private val _showStickerActions = MutableStateFlow<PersistentMap<String, StickerDisplay>>(persistentMapOf())
+    val showStickerActions: StateFlow<ImmutableMap<String, StickerDisplay>> = _showStickerActions.asStateFlow() // key userId, value stickerId
     private val stickerCleanupJobs = mutableMapOf<String, Job>()
 
     private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<String, String>>>(persistentMapOf())
@@ -328,13 +334,12 @@ class GameViewModel @Inject constructor(
                                         when(val action = message.action) {
                                             is SocialAction.ShowSticker -> {
                                                 val playerId = message.fromPlayerId
-                                                val stickerId = action.stickerId
-                                                Log.d("testShowSticker", "show sticker: $stickerId")
+                                                val newStickerDisplay = StickerDisplay(stickerId = action.stickerId)
                                                 // 1. Отменяем предыдущую задачу по очистке для этого игрока, если она была
                                                 stickerCleanupJobs[playerId]?.cancel()
 
                                                 // 2. Обновляем UI, чтобы показать стикер
-                                                _showStickerActions.update { it.put(playerId, stickerId) }
+                                                _showStickerActions.update { it.put(playerId, newStickerDisplay) }
 
                                                 // 3. Запускаем новую задачу по очистке и сохраняем ее
                                                 stickerCleanupJobs[playerId] = viewModelScope.launch {
@@ -547,7 +552,6 @@ class GameViewModel @Inject constructor(
     }
 
     fun onStickerSelected(stickerId: String) {
-        Log.d("testTrySendSticker", "OK")
         sendAction(IncomingMessage.PerformSocialAction(SocialAction.ShowSticker(stickerId)))
     }
 

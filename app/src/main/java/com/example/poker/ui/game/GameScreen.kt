@@ -13,7 +13,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -109,7 +108,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -2110,22 +2108,6 @@ fun PlayersLayout(
                 val maxDist2 = maxD2
             }
         }
-
-        if(isShowStickersMenu) {
-            Popup(
-                alignment = Alignment.BottomCenter,
-                onDismissRequest = { isShowStickersMenu = false }
-            ) {
-                StickerSelectionMenu(
-                    onStickerSelected = { stickerId ->
-                        isShowStickersMenu = false
-                        viewModel.onStickerSelected(stickerId)
-                    },
-                    onDismiss = { isShowStickersMenu = false }
-                )
-            }
-        }
-
         reorderedPlayers.forEachIndexed { index, playerState ->
             key(playerState.player.userId) {
                 val tailDirection = if(equityPositions[index]) TailDirection.RIGHT else TailDirection.LEFT
@@ -2257,35 +2239,50 @@ fun PlayersLayout(
                     isFourColorMode = isFourColorMode
                 )
 
+                val mod2 = remember(isLandscape, index == 0) {
+                    if(index == 0 && isLandscape) Modifier.align(alignments[index]).offset(y = 50.dp)
+                    else Modifier.align(alignments[index])
+                }
                 AnimatedVisibility(
                     visible = playerState.player.userId in showStickerActions.keys,
-                    // Анимация при появлении: увеличение с 50% и плавное проявление
-                    enter = fadeIn(animationSpec = tween(200)), // todo возможно убрать
-                    exit = scaleOut(animationSpec = tween(200)) + fadeOut(animationSpec = tween(200)),
-                    modifier = Modifier.align(alignments[index])
+                    enter = fadeIn(animationSpec = tween(200)),
+                    exit = fadeOut(animationSpec = tween(200)),
+                    modifier = mod2
                 ) {
-                    val scale = remember { Animatable(0.5f) }
+                    val stickerAction = showStickerActions[playerState.player.userId]
 
-                    // Запускаем медленную анимацию, как только стикер появляется
-                    LaunchedEffect(showStickerActions[playerState.player.userId]) {
-                        // Сбрасываем масштаб в начальное состояние
-                        scale.snapTo(0.5f)
-                        // Запускаем плавную анимацию до 1x за 3 секунды
-                        scale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(durationMillis = 3000, easing = LinearEasing)
-                        )
-                    }
+                    // Compose уничтожает старый блок и создает новый, запуская анимацию заново.
+                    key(stickerAction?.instanceId) {
+                        stickerAction?.let { display ->
+                            // Начальное значение теперь всегда 0.5f для нового стикера
+                            val scale = remember { Animatable(0.5f) }
 
-                    val stickerId = showStickerActions[playerState.player.userId]
-                    stickerId?.let {
-                        Image(
-                            painter = painterResource(id = getStickerResource(it)),
-                            contentDescription = "Sticker",
-                            modifier = Modifier.size(85.dp * scaleMultiplier).scale(scale.value)
-                        )
+                            // Запускается один раз при появлении этого блока с ключом
+                            LaunchedEffect(Unit) {
+                                scale.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = tween(durationMillis = 3000, easing = LinearEasing)
+                                )
+                            }
+                            Image(
+                                painter = painterResource(id = getStickerResource(display.stickerId)),
+                                contentDescription = "Стикер",
+                                modifier = Modifier.size(85.dp * scaleMultiplier).scale(scale.value)
+                            )
+                        }
                     }
                 }
+                StickerSelectionMenu(
+                    onStickerSelected = { stickerId ->
+                        isShowStickersMenu = false
+                        viewModel.onStickerSelected(stickerId)
+                    },
+                    onDismiss = { isShowStickersMenu = false },
+                    modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
+                        translationY = if (isShowStickersMenu) 0f else parentHeightPx // убираем меню под экран
+                        alpha = if (isShowStickersMenu) 1f else 0f
+                    }
+                )
             }
         }
     }
