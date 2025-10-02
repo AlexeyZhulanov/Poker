@@ -250,10 +250,10 @@ class GameViewModel @Inject constructor(
                                         val runIndex = currentState?.runIndex
                                         if (runIndex != null && _boardRunouts.value.isNotEmpty()) {
                                             _boardRunouts.update { currentRunouts ->
-                                                currentRunouts.also {
+                                                currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = currentState.communityCards.drop(_staticCommunityCards.value.size)
-                                                    it.set(runIndex - 1, runoutCards.toPersistentList())
-                                                }
+                                                    mutableList[runIndex - 1] = runoutCards.toPersistentList()
+                                                }.toPersistentList()
                                             }
                                         } else {
                                             _boardRunouts.value = persistentListOf()

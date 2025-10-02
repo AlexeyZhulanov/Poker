@@ -893,6 +893,8 @@ fun PlayerWithEquity(
     alignHValue: Float,
     isClassicCardsEnabled: Boolean,
     isFourColorMode: Boolean,
+    isMyBottomPlayer: Boolean,
+    onMyPlayerClicked: () -> Unit
 ) {
     val equity = allInEquity?.equities?.get(playerState.player.userId)
     val out = allInEquity?.outs?.get(playerState.player.userId)
@@ -928,7 +930,9 @@ fun PlayerWithEquity(
             isWinner = isWinner,
             bigBlind = bigBlind,
             isClassicCardsEnabled = isClassicCardsEnabled,
-            isFourColorMode = isFourColorMode
+            isFourColorMode = isFourColorMode,
+            isMyBottomPlayer = isMyBottomPlayer,
+            onMyPlayerClicked = { onMyPlayerClicked() }
         )
         val mod = if(tailDirection == TailDirection.RIGHT) Modifier.align(Alignment.CenterStart) else Modifier.align(Alignment.CenterEnd)
 
@@ -967,12 +971,15 @@ fun PlayerDisplay(
     scaleMultiplier: Float,
     isClassicCardsEnabled: Boolean = false,
     isFourColorMode: Boolean = false,
+    isMyBottomPlayer: Boolean = false,
+    onMyPlayerClicked: () -> Unit
 ) {
-    val boxModifier = remember(scaleMultiplier) {
-        modifier
+    val boxModifier = remember(scaleMultiplier, isMyBottomPlayer) {
+        val m = modifier
             .width(70.dp * scaleMultiplier)
             .height(80.dp * scaleMultiplier)
             .padding(horizontal = 5.dp * scaleMultiplier)
+        if(isMyBottomPlayer) m.clickable(onClick = { onMyPlayerClicked() }) else m
     }
     Box(modifier = boxModifier) {
         val iconModifier = remember(scaleMultiplier) {
@@ -1703,7 +1710,8 @@ fun TournamentWinnerDialog(
                             isGameStarted = false,
                             displayMode = StackDisplayMode.CHIPS,
                             bigBlind = 0L,
-                            scaleMultiplier = 1.2f
+                            scaleMultiplier = 1.2f,
+                            onMyPlayerClicked = {}
                         )
                     }
 
@@ -2215,10 +2223,8 @@ fun PlayersLayout(
                     }
                 }
                 val mod = remember(isLandscape, index == 0) {
-                    if(index == 0) {
-                        if(isLandscape) Modifier.align(alignments[index]).offset(y = 50.dp).padding(3.dp).clickable(onClick = { isShowStickersMenu = true })
-                        else Modifier.align(alignments[index]).padding(3.dp).clickable(onClick = { isShowStickersMenu = true })
-                    } else Modifier.align(alignments[index]).padding(3.dp)
+                    if(isLandscape && index == 0) Modifier.align(alignments[index]).offset(y = 50.dp).padding(3.dp)
+                    else Modifier.align(alignments[index]).padding(3.dp)
                 }
                 PlayerWithEquity(
                     allInEquity = allInEquity,
@@ -2236,7 +2242,9 @@ fun PlayersLayout(
                     bigBlind = gameState?.bigBlindAmount ?: 0L,
                     alignHValue = alignments[index].horizontalBias,
                     isClassicCardsEnabled = isClassicCardsEnabled,
-                    isFourColorMode = isFourColorMode
+                    isFourColorMode = isFourColorMode,
+                    isMyBottomPlayer = index == 0,
+                    onMyPlayerClicked = { isShowStickersMenu = true }
                 )
 
                 val mod2 = remember(isLandscape, index == 0) {

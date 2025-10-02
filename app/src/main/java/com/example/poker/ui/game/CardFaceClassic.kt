@@ -1,7 +1,8 @@
 package com.example.poker.ui.game
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,14 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -41,6 +41,7 @@ import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.GreenCard
 import com.example.poker.ui.theme.OswaldFontFamily
+import com.example.poker.util.getCardName
 
 @Composable
 fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier, scaleMultiplier: Float = 1f) {
@@ -98,73 +99,81 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier, sc
     }
     val (shapeSize, borderSize) = if(scaleMultiplier < 1f) 6.dp * scaleMultiplier to 1.dp * scaleMultiplier else 6.dp to 1.dp
     val padding = if(scaleMultiplier < 1f) 3.dp * scaleMultiplier else 3.dp
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(shapeSize),
-        border = BorderStroke(borderSize, Color.Gray),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
+    val isPictureCard = cardData.rank.value in 11..13
+    Box(modifier = modifier.clip(RoundedCornerShape(shapeSize)).border(borderSize, Color.Gray, RoundedCornerShape(shapeSize)).background(Color.White)) {
+        val fraction = if(cardData.isTen) 0.6f else 0.5f
+        val count = if(cardData.rank.value == 14) 1 else cardData.rank.value
+        val totalFraction = when {
+            cardData.rank.value == 14 -> 1f
+            isPictureCard -> 1.3f - fraction
+            else -> 1 - fraction
+        }
         if (cardData.imageId != null) {
             Image(
                 painter = painterResource(id = cardData.imageId),
                 contentDescription = cardData.description,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxHeight(0.8f).fillMaxWidth(fraction = totalFraction).align(Alignment.BottomEnd).padding(end = borderSize, bottom = borderSize),
                 contentScale = ContentScale.FillBounds
             )
-        } else {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding)) {
-                val sizes = remember(maxHeight) {
-                    object {
-                        val cornerFontSize = (maxHeight.value * 0.55f).sp
-                        val cornerIconSize = maxHeight * 0.4f
-                        val cornerOffset = -maxHeight * 0.15f
-                        val cornerSpace = -maxHeight * 0.25f
-                        val topSpacing = (maxWidth.value * -0.05f).sp
-                        val offsetAce = maxWidth * 0.54f
-                        val paddingValue = maxHeight / 12f
-                        val spacingValue = maxHeight / 15f
+        }
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding)) {
+            val sizes = remember(maxHeight) {
+                object {
+                    val cornerFontSize = (maxHeight.value * 0.55f).sp
+                    val cornerIconSize = maxHeight * 0.4f
+                    val cornerOffset = -maxHeight * 0.15f
+                    val cornerSpace = -maxHeight * 0.25f
+                    val topSpacing = (maxWidth.value * -0.05f).sp
+                    val offsetAce = maxWidth * 0.54f
+                    val paddingValue = maxHeight / 12f
+                    val spacingValue = maxHeight / 15f
+                }
+            }
+            val size = when(cardData.rank.value) {
+                14 -> maxHeight
+                in 1..4 -> maxHeight * 0.6f / 4
+                5 -> maxHeight * 0.6f / 5
+                in 6..9 -> maxHeight * 0.6f / 6
+                else -> maxHeight * 0.6f / 8
+            }
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction = totalFraction).align(Alignment.CenterEnd).padding(vertical = sizes.paddingValue)) {
+                when(count) {
+                    1 -> {
+                        Icon(
+                            imageVector = cardData.vector,
+                            contentDescription = null,
+                            tint = cardData.color,
+                            modifier = Modifier.size(size).offset(x = sizes.offsetAce)
+                        )
                     }
-                }
-                val fraction = if(cardData.isTen) 0.6f else 0.5f
-                Column(Modifier.align(Alignment.TopStart).fillMaxWidth(fraction = fraction), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(sizes.cornerSpace)) {
-                    val (spacing, fontWeight) = if(cardData.isTen) sizes.topSpacing to FontWeight.Normal else TextUnit.Unspecified to FontWeight.SemiBold
-                    Text(text = getCardNameClassic(cardData.rank), color = cardData.color, fontSize = sizes.cornerFontSize, fontWeight = fontWeight, fontFamily = OswaldFontFamily,
-                        style = TextStyle(
-                            platformStyle = PlatformTextStyle(
-                                includeFontPadding = false
-                            ),
-                            lineHeightStyle = LineHeightStyle(
-                                alignment = LineHeightStyle.Alignment.Center,
-                                trim = LineHeightStyle.Trim.Both
-                            ),
-                            letterSpacing = spacing
-                        ),
-                        modifier = Modifier.offset(y = sizes.cornerOffset)
-                    )
-                    Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color,
-                        modifier = Modifier.size(sizes.cornerIconSize))
-                }
-                val (count, totalFraction) = if(cardData.rank.value == 14) 1 to 1f else cardData.rank.value to 1f - fraction
-                val size = when(cardData.rank.value) {
-                    14 -> maxHeight
-                    in 1..4 -> maxHeight * 0.6f / 4
-                    5 -> maxHeight * 0.6f / 5
-                    in 6..9 -> maxHeight * 0.6f / 6
-                    else -> maxHeight * 0.6f / 8
-                }
-                Box(Modifier.fillMaxHeight().fillMaxWidth(fraction = totalFraction).align(Alignment.CenterEnd).padding(vertical = sizes.paddingValue)) {
-                    when(count) {
-                        1 -> {
-                            Icon(
-                                imageVector = cardData.vector,
-                                contentDescription = null,
-                                tint = cardData.color,
-                                modifier = Modifier.size(size).offset(x = sizes.offsetAce)
-                            )
+                    in 2..4 -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+                            repeat(count) {
+                                Icon(
+                                    imageVector = cardData.vector,
+                                    contentDescription = null,
+                                    tint = cardData.color,
+                                    modifier = Modifier.size(size)
+                                )
+                            }
                         }
-                        in 2..4 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-                                repeat(count) {
+                    }
+                    in 5..10 -> {
+                        val bigHalf = if(count % 2 == 0) count / 2 else count / 2 + 1
+                        val smallHalf = count / 2
+                        Row(horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
+                                repeat(smallHalf) {
+                                    Icon(
+                                        imageVector = cardData.vector,
+                                        contentDescription = null,
+                                        tint = cardData.color,
+                                        modifier = Modifier.size(size)
+                                    )
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
+                                repeat(bigHalf) {
                                     Icon(
                                         imageVector = cardData.vector,
                                         contentDescription = null,
@@ -174,32 +183,33 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier, sc
                                 }
                             }
                         }
-                        else -> {
-                            val bigHalf = if(count % 2 == 0) count / 2 else count / 2 + 1
-                            val smallHalf = count / 2
-                            Row(horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
-                                Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
-                                    repeat(smallHalf) {
-                                        Icon(
-                                            imageVector = cardData.vector,
-                                            contentDescription = null,
-                                            tint = cardData.color,
-                                            modifier = Modifier.size(size)
-                                        )
-                                    }
-                                }
-                                Column(verticalArrangement = Arrangement.spacedBy(sizes.spacingValue, Alignment.CenterVertically), modifier = Modifier.fillMaxHeight()) {
-                                    repeat(bigHalf) {
-                                        Icon(
-                                            imageVector = cardData.vector,
-                                            contentDescription = null,
-                                            tint = cardData.color,
-                                            modifier = Modifier.size(size)
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    }
+                    else -> {}
+                }
+            }
+            Column(Modifier.align(Alignment.TopStart).fillMaxWidth(fraction = fraction), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(sizes.cornerSpace)) {
+                val (spacing, fontWeight) = if(cardData.isTen) sizes.topSpacing to FontWeight.Normal else TextUnit.Unspecified to FontWeight.SemiBold
+                Text(text = getCardName(cardData.rank), color = cardData.color, fontSize = sizes.cornerFontSize, fontWeight = fontWeight, fontFamily = OswaldFontFamily,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(
+                            includeFontPadding = false
+                        ),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        ),
+                        letterSpacing = spacing
+                    ),
+                    modifier = Modifier.offset(y = sizes.cornerOffset)
+                )
+                val padding2 = if(isPictureCard) 1.5.dp * scaleMultiplier else 0.dp
+                val tintColor = if(isPictureCard) Color.White else cardData.color
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(imageVector = cardData.vector, contentDescription = null, tint = tintColor,
+                        modifier = Modifier.size(sizes.cornerIconSize))
+                    if(isPictureCard) {
+                        Icon(imageVector = cardData.vector, contentDescription = null, tint = cardData.color,
+                            modifier = Modifier.size(sizes.cornerIconSize).padding(padding2))
                     }
                 }
             }
@@ -210,13 +220,5 @@ fun CardFaceClassic(card: Card, isFourColorMode: Boolean, modifier: Modifier, sc
 @Composable
 @Preview
 fun TestClassicFace() {
-    CardFaceClassic(Card(Rank.SEVEN, Suit.SPADES), true, Modifier.width(80.dp).height(120.dp))
-}
-
-private fun getCardNameClassic(rank: Rank): String {
-    return when(rank.value) {
-        14 -> "A"
-        10 -> "l0"
-        else -> rank.value.toString()
-    }
+    CardFaceClassic(Card(Rank.JACK, Suit.HEARTS), true, Modifier.width(80.dp).height(120.dp))
 }
