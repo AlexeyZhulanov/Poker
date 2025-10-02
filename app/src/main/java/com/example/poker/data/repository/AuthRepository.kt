@@ -31,7 +31,7 @@ class AuthRepository @Inject constructor(
             if (response.status == HttpStatusCode.OK) {
                 Result.Success(response.body())
             } else {
-                Result.Error("Invalid username or password")
+                Result.Error(response.body())
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "An unknown error occurred")
@@ -47,7 +47,7 @@ class AuthRepository @Inject constructor(
             if (response.status == HttpStatusCode.Created) {
                 Result.Success(response.body())
             } else {
-                Result.Error("User with this email or username already exists")
+                Result.Error(response.body())
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "An unknown error occurred")
@@ -78,7 +78,7 @@ class AuthRepository @Inject constructor(
             if(response.status == HttpStatusCode.OK) {
                 Result.Success(Unit)
             } else {
-                Result.Error("Username already exists")
+                Result.Error(response.body())
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "An unknown error occurred")

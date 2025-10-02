@@ -18,6 +18,7 @@ import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.dto.OutsInfo
 import com.example.poker.shared.dto.PlayerStatus
+import com.example.poker.shared.dto.SocialAction
 import com.example.poker.shared.model.Card
 import com.example.poker.ui.game.RunItUiState.*
 import com.example.poker.util.ROOM_ID
@@ -32,10 +33,13 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -48,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.URLDecoder
 import java.util.Base64
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -68,6 +73,11 @@ data class TournamentInfo(val sb: Long, val bb: Long, val ante: Long, val level:
 enum class StackDisplayMode {
     CHIPS, BIG_BLINDS
 }
+
+data class StickerDisplay(
+    val stickerId: String,
+    val instanceId: UUID = UUID.randomUUID()
+)
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -106,7 +116,7 @@ class GameViewModel @Inject constructor(
     private val _staticCommunityCards = MutableStateFlow<ImmutableList<Card>>(persistentListOf())
     val staticCommunityCards: StateFlow<ImmutableList<Card>> = _staticCommunityCards.asStateFlow()
 
-    private val _boardRunouts = MutableStateFlow<ImmutableList<ImmutableList<Card>>>(persistentListOf())
+    private val _boardRunouts = MutableStateFlow<PersistentList<PersistentList<Card>>>(persistentListOf())
     val boardRunouts: StateFlow<ImmutableList<ImmutableList<Card>>> = _boardRunouts.asStateFlow()
 
     private val _runsCount = MutableStateFlow(0)
@@ -120,6 +130,14 @@ class GameViewModel @Inject constructor(
 
     private val _boardResult = MutableStateFlow<ImmutableList<Pair<String, Long>>?>(null)
     val boardResult: StateFlow<ImmutableList<Pair<String, Long>>?> = _boardResult.asStateFlow()
+
+    private val _showStickerActions = MutableStateFlow<PersistentMap<String, StickerDisplay>>(persistentMapOf())
+    val showStickerActions: StateFlow<ImmutableMap<String, StickerDisplay>> = _showStickerActions.asStateFlow() // key userId, value stickerId
+    private val stickerCleanupJobs = mutableMapOf<String, Job>()
+
+    private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<String, String>>>(persistentMapOf())
+    val throwItemActions: StateFlow<ImmutableMap<String, Pair<String, String>>> = _throwItemActions.asStateFlow() // key userId, value Pair<itemId, targetId>
+    private val itemCleanupJobs = mutableMapOf<String, Job>()
 
     private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
     val tournamentInfo: StateFlow<TournamentInfo?> = _tournamentInfo.asStateFlow()
@@ -234,8 +252,8 @@ class GameViewModel @Inject constructor(
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = currentState.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[runIndex - 1] = runoutCards.toImmutableList()
-                                                }.toImmutableList()
+                                                    mutableList[runIndex - 1] = runoutCards.toPersistentList()
+                                                }.toPersistentList()
                                             }
                                         } else {
                                             _boardRunouts.value = persistentListOf()
@@ -255,13 +273,13 @@ class GameViewModel @Inject constructor(
                                         if(message.totalRuns > 1) {
                                             if (message.runIndex == 1) {
                                                 // Первая крутка: запоминаем статичные карты и создаем первую пустую доску
-                                                _staticCommunityCards.value = _gameState.value?.communityCards?.toImmutableList() ?: persistentListOf()
+                                                _staticCommunityCards.value = _gameState.value?.communityCards ?: persistentListOf()
                                                 Log.d("testStaticCards", _staticCommunityCards.value.toString())
                                                 _runsCount.value = message.totalRuns
                                                 _boardRunouts.value = persistentListOf(persistentListOf())
                                             } else {
                                                 // Последующие крутки: добавляем еще одну пустую доску
-                                                _boardRunouts.value = (_boardRunouts.value + persistentListOf(persistentListOf())).toImmutableList()
+                                                _boardRunouts.value = (_boardRunouts.value + persistentListOf(persistentListOf())).toPersistentList()
                                             }
                                         }
                                     }
@@ -302,16 +320,46 @@ class GameViewModel @Inject constructor(
                                     }
                                     is OutgoingMessage.BoardResult -> {
                                         Log.d("testBoardResult", message.payments.toString())
-                                        _boardResult.value = message.payments.toImmutableList()
                                         // Отменяем предыдущий таймер, если он был
                                         winnerDisplayJob?.cancel()
                                         // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
                                         winnerDisplayJob = viewModelScope.launch {
+                                            delay(750L)
+                                            _boardResult.value = message.payments.toImmutableList()
                                             delay(3000L)
                                             _boardResult.value = null
                                         }
                                     }
-                                    is OutgoingMessage.SocialActionBroadcast -> println("123") // todo
+                                    is OutgoingMessage.SocialActionBroadcast -> {
+                                        when(val action = message.action) {
+                                            is SocialAction.ShowSticker -> {
+                                                val playerId = message.fromPlayerId
+                                                val newStickerDisplay = StickerDisplay(stickerId = action.stickerId)
+                                                // 1. Отменяем предыдущую задачу по очистке для этого игрока, если она была
+                                                stickerCleanupJobs[playerId]?.cancel()
+
+                                                // 2. Обновляем UI, чтобы показать стикер
+                                                _showStickerActions.update { it.put(playerId, newStickerDisplay) }
+
+                                                // 3. Запускаем новую задачу по очистке и сохраняем ее
+                                                stickerCleanupJobs[playerId] = viewModelScope.launch {
+                                                    delay(3000L)
+                                                    _showStickerActions.update { it.remove(playerId) }
+                                                }
+                                            }
+                                            is SocialAction.ThrowItem -> {
+                                                val playerId = message.fromPlayerId
+                                                val itemData = action.itemId to action.targetUserId
+                                                itemCleanupJobs[playerId]?.cancel()
+                                                _throwItemActions.update { it.put(playerId, itemData) }
+                                                itemCleanupJobs[playerId] = viewModelScope.launch {
+                                                    delay(3000L)
+                                                    _throwItemActions.update { it.remove(playerId) }
+                                                }
+                                            }
+                                            else -> {} // todo DrawLine
+                                        }
+                                    }
                                     is OutgoingMessage.TournamentWinner -> {
                                         Log.d("testTournamentWinner", message.toString())
                                         _tournamentWinner.value = message.winnerUserId
@@ -501,6 +549,10 @@ class GameViewModel @Inject constructor(
         val bool = !isFourColorMode.value
         _isFourColorMode.value = bool
         appSettings.saveFourColorMode(bool)
+    }
+
+    fun onStickerSelected(stickerId: String) {
+        sendAction(IncomingMessage.PerformSocialAction(SocialAction.ShowSticker(stickerId)))
     }
 
     override fun onCleared() {

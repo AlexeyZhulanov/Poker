@@ -3,7 +3,6 @@ package com.example.poker.server.plugins
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.poker.server.data.repository.UserRepository
-import com.example.poker.shared.util.UserAttributeKey
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
@@ -30,17 +29,11 @@ fun Application.configureSecurity() {
             validate { credential ->
                 val userIdString = credential.payload.getClaim("userId").asString()
                 if (userIdString != null) {
-                    val user = userRepository.findById(UUID.fromString(userIdString))
-                    if (user != null) {
-                        // 1. Кладём нашего пользователя в атрибуты вызова по ключу
-                        this.attributes.put(UserAttributeKey, user)
-                        // 2. Возвращаем стандартный JWTPrincipal, чтобы подтвердить валидность токена
-                        JWTPrincipal(credential.payload)
-                    } else {
-                        null // Пользователь из токена не найден в БД
-                    }
+                    // Просто находим пользователя по ID и возвращаем его.
+                    // Ktor сам сделает его Principal-ом для этого запроса.
+                    userRepository.findById(UUID.fromString(userIdString))
                 } else {
-                    null // В токене нет userId
+                    null
                 }
             }
         }

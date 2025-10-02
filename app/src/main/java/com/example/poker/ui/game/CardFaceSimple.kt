@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,9 +28,11 @@ import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
 import com.example.poker.ui.theme.CardCharactersFontFamily
+import com.example.poker.ui.theme.OswaldFontFamily
+import com.example.poker.util.getCardName
 
 @Composable
-fun CardFaceSimple(card: Card, modifier: Modifier) {
+fun CardFaceSimple(card: Card, modifier: Modifier, scaleMultiplier: Float, isNeedBorder: Boolean, minMultiplier: Float = 1f) {
     val rank = card.rank
     val suit = card.suit
     val suitData = remember(suit) {
@@ -50,23 +53,25 @@ fun CardFaceSimple(card: Card, modifier: Modifier) {
             val color = suitColor
         }
     }
-    val (cardName, borderColor) = remember(rank) {
-        getCardName(rank) to if(isBroadway(rank)) Color(0xFFFFBF00) else Color.Gray
+    val scaleData = remember(scaleMultiplier) {
+        object {
+            val shape = RoundedCornerShape(8.dp * scaleMultiplier * minMultiplier)
+            val borderWidth = 1.dp * scaleMultiplier * minMultiplier
+            val bottomPadding = 5.dp * scaleMultiplier * minMultiplier
+        }
     }
+    val cardName = remember(rank) { getCardName(rank) }
     val isTen = rank == Rank.TEN
+    val modInitial = modifier.background(color = suitData.color, shape = scaleData.shape)
+    val modFinal = if(isNeedBorder) modInitial.border(scaleData.borderWidth, Color.Gray, scaleData.shape) else modInitial
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.background(
-            color = suitData.color,
-            shape = RoundedCornerShape(8.dp)
-        ).border(1.dp, borderColor, RoundedCornerShape(8.dp))
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modFinal) {
         BoxWithConstraints(Modifier.weight(1.5f).fillMaxWidth(),
             contentAlignment = Alignment.TopCenter) {
-            val fontSize = with(LocalDensity.current) {
-                if(isTen) (maxHeight * 0.7f).toSp() else (maxHeight * 0.85f).toSp()
-            }
-            Text(text = cardName, color = Color.White, fontWeight = FontWeight.SemiBold, fontFamily = CardCharactersFontFamily,
+            val fontSize = with(LocalDensity.current) { if(isTen) (maxHeight * 0.83f).toSp() else (maxHeight * 0.85f).toSp() }
+            val (fontFamily, fontWeight) = if(isTen) OswaldFontFamily to FontWeight.Normal else CardCharactersFontFamily to FontWeight.SemiBold
+            val modifier = if(isTen) Modifier.offset(x = maxWidth * 0.04f, y = maxHeight * -0.15f) else Modifier
+            Text(text = cardName, color = Color.White, fontWeight = fontWeight, fontFamily = fontFamily,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
@@ -74,22 +79,21 @@ fun CardFaceSimple(card: Card, modifier: Modifier) {
                     lineHeight = TextUnit.Unspecified
                 ),
                 softWrap = false,
-                fontSize = fontSize
+                fontSize = fontSize,
+                modifier = modifier
             )
         }
         Icon(
             imageVector = suitData.vector,
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.weight(1f).fillMaxWidth(fraction = 0.5f).padding(bottom = 5.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth(fraction = 0.5f).padding(bottom = scaleData.bottomPadding)
         )
     }
 }
 
-fun isBroadway(rank: Rank): Boolean = rank.value >= 11
-
 @Composable
 @Preview
 fun TestSimpleCard() {
-    CardFaceSimple(Card(Rank.ACE, Suit.SPADES), Modifier.width(80.dp).height(120.dp))
+    CardFaceSimple(Card(Rank.TEN, Suit.SPADES), Modifier.width(30.dp).height(45.dp), 1f, false)
 }

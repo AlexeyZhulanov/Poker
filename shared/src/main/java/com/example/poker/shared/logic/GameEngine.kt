@@ -713,7 +713,7 @@ class GameEngine(
         launch {
             broadcastGameState(forceRevealCards = true)
             println("----RUN MULTIPLE CALLED----")
-            calculateAndBroadcastEquity(gameState.communityCards, 1)
+            calculateAndBroadcastEquity(gameState.communityCards, gameState.communityCards, 1)
             val activePlayers = gameState.playerStates.filter { !it.hasFolded }
             val room = gameRoomService.getRoom(roomId)
 
@@ -728,7 +728,7 @@ class GameEngine(
             }
             
             val equityPlayersHands = activePlayers.map { it.cards }
-            val equityResult = calculateEquity(equityPlayersHands, gameState.communityCards)
+            val equityResult = calculateEquity(equityPlayersHands, gameState.communityCards, gameState.communityCards)
             val equitiesMap = activePlayers.mapIndexed { index, ps -> ps.player.userId to equityResult.wins[index] }.toMap()
 
             val underdogId = equitiesMap.minByOrNull { it.value }?.key
@@ -775,6 +775,7 @@ class GameEngine(
 
         val contenders = gameState.playerStates.filter { !it.hasFolded }
         val initialCommunityCards = gameState.communityCards
+        val allDealtCards = initialCommunityCards.toMutableList()
 
         val cardsNeededPerStreet = listOf(3, 1, 1).drop(initialCommunityCards.size.takeIf { it > 0 }?.let { if (it < 3) 1 else it - 2 } ?: 0)
         
@@ -791,12 +792,14 @@ class GameEngine(
                 // Считаем и отправляем эквити для текущего состояния
                 if(isFirst) isFirst = false
                 else {
-                    calculateAndBroadcastEquity(currentRunCommunityCards, run)
+                    calculateAndBroadcastEquity(currentRunCommunityCards, allDealtCards, run)
                     delay(4000)
                 }
 
                 // Раздаем карты для следующей улицы
-                currentRunCommunityCards.addAll(deck.deal(cardsToDeal))
+                val newCards = deck.deal(cardsToDeal)
+                currentRunCommunityCards.addAll(newCards)
+                allDealtCards.addAll(newCards)
 
                 // Обновляем GameState для этого прогона
                 val tempGameState = gameState.copy(
@@ -807,7 +810,7 @@ class GameEngine(
             }
 
             // Финальное эквити, когда уже 5 карт на столе
-            calculateAndBroadcastEquity(currentRunCommunityCards, run)
+            calculateAndBroadcastEquity(currentRunCommunityCards, allDealtCards, run)
 
             // Определяем победителя для этой доски
             val hands = contenders.map { ps -> ps.player.userId to HandEvaluator.evaluate(ps.cards + currentRunCommunityCards) }
@@ -886,13 +889,13 @@ class GameEngine(
         }
     }
 
-    private suspend fun calculateAndBroadcastEquity(communityCards: List<Card>, runIndex: Int) {
+    private suspend fun calculateAndBroadcastEquity(communityCards: List<Card>, allUsedCommunityCards: List<Card>, runIndex: Int) {
         val contenders = gameState.playerStates.filter { !it.hasFolded }
         if (contenders.size < 2) return
 
         // Расчет эквити
         val equityPlayersHands = contenders.map { it.cards }
-        val equityResult = calculateEquity(equityPlayersHands, communityCards)
+        val equityResult = calculateEquity(equityPlayersHands, communityCards, allUsedCommunityCards)
         val equitiesMap = contenders.mapIndexed { index, ps -> ps.player.userId to equityResult.wins[index] }.toMap()
 
         // Расчет аутов для андердогов
@@ -917,7 +920,8 @@ class GameEngine(
                         val (directOuts, hasIndirectOuts) = calculateLiveOuts(
                             underdog.cards,
                             opponentHands,
-                            communityCards
+                            communityCards,
+                            allUsedCommunityCards
                         )
 
                         // Возвращаем пару: ID игрока и результат

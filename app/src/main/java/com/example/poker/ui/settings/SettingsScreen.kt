@@ -47,6 +47,7 @@ fun SettingsScreen(
     val user by viewModel.userResponse.collectAsState()
     var showEditUsernameDialog by remember { mutableStateOf(false) }
     val snackBarHostState = remember { SnackbarHostState() }
+    var showExitDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.uiEvents.collect { event ->
@@ -59,6 +60,18 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+    if (showExitDialog) {
+        ConfirmExitDialog(
+            onConfirm = {
+                showExitDialog = false
+                viewModel.onLogoutClick()
+                onLogout() // Вызываем навигацию
+            },
+            onDismiss = {
+                showExitDialog = false
+            }
+        )
     }
 
     Scaffold(
@@ -84,8 +97,7 @@ fun SettingsScreen(
 
                 Button(
                     onClick = {
-                        viewModel.onLogoutClick()
-                        onLogout() // Вызываем навигацию
+                        showExitDialog = true
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -156,6 +168,24 @@ fun EditUsernameDialog(
             TextButton(onClick = onDismiss) {
                 Text("Отмена")
             }
+        }
+    )
+}
+
+@Composable
+fun ConfirmExitDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss, // Сработает при клике мимо окна
+        title = { Text("Confirm Exit") },
+        text = { Text("Are you sure you want to logout?") },
+        confirmButton = {
+            Button(onClick = onConfirm) { Text("Logout") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
