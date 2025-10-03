@@ -328,3 +328,22 @@ fun getStickerResource(stickerId: String): Int {
         else -> R.drawable.sticker_durak1
     }
 }
+
+@DrawableRes
+fun getThrowItemResource(stickerId: String, isSecondStage: Boolean): Int {
+    return if(isSecondStage) {
+        when(stickerId) {
+            "egg" -> R.drawable.throw_egg2
+            "tomato" -> R.drawable.throw_tomato2
+            "poop" -> R.drawable.throw_poop2
+            else -> R.drawable.throw_tomato2
+        }
+    } else {
+        when(stickerId) {
+            "egg" -> R.drawable.throw_egg1
+            "tomato" -> R.drawable.throw_tomato1
+            "poop" -> R.drawable.throw_poop1
+            else -> R.drawable.throw_tomato1
+        }
+    }
+}

@@ -135,8 +135,8 @@ class GameViewModel @Inject constructor(
     val showStickerActions: StateFlow<ImmutableMap<String, StickerDisplay>> = _showStickerActions.asStateFlow() // key userId, value stickerId
     private val stickerCleanupJobs = mutableMapOf<String, Job>()
 
-    private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<String, String>>>(persistentMapOf())
-    val throwItemActions: StateFlow<ImmutableMap<String, Pair<String, String>>> = _throwItemActions.asStateFlow() // key userId, value Pair<itemId, targetId>
+    private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<StickerDisplay, String>>>(persistentMapOf())
+    val throwItemActions: StateFlow<ImmutableMap<String, Pair<StickerDisplay, String>>> = _throwItemActions.asStateFlow() // key userId, value Pair<itemId, targetId>
     private val itemCleanupJobs = mutableMapOf<String, Job>()
 
     private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
@@ -349,7 +349,7 @@ class GameViewModel @Inject constructor(
                                             }
                                             is SocialAction.ThrowItem -> {
                                                 val playerId = message.fromPlayerId
-                                                val itemData = action.itemId to action.targetUserId
+                                                val itemData = StickerDisplay(stickerId = action.itemId)  to action.targetUserId
                                                 itemCleanupJobs[playerId]?.cancel()
                                                 _throwItemActions.update { it.put(playerId, itemData) }
                                                 itemCleanupJobs[playerId] = viewModelScope.launch {
@@ -553,6 +553,10 @@ class GameViewModel @Inject constructor(
 
     fun onStickerSelected(stickerId: String) {
         sendAction(IncomingMessage.PerformSocialAction(SocialAction.ShowSticker(stickerId)))
+    }
+
+    fun onStickerThrowSelected(stickerId: String, targetId: String) {
+        sendAction(IncomingMessage.PerformSocialAction(SocialAction.ThrowItem(stickerId, targetId)))
     }
 
     override fun onCleared() {

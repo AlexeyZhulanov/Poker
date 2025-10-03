@@ -74,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,6 +129,7 @@ import com.example.poker.util.calculateOffset
 import com.example.poker.util.calculatePlayerPosition
 import com.example.poker.util.calculatePlayerPositionLandscape
 import com.example.poker.util.getStickerResource
+import com.example.poker.util.getThrowItemResource
 import com.example.poker.util.prepareOutDisplayItems
 import com.example.poker.util.toBB
 import com.example.poker.util.toBBFloat
@@ -894,7 +896,8 @@ fun PlayerWithEquity(
     isClassicCardsEnabled: Boolean,
     isFourColorMode: Boolean,
     isMyBottomPlayer: Boolean,
-    onMyPlayerClicked: () -> Unit
+    onMyPlayerClicked: () -> Unit,
+    onOtherPlayerClicked: () -> Unit
 ) {
     val equity = allInEquity?.equities?.get(playerState.player.userId)
     val out = allInEquity?.outs?.get(playerState.player.userId)
@@ -932,7 +935,8 @@ fun PlayerWithEquity(
             isClassicCardsEnabled = isClassicCardsEnabled,
             isFourColorMode = isFourColorMode,
             isMyBottomPlayer = isMyBottomPlayer,
-            onMyPlayerClicked = { onMyPlayerClicked() }
+            onMyPlayerClicked = { onMyPlayerClicked() },
+            onOtherPlayerClicked = { onOtherPlayerClicked() }
         )
         val mod = if(tailDirection == TailDirection.RIGHT) Modifier.align(Alignment.CenterStart) else Modifier.align(Alignment.CenterEnd)
 
@@ -972,14 +976,15 @@ fun PlayerDisplay(
     isClassicCardsEnabled: Boolean = false,
     isFourColorMode: Boolean = false,
     isMyBottomPlayer: Boolean = false,
-    onMyPlayerClicked: () -> Unit
+    onMyPlayerClicked: () -> Unit,
+    onOtherPlayerClicked: () -> Unit
 ) {
     val boxModifier = remember(scaleMultiplier, isMyBottomPlayer) {
         val m = modifier
             .width(70.dp * scaleMultiplier)
             .height(80.dp * scaleMultiplier)
             .padding(horizontal = 5.dp * scaleMultiplier)
-        if(isMyBottomPlayer) m.clickable(onClick = { onMyPlayerClicked() }) else m
+        if(isMyBottomPlayer) m.clickable(onClick = { onMyPlayerClicked() }) else m.clickable(onClick = { onOtherPlayerClicked() })
     }
     Box(modifier = boxModifier) {
         val iconModifier = remember(scaleMultiplier) {
@@ -1711,7 +1716,8 @@ fun TournamentWinnerDialog(
                             displayMode = StackDisplayMode.CHIPS,
                             bigBlind = 0L,
                             scaleMultiplier = 1.2f,
-                            onMyPlayerClicked = {}
+                            onMyPlayerClicked = {},
+                            onOtherPlayerClicked = {}
                         )
                     }
 
@@ -1990,6 +1996,8 @@ fun SettingsMenu(
     }
 }
 
+private enum class AnimationStage { FLYING, SPLAT }
+
 @Composable
 fun PlayersLayout(
     viewModel: GameViewModel,
@@ -2030,7 +2038,9 @@ fun PlayersLayout(
     val boardResult by viewModel.boardResult.collectAsStateWithLifecycle()
     val allInEquity by viewModel.allInEquity.collectAsStateWithLifecycle()
     val showStickerActions by viewModel.showStickerActions.collectAsStateWithLifecycle()
+    val throwItemActions by viewModel.throwItemActions.collectAsStateWithLifecycle()
     var isShowStickersMenu by remember { mutableStateOf(false) }
+    var showThrowStickersMenuIndex by remember { mutableIntStateOf(-1) }
 //    val allInEquity = AllInEquity(persistentMapOf(
 //        "1" to 0.0,
 //        "2" to 0.0,
@@ -2080,6 +2090,11 @@ fun PlayersLayout(
             visiblePlayers
         }
     }
+    val playerIndexMap = remember(reorderedPlayers) {
+        reorderedPlayers.mapIndexed { index, playerState ->
+            playerState.player.userId to index
+        }.toMap()
+    }
     val (alignments, equityPositions) = remember(reorderedPlayers.size, isLandscape) {
         if(isLandscape) calculatePlayerPositionLandscape(reorderedPlayers.size)
             else calculatePlayerPosition(reorderedPlayers.size)
@@ -2101,6 +2116,9 @@ fun PlayersLayout(
                     with(density) { (30.dp * scaleMultiplier).toPx() / 2 to (40.dp * scaleMultiplier).toPx() / 2 }
                 }
             }
+        }
+        val throwItemSizeFix = remember(scaleMultiplier, isLandscape) {
+            with(density) { (50.dp * scaleMultiplier).toPx() / 2 }
         }
         val scape = remember(isLandscape, scaleMultiplier) {
             val (bD1, minD1, maxD1) = if(isLandscape) Triple(0.45f + (1 - scaleMultiplier) / 2, 0.4f + (1 - scaleMultiplier) / 2, 0.55f + (1 - scaleMultiplier) / 2)
@@ -2244,7 +2262,8 @@ fun PlayersLayout(
                     isClassicCardsEnabled = isClassicCardsEnabled,
                     isFourColorMode = isFourColorMode,
                     isMyBottomPlayer = index == 0,
-                    onMyPlayerClicked = { isShowStickersMenu = true }
+                    onMyPlayerClicked = { isShowStickersMenu = true },
+                    onOtherPlayerClicked = { showThrowStickersMenuIndex = index }
                 )
 
                 val mod2 = remember(isLandscape, index == 0) {
@@ -2280,17 +2299,76 @@ fun PlayersLayout(
                         }
                     }
                 }
-                StickerSelectionMenu(
-                    onStickerSelected = { stickerId ->
-                        isShowStickersMenu = false
-                        viewModel.onStickerSelected(stickerId)
-                    },
-                    onDismiss = { isShowStickersMenu = false },
-                    modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
-                        translationY = if (isShowStickersMenu) 0f else parentHeightPx // убираем меню под экран
-                        alpha = if (isShowStickersMenu) 1f else 0f
+                if(showThrowStickersMenuIndex == index) {
+                    ThrowItemSelectionMenu(
+                        onStickerSelected = { stickerId ->
+                            showThrowStickersMenuIndex = -1
+                            viewModel.onStickerThrowSelected(stickerId, playerState.player.userId)
+                        },
+                        onDismiss = { showThrowStickersMenuIndex = -1 },
+                        modifier = Modifier.align(alignments[index])
+                    )
+                }
+            }
+        }
+        StickerSelectionMenu(
+            onStickerSelected = { stickerId ->
+                isShowStickersMenu = false
+                viewModel.onStickerSelected(stickerId)
+            },
+            onDismiss = { isShowStickersMenu = false },
+            modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
+                translationY = if (isShowStickersMenu) 0f else parentHeightPx // убираем меню под экран
+                alpha = if (isShowStickersMenu) 1f else 0f
+            }
+        )
+        throwItemActions.forEach { (throwerId, actionData) ->
+            val (item, targetId) = actionData
+            val throwerIndex = playerIndexMap[throwerId]
+            val targetIndex = playerIndexMap[targetId]
+            key(item.instanceId) {
+                if (throwerIndex != null && targetIndex != null) {
+                    val (h, v) = alignments[targetIndex]
+                    val endAlignment = BiasAlignment(h * 0.85f, v * 0.85f)
+                    val (startOffset, endOffset) = calculateOffset(alignments[throwerIndex], endAlignment, parentWidthPx, parentHeightPx)
+                    val animatedX = remember { Animatable(startOffset.x.toFloat()) }
+                    val animatedY = remember { Animatable(startOffset.y.toFloat()) }
+                    val scale = remember { Animatable(0.5f) }
+                    val alpha = remember { Animatable(1f) }
+                    var stage by remember { mutableStateOf(AnimationStage.FLYING) }
+
+                    LaunchedEffect(Unit) {
+                        // Этап 1: Полет
+                        launch { animatedX.animateTo(endOffset.x.toFloat(), tween(durationMillis = 1200)) }
+                        launch {
+                            animatedY.animateTo(endOffset.y.toFloat(), tween(durationMillis = 1200))
+                            // Этап 2: "Взрыв"
+                            stage = AnimationStage.SPLAT // Меняем картинку
+                            scale.animateTo(targetValue = 1.2f, animationSpec = tween(durationMillis = 600))
+                            alpha.animateTo(targetValue = 0f, animationSpec = tween(durationMillis = 400, delayMillis = 800))
+                        }
                     }
-                )
+                    val yCorrection = if(isLandscape) 0f else throwItemSizeFix
+                    Box(modifier = Modifier.graphicsLayer {
+                        translationX = animatedX.value - throwItemSizeFix
+                        translationY = animatedY.value - yCorrection
+                        if (stage == AnimationStage.SPLAT) {
+                            scaleX = scale.value
+                            scaleY = scale.value
+                            this.alpha = alpha.value
+                        }
+                    }) {
+                        val painter = when (stage) {
+                            AnimationStage.FLYING -> painterResource(id = getThrowItemResource(item.stickerId, false))
+                            AnimationStage.SPLAT -> painterResource(id = getThrowItemResource(item.stickerId, true))
+                        }
+                        Image(
+                            painter = painter,
+                            contentDescription = "Thrown item",
+                            modifier = Modifier.size(50.dp * scaleMultiplier)
+                        )
+                    }
+                }
             }
         }
     }
