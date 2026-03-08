@@ -1,10 +1,7 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -36,11 +33,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_22
         targetCompatibility = JavaVersion.VERSION_22
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_22)
-        }
-    }
     buildFeatures {
         compose = true
     }
@@ -59,7 +51,8 @@ android {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
+    ksp(libs.jetbrains.metadata.jwm)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.navigation.compose)
     implementation(libs.ktor.client.core)
@@ -78,6 +71,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.androidx.icons.core)
 
     // Для оффлайн-режима
     implementation(libs.ktor.server.core)
