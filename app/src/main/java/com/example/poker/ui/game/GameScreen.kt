@@ -74,12 +74,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -139,8 +141,10 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
@@ -585,7 +589,7 @@ fun MultiBoardLayout(
                         enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 200))
                     ) {
                         Row(
-                            modifier = Modifier.graphicsLayer { translationY = yOffset.toPx() }
+                            modifier = Modifier.offset(y = yOffset)
                         ) {
                             // 2. Рисуем карты этого прогона
                             AnimatedCommunityCards(
@@ -720,6 +724,7 @@ fun ActionPanel(
     }
 }
 
+@OptIn(FlowPreview::class)
 @Composable
 fun BetControls(
     minBet: Long,
@@ -731,21 +736,27 @@ fun BetControls(
     onDismiss: () -> Unit // Функция для закрытия
 ) {
     // Используем String для TextField, но Float для Slider
+    var sliderPosition by remember { mutableFloatStateOf(minBet.toFloat()) }
     var betAmountInChips by remember(minBet) { mutableLongStateOf(minBet) }
-    var textValue by remember { mutableStateOf("") }
+    var textFieldValue by remember { mutableStateOf(betAmountInChips.toString()) }
+
     val isBetValid = betAmountInChips in minBet..maxBet
 
     val (presetX2, presetX3, presetX4) = remember(amountToCall, minBet) {
         if(amountToCall > 0) Triple(amountToCall * 2, amountToCall * 3, amountToCall * 4)
         else Triple(minBet * 2, minBet * 3, minBet * 4)
     }
-    // Синхронизация: запускается, когда меняется betAmountInChips или режим
-    LaunchedEffect(betAmountInChips, displayMode) {
-        textValue = if (displayMode == StackDisplayMode.BIG_BLINDS) {
-            betAmountInChips.toBB(bigBlind)
-        } else {
-            betAmountInChips.toString()
-        }
+    LaunchedEffect(betAmountInChips) {
+        textFieldValue =
+            if (displayMode == StackDisplayMode.BIG_BLINDS)
+                betAmountInChips.toBB(bigBlind)
+            else
+                betAmountInChips.toString()
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { sliderPosition }
+            .sample(80)
+            .collect { betAmountInChips = it.toLong() }
     }
     Card(
         modifier = Modifier
@@ -762,82 +773,130 @@ fun BetControls(
                 .border(1.dp, Color.White, shape = CircleShape)
                 .clickable(onClick = onDismiss)
         }
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close bet controls",
-            tint = Color.White,
-            modifier = iconModifier
-        )
+        CloseButton(iconModifier)
         Column(
             modifier = Modifier.padding(16.dp, 3.dp, 16.dp, 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Slider(
-                value = betAmountInChips.toFloat(),
-                onValueChange = { betAmountInChips = it.toLong() },
-                valueRange = minBet.toFloat()..maxBet.toFloat()
+            BetSlider(
+                sliderPosition = sliderPosition,
+                onSliderChange = { sliderPosition = it },
+                minBet = minBet,
+                maxBet = maxBet
             )
             Spacer(modifier = Modifier.height(5.dp))
-            Row(
-                modifier = Modifier.align(Alignment.Start),
-                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
-            ) {
-                // Функция для создания кнопок, чтобы не дублировать код
-                @Composable
-                fun PresetButton(amount: Long, label: String, isEnabled: Boolean = true) {
-                    Button(
-                        modifier = Modifier.size(30.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        shape = RectangleShape,
-                        enabled = isEnabled,
-                        onClick = { betAmountInChips = amount }
-                    ) { Text(label) }
-                }
-                PresetButton(amount = minBet, label = "Min")
-                PresetButton(amount = presetX2, label = "x2", isEnabled = presetX2 in minBet..maxBet)
-                PresetButton(amount = presetX3, label = "x3", isEnabled = presetX3 in minBet..maxBet)
-                PresetButton(amount = presetX4, label = "x4", isEnabled = presetX4 in minBet..maxBet)
-                PresetButton(amount = maxBet, label = "Max")
-            }
-            Spacer(modifier = Modifier.height(3.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    val labelText = if (displayMode == StackDisplayMode.BIG_BLINDS) "Amount in BB" else "Amount"
-                    Text(
-                        text = labelText,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
 
-                    OutlinedTextField(
-                        value = textValue,
-                        onValueChange = { newText ->
-                            textValue = newText
-                            // Синхронизация: если меняется текст, обновляем слайдер
-                            if (displayMode == StackDisplayMode.BIG_BLINDS) {
-                                val bbValue = newText.trim().toDoubleOrNull()
-                                if (bbValue != null) {
-                                    betAmountInChips = (bbValue * bigBlind).toLong()
-                                }
-                            } else {
-                                betAmountInChips = newText.toLongOrNull() ?: 0L
-                            }
-                        },
-                        isError = !isBetValid,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { onBetConfirmed(betAmountInChips) }, enabled = isBetValid) {
-                    Text("Confirm")
-                }
-            }
+            PresetButtons(
+                modifier = Modifier.align(Alignment.Start),
+                minBet = minBet,
+                maxBet = maxBet,
+                presetX2 = presetX2,
+                presetX3 = presetX3,
+                presetX4 = presetX4,
+                onPreset = { betAmountInChips = it }
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+
+            BetInputRow(
+                textFieldValue = textFieldValue,
+                displayMode = displayMode,
+                isBetValid = isBetValid,
+                onTextChange = { newText ->
+                    textFieldValue = newText
+                    // Синхронизация: если меняется текст, обновляем слайдер
+                    if (displayMode == StackDisplayMode.BIG_BLINDS) {
+                        val bbValue = newText.trim().toDoubleOrNull()
+                        if (bbValue != null) {
+                            betAmountInChips = (bbValue * bigBlind).toLong()
+                        }
+                    } else {
+                        betAmountInChips = newText.toLongOrNull() ?: 0L
+                    }
+                },
+                onConfirm = { onBetConfirmed(betAmountInChips) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CloseButton(modifier: Modifier) {
+    Icon(
+        imageVector = Icons.Default.Close,
+        contentDescription = "Close bet controls",
+        tint = Color.White,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun BetSlider(sliderPosition: Float, onSliderChange: (Float) -> Unit, minBet: Long, maxBet: Long) {
+    Slider(
+        value = sliderPosition,
+        onValueChange = onSliderChange,
+        valueRange = minBet.toFloat()..maxBet.toFloat()
+    )
+}
+
+@Composable
+private fun PresetButtons(modifier: Modifier, minBet: Long, maxBet: Long, presetX2: Long,
+                          presetX3: Long, presetX4: Long, onPreset: (Long) -> Unit) {
+    // Функция для создания кнопок, чтобы не дублировать код
+    @Composable
+    fun PresetButton(amount: Long, label: String, isEnabled: Boolean = true) {
+        Button(
+            modifier = Modifier.size(30.dp),
+            contentPadding = PaddingValues(0.dp),
+            shape = RectangleShape,
+            enabled = isEnabled,
+            onClick = { onPreset(amount) }
+        ) { Text(label) }
+    }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
+    ) {
+        PresetButton(amount = minBet, label = "Min")
+        PresetButton(amount = presetX2, label = "x2", isEnabled = presetX2 in minBet..maxBet)
+        PresetButton(amount = presetX3, label = "x3", isEnabled = presetX3 in minBet..maxBet)
+        PresetButton(amount = presetX4, label = "x4", isEnabled = presetX4 in minBet..maxBet)
+        PresetButton(amount = maxBet, label = "Max")
+    }
+}
+
+@Composable
+private fun BetInputRow(
+    textFieldValue: String,
+    displayMode: StackDisplayMode,
+    isBetValid: Boolean,
+    onTextChange: (String) -> Unit,
+    onConfirm: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            val labelText = if (displayMode == StackDisplayMode.BIG_BLINDS) "Amount in BB" else "Amount"
+            Text(
+                text = labelText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            OutlinedTextField(
+                value = textFieldValue,
+                onValueChange = { newText -> onTextChange(newText) },
+                isError = !isBetValid,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Button(onClick = { onConfirm() }, enabled = isBetValid) {
+            Text("Confirm")
         }
     }
 }
@@ -1463,7 +1522,7 @@ fun UnderdogChoiceUi(
             remainingTime = expiresAt - System.currentTimeMillis()
             delay(time)
         }
-        onHideRunItState
+        onHideRunItState()
     }
     val totalDurationMillis = 15000f
     val progress = (remainingTime / totalDurationMillis).coerceIn(0f, 1f)
@@ -1526,7 +1585,7 @@ fun FavoriteConfirmationUi(
             remainingTime = expiresAt - System.currentTimeMillis()
             delay(time)
         }
-        onHideRunItState
+        onHideRunItState()
     }
     val totalDurationMillis = 15000f
     val progress = (remainingTime / totalDurationMillis).coerceIn(0f, 1f)
@@ -2510,7 +2569,7 @@ fun BoardLayout(
                 bigBlindAmount = it.bigBlindAmount,
                 communityCards = it.communityCards,
                 displayMode = stackDisplayMode,
-                isClassicCardsEnabled =  isClassicCardsEnabled,
+                isClassicCardsEnabled = isClassicCardsEnabled,
                 isFourColorMode = isFourColorMode,
                 isLandscape = isLandscape,
                 modifier = singleBoardModifier
