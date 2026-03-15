@@ -1,7 +1,9 @@
 package com.example.poker.server.data.entity
 
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import kotlin.uuid.ExperimentalUuidApi
 
+@OptIn(ExperimentalUuidApi::class)
 object Users : Table("users") { // "users" - имя таблицы в PostgreSQL
     val id = uuid("id").autoGenerate() // Используем UUID для ID
     val username = varchar("username", 255).uniqueIndex()

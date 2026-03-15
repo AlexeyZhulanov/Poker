@@ -213,6 +213,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val isPerformanceMode by viewModel.isPerformanceMode.collectAsStateWithLifecycle()
     val isClassicCardsEnabled by viewModel.isClassicCardsEnabled.collectAsStateWithLifecycle()
     val isFourColorMode by viewModel.isFourColorMode.collectAsStateWithLifecycle()
+    val timeOffset by viewModel.timeOffset.collectAsStateWithLifecycle()
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var lastBoardResult by remember { mutableLongStateOf(0L) }
@@ -265,7 +266,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             modifier = layoutConfig.boxModifier2,
             contentAlignment = Alignment.Center
         ) {
-            TopBar(gameMode, tournamentInfo, specsCount, isReconnecting, layoutConfig.topBarModifier.align(layoutConfig.topBarAlignment), isLandscape)
+            TopBar(gameMode, tournamentInfo, specsCount, isReconnecting, layoutConfig.topBarModifier.align(layoutConfig.topBarAlignment), isLandscape, timeOffset)
 
             Box(layoutConfig.boxModifier3) {
                 if(isLandscape) {
@@ -303,6 +304,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     isLandscape = isLandscape,
                     isClassicCardsEnabled = isClassicCardsEnabled,
                     isFourColorMode = isFourColorMode,
+                    timeOffset = timeOffset,
                     onLastBoardResultChange = { amount -> lastBoardResult = amount }
                 )
 
@@ -330,7 +332,8 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                 stackDisplayMode = stackDisplayMode,
                 gameMode = gameMode,
                 bottomDp = layoutConfig.bottomDp,
-                isLandscape = isLandscape
+                isLandscape = isLandscape,
+                timeOffset = timeOffset
             )
             winnerId?.let {
                 TournamentWinnerDialog(
@@ -963,6 +966,7 @@ fun PlayerDisplay(
     isClassicCardsEnabled: Boolean = false,
     isFourColorMode: Boolean = false,
     isMyBottomPlayer: Boolean = false,
+    timeOffset: Long = 0L,
     onMyPlayerClicked: () -> Unit,
     onOtherPlayerClicked: () -> Unit
 ) {
@@ -1005,6 +1009,7 @@ fun PlayerDisplay(
                 displayMode = displayMode,
                 bigBlind = bigBlind,
                 scaleMultiplier = scaleMultiplier,
+                timeOffset = timeOffset,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1180,16 +1185,17 @@ fun PlayerInfoWithTimer(
     modifier: Modifier = Modifier,
     displayMode: StackDisplayMode,
     bigBlind: Long,
-    scaleMultiplier: Float
+    scaleMultiplier: Float,
+    timeOffset: Long
 ) {
     val totalTime = 15_000L // Общее время на ход
     val remainingTimeState = remember { mutableLongStateOf(totalTime) }
 
-    LaunchedEffect(isActivePlayer, turnExpiresAt, isPerformanceMode) {
+    LaunchedEffect(isActivePlayer, turnExpiresAt, isPerformanceMode, timeOffset) {
         val updateDelay = if (isPerformanceMode) 1000L else 50L
         if (isActivePlayer && turnExpiresAt != null) {
             while (isActive) {
-                val newRemaining = (turnExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
+                val newRemaining = (turnExpiresAt - (System.currentTimeMillis() + timeOffset)).coerceAtLeast(0L)
                 remainingTimeState.longValue = newRemaining
                 if (newRemaining == 0L) break
                 delay(updateDelay)
@@ -1512,14 +1518,15 @@ fun UnderdogChoiceUi(
     isPerformanceMode: Boolean,
     expiresAt: Long,
     bottomDp: Dp,
+    timeOffset: Long,
     onChoice: (Int) -> Unit,
     onHideRunItState: () -> Unit
 ) {
-    var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    var remainingTime by remember { mutableLongStateOf(expiresAt - (System.currentTimeMillis() + timeOffset)) }
     val time = if(isPerformanceMode) 1000L else 50L
     LaunchedEffect(expiresAt) {
         while (remainingTime > 0) {
-            remainingTime = expiresAt - System.currentTimeMillis()
+            remainingTime = expiresAt - (System.currentTimeMillis() + timeOffset)
             delay(time)
         }
         onHideRunItState()
@@ -1577,14 +1584,15 @@ fun FavoriteConfirmationUi(
     expiresAt: Long,
     modifier: Modifier,
     bottomDp: Dp,
+    timeOffset: Long,
     onConfirm: (Boolean) -> Unit,
     onHideRunItState: () -> Unit
 ) {
-    var remainingTime by remember { mutableLongStateOf(expiresAt - System.currentTimeMillis()) }
+    var remainingTime by remember { mutableLongStateOf(expiresAt - (System.currentTimeMillis() + timeOffset)) }
     val time = if(isPerformanceMode) 1000L else 50L
     LaunchedEffect(expiresAt) {
         while (remainingTime > 0) {
-            remainingTime = expiresAt - System.currentTimeMillis()
+            remainingTime = expiresAt - (System.currentTimeMillis() + timeOffset)
             delay(time)
         }
         onHideRunItState()
@@ -1820,7 +1828,8 @@ fun TopBar(
     specsCount: Int,
     isReconnecting: Boolean,
     modifier: Modifier,
-    isLandScape: Boolean
+    isLandScape: Boolean,
+    timeOffset: Long
 ) {
     val animatedCount by animateIntAsState(
         targetValue = specsCount,
@@ -1841,7 +1850,7 @@ fun TopBar(
         LaunchedEffect(key1 = tournamentInfo?.levelTime) {
             tournamentInfo?.levelTime?.let {
                 while (true) {
-                    val remaining = it - System.currentTimeMillis()
+                    val remaining = it - (System.currentTimeMillis() + timeOffset)
                     if (remaining <= 0) {
                         levelSeconds = 0
                         break
@@ -2072,6 +2081,7 @@ fun PlayersLayout(
     isLandscape: Boolean,
     isClassicCardsEnabled: Boolean,
     isFourColorMode: Boolean,
+    timeOffset: Long,
     onLastBoardResultChange: (Long) -> Unit
 ) {
     // Выжимки из ViewModel
@@ -2135,6 +2145,7 @@ fun PlayersLayout(
                     isLandscape = isLandscape,
                     isGameStarted = isGameStarted,
                     isShowThrowStickerMenu = showThrowStickersMenuIndex == index,
+                    timeOffset = timeOffset,
                     onMyPlayerClicked = { isShowStickersMenu = true },
                     onOtherPlayerClicked = { showThrowStickersMenuIndex = index },
                     onLastBoardResultChange = onLastBoardResultChange,
@@ -2282,6 +2293,7 @@ fun PlayerNode(
     isMyBottomPlayer: Boolean,
     isLandscape: Boolean,
     isGameStarted: Boolean,
+    timeOffset: Long,
     onStickerThrowSelected: (String, String) -> Unit,
     onHideThrowStickerMenu: () -> Unit,
     onMyPlayerClicked: () -> Unit,
@@ -2484,6 +2496,7 @@ fun PlayerNode(
         isClassicCardsEnabled = isClassicCardsEnabled,
         isFourColorMode = isFourColorMode,
         isMyBottomPlayer = isMyBottomPlayer,
+        timeOffset = timeOffset,
         onMyPlayerClicked = onMyPlayerClicked,
         onOtherPlayerClicked = onOtherPlayerClicked
     )
@@ -2572,7 +2585,8 @@ fun BottomLayout(
     stackDisplayMode: StackDisplayMode,
     gameMode: GameMode?,
     bottomDp: Dp,
-    isLandscape: Boolean
+    isLandscape: Boolean,
+    timeOffset: Long
 ) {
     val roomInfo by viewModel.roomInfo.collectAsStateWithLifecycle()
     val gameState by viewModel.gameState.collectAsStateWithLifecycle()
@@ -2618,6 +2632,7 @@ fun BottomLayout(
                 isPerformanceMode = isPerformanceMode,
                 expiresAt = state.expiresAt,
                 bottomDp = bottomDp,
+                timeOffset = timeOffset,
                 onChoice = { times -> viewModel.onRunItChoice(times) },
                 onHideRunItState = { viewModel.hideRunItState() }
             )
@@ -2631,6 +2646,7 @@ fun BottomLayout(
                 expiresAt = state.expiresAt,
                 modifier = modifier,
                 bottomDp = bottomDp,
+                timeOffset = timeOffset,
                 onConfirm = { accepted -> viewModel.onRunItConfirmation(accepted) },
                 onHideRunItState = { viewModel.hideRunItState() }
             )

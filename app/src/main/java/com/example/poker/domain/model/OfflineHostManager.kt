@@ -163,6 +163,15 @@ class OfflineHostManager(
                                     is IncomingMessage.PerformSocialAction -> engine?.processSocialAction(userId, incomingMessage.action)
                                     is IncomingMessage.SetReady -> gameRoomService.setPlayerReady(ROOM_ID, userId, incomingMessage.isReady)
                                     is IncomingMessage.SitAtTable -> gameRoomService.handleSitAtTable(ROOM_ID, userId)
+                                    is IncomingMessage.SyncTimeRequest -> {
+                                        // Берем клиентское время и текущее время сервера и сразу отправляем назад
+                                        val response = OutgoingMessage.SyncTimeResponse(
+                                            clientTime = incomingMessage.clientTime,
+                                            serverTime = System.currentTimeMillis()
+                                        )
+                                        val jsonString = Json.encodeToString(OutgoingMessage.serializer(), response)
+                                        this.send(Frame.Text(jsonString))
+                                    }
                                 }
                             }
                         } catch (e: Exception) {

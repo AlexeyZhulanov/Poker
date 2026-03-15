@@ -24,8 +24,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.mindrot.jbcrypt.BCrypt
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
+@OptIn(ExperimentalUuidApi::class)
 fun Application.configureRouting(gameRoomService: GameRoomService) {
     val userRepository = UserRepository()
     val tokenService = TokenService(environment.config)
@@ -114,7 +116,7 @@ fun Application.configureRouting(gameRoomService: GameRoomService) {
 
                     // 4. Если токен валиден, извлекаем userId
                     val userIdString = decodedJWT.getClaim("userId").asString()
-                    val userId = UUID.fromString(userIdString)
+                    val userId = Uuid.parse(userIdString)
 
                     // 5. Генерируем новую пару токенов
                     val (newAccessToken, newRefreshToken) = tokenService.generateTokens(userId)

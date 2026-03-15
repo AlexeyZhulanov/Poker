@@ -1,6 +1,7 @@
 package com.example.poker.server.plugins
 
 import com.example.poker.shared.dto.IncomingMessage
+import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.model.GameRoomService
 import com.example.poker.shared.model.User
 import io.ktor.server.application.*
@@ -11,7 +12,9 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.ExperimentalUuidApi
 
+@OptIn(ExperimentalUuidApi::class)
 fun Application.configureSockets(gameRoomService: GameRoomService) {
     install(WebSockets) {
         pingPeriod = 15.seconds
@@ -86,6 +89,15 @@ fun Application.configureSockets(gameRoomService: GameRoomService) {
                             is IncomingMessage.PerformSocialAction -> engine?.processSocialAction(userId, incomingMessage.action)
                             is IncomingMessage.SetReady -> gameRoomService.setPlayerReady(roomId, userId, incomingMessage.isReady)
                             is IncomingMessage.SitAtTable -> gameRoomService.handleSitAtTable(roomId, userId)
+                            is IncomingMessage.SyncTimeRequest -> {
+                                // Берем клиентское время и текущее время сервера и сразу отправляем назад
+                                val response = OutgoingMessage.SyncTimeResponse(
+                                    clientTime = incomingMessage.clientTime,
+                                    serverTime = System.currentTimeMillis()
+                                )
+                                val jsonString = Json.encodeToString(OutgoingMessage.serializer(), response)
+                                this.send(Frame.Text(jsonString))
+                            }
                         }
                     }
                 } catch (e: Exception) {

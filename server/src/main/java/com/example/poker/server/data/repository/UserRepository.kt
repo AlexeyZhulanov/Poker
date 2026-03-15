@@ -4,16 +4,19 @@ import com.example.poker.server.data.entity.Users
 import com.example.poker.server.data.DatabaseFactory.dbQuery
 import com.example.poker.shared.model.User
 import com.example.poker.shared.dto.RegisterRequest
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class UserRepository {
 
     // Вспомогательная функция для конвертации
+    @OptIn(ExperimentalUuidApi::class)
     private fun toUser(row: ResultRow): User = User(
         id = row[Users.id],
         username = row[Users.username],
@@ -22,7 +25,8 @@ class UserRepository {
         cashBalance = row[Users.cashBalance]
     )
 
-    suspend fun findById(id: UUID): User? {
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun findById(id: Uuid): User? {
         return dbQuery {
             Users.selectAll().where { Users.id eq id }
                 .map(::toUser)
@@ -46,7 +50,8 @@ class UserRepository {
         }
     }
 
-    suspend fun updateUsername(userId: UUID, newUsername: String): Boolean {
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun updateUsername(userId: Uuid, newUsername: String): Boolean {
         return dbQuery {
             val updatedRows = Users.update({ Users.id eq userId }) {
                 it[username] = newUsername

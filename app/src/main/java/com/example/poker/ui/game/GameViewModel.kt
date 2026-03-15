@@ -171,6 +171,9 @@ class GameViewModel @Inject constructor(
     private val _isFourColorMode = MutableStateFlow(true)
     val isFourColorMode: StateFlow<Boolean> = _isFourColorMode.asStateFlow()
 
+    private val _timeOffset = MutableStateFlow(0L)
+    val timeOffset: StateFlow<Long> = _timeOffset.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
 
     // Для PlayersLayout (разбиваем gameState на более мелкие части)
@@ -282,6 +285,7 @@ class GameViewModel @Inject constructor(
                         _isReconnecting.value = false
                         Log.d("testGameWS", "Connected.")
                         session = this
+                        syncTimeWithServer()
                         for (frame in incoming) {
                             if (frame is Frame.Text) {
                                 val messageJson = frame.readText()
@@ -479,6 +483,19 @@ class GameViewModel @Inject constructor(
                                         val state = message.state
                                         _gameState.value = GameState.fromUserInput(state)
                                     }
+                                    is OutgoingMessage.SyncTimeResponse -> {
+                                        val t1 = System.currentTimeMillis() // Время возврата
+                                        // Считаем RTT (путь туда и обратно)
+                                        val rtt = t1 - message.clientTime
+                                        // Считаем путь в одну сторону
+                                        val latency = rtt / 2
+                                        // Истинное время сервера в момент T1
+                                        val trueServerTime = message.serverTime + latency
+                                        // Сохраняем разницу между истинным сервером и нашими локальными часами
+                                        val offset = trueServerTime - t1
+                                        _timeOffset.value = offset
+                                        Log.d("testTimeSync", "RTT: $rtt ms, Latency: $latency ms, Offset: $offset ms")
+                                    }
                                 }
                             }
                         }
@@ -550,6 +567,11 @@ class GameViewModel @Inject constructor(
     }
     fun onSitAtTableClick() {
         sendAction(IncomingMessage.SitAtTable)
+    }
+
+    private fun syncTimeWithServer() {
+        val t0 = System.currentTimeMillis() // client time
+        sendAction(IncomingMessage.SyncTimeRequest(t0))
     }
 
     private fun lockActionPanel() {
