@@ -33,20 +33,28 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -164,6 +172,50 @@ class GameViewModel @Inject constructor(
     val isFourColorMode: StateFlow<Boolean> = _isFourColorMode.asStateFlow()
 
     private var winnerDisplayJob: Job? = null
+
+    // Для PlayersLayout (разбиваем gameState на более мелкие части)
+    val activePlayerId: StateFlow<String?> = _gameState
+        .map { state -> state?.playerStates?.getOrNull(state.activePlayerPosition)?.player?.userId }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val bigBlindAmount: StateFlow<Long> = _gameState
+        .map { it?.bigBlindAmount ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val turnExpiresAt: StateFlow<Long?> = _gameState
+        .map { it?.turnExpiresAt }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val winnerIds: StateFlow<ImmutableSet<String>> = _boardResult
+        .map { result -> result?.map { it.first }?.toImmutableSet() ?: persistentSetOf() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentSetOf())
+
+    private val playersOnTable = combine(_gameState, _roomInfo) { state, room ->
+        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) }?.toImmutableList() ?: persistentListOf())
+    }.distinctUntilChanged()
+
+    val reorderedPlayers: StateFlow<ImmutableList<PlayerState>> = combine(playersOnTable, _myUserId) { players, myId ->
+        val visiblePlayers = players.filter { it.player.status != PlayerStatus.SPECTATING }
+        val myPlayerIndex = visiblePlayers.indexOfFirst { it.player.userId == myId }
+
+        val reordered = if (myPlayerIndex != -1) {
+            visiblePlayers.subList(myPlayerIndex, visiblePlayers.size) + visiblePlayers.subList(0, myPlayerIndex)
+        } else {
+            visiblePlayers
+        }
+        reordered.toImmutableList()
+    }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
+
+    val isGameStarted: StateFlow<Boolean> = _gameState
+        .map { it != null }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    // ----------
 
     private var session: DefaultClientWebSocketSession? = null
     private var connectionJob: Job? = null

@@ -3,19 +3,18 @@ package com.example.poker.util
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.saveable.Saver
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import com.example.poker.R
 import com.example.poker.domain.model.Chip
 import com.example.poker.domain.model.standardChipSet
 import com.example.poker.shared.model.Card
 import com.example.poker.shared.model.Rank
 import com.example.poker.shared.model.Suit
+import com.example.poker.ui.game.StackDisplayMode
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlin.math.roundToInt
 
 const val serverUrl = "https://poker.amessenger.ru"
 const val serverSocketUrl = "wss://poker.amessenger.ru"
@@ -43,146 +42,146 @@ fun calculateChipStack(amount: Long): List<Chip> {
     return result
 }
 
-fun calculatePlayerPosition(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
-    // 0.68 - центр
-    val list = mutableListOf<BiasAlignment>()
-    val equityList = mutableListOf<Boolean>() // right = false, left = true
-    when(playersCount) {
-        1 -> { list.add(BiasAlignment(0f, 1f)); equityList.add(true) }
-        2 -> {
-            list.add(BiasAlignment(0f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
-        }
-        3 -> {
-            list.add(BiasAlignment(0f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -1f)); equityList.add(true)
-        }
-        4 -> {
-            list.add(BiasAlignment(1f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -1f)); equityList.add(true)
-        }
-        5 -> {
-            list.add(BiasAlignment(0f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0.7f)); equityList.add(true)
-        }
-        6 -> {
-            list.add(BiasAlignment(0f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.7f)); equityList.add(false)
-            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -0.7f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0.7f)); equityList.add(true)
-        }
-        7 -> {
-            list.add(BiasAlignment(0f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.3f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -0.7f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0.7f)); equityList.add(true)
-        }
-        8 -> {
-            list.add(BiasAlignment(0.3f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, 1f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.3f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -0.7f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0.7f)); equityList.add(true)
-        }
-        9 -> {
-            list.add(BiasAlignment(0f, 0.85f)); equityList.add(true)
-            list.add(BiasAlignment(-1f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, 0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, -0.7f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.3f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, -0.7f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0.7f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 1f)); equityList.add(true)
-        }
-        else -> return Pair(listOf(), listOf())
+data class NormalizedPosition(
+    val x: Float,
+    val y: Float,
+    val isLeftEquity: Boolean
+)
+
+fun calculatePlayerPosition(playersCount: Int): List<NormalizedPosition> {
+    return when(playersCount) {
+        1 -> listOf(NormalizedPosition(0.5f, 1f, isLeftEquity = true))
+        2 -> listOf(
+            NormalizedPosition(0.5f, 1f, isLeftEquity = true),
+            NormalizedPosition(0.5f, 0f, isLeftEquity = false)
+        )
+        3 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.0f, isLeftEquity = true)
+        )
+        4 -> listOf(
+            NormalizedPosition(1.0f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.0f, isLeftEquity = true)
+        )
+        5 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.85f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.85f, isLeftEquity = true)
+        )
+        6 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.85f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.15f, isLeftEquity = false),
+            NormalizedPosition(0.5f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.15f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.85f, isLeftEquity = true)
+        )
+        7 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.85f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.15f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.65f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.15f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.85f, isLeftEquity = true)
+        )
+        8 -> listOf(
+            NormalizedPosition(0.65f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.85f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.15f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.65f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.15f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.85f, isLeftEquity = true)
+        )
+        9 -> listOf(
+            NormalizedPosition(0.5f, 0.925f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.85f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.15f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.65f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.15f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.85f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 1.0f, isLeftEquity = true)
+        )
+        else -> emptyList()
     }
-    return list to equityList
 }
 
-fun calculatePlayerPositionLandscape(playersCount: Int): Pair<List<BiasAlignment>, List<Boolean>> {
-    val list = mutableListOf(BiasAlignment(0f, 1f)) // first
-    val equityList = mutableListOf(true) // right = false, left = true
-    when(playersCount) {
-        1 -> return list to equityList
-        2 -> { list.add(BiasAlignment(0f, -1f)); equityList.add(false) }
-        3 -> {
-            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
-            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
-        }
-        4 -> {
-            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
-            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
-        }
-        5 -> {
-            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
-        }
-        6 -> {
-            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
-        }
-        7 -> {
-            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0.3f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
-        }
-        8 -> {
-            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
-            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
-        }
-        9 -> {
-            list.add(BiasAlignment(-0.8f, 1f)); equityList.add(false)
-            list.add(BiasAlignment(-1f, 0f)); equityList.add(false)
-            list.add(BiasAlignment(-0.8f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(-0.3f, -1f)); equityList.add(false)
-            list.add(BiasAlignment(0.3f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, -1f)); equityList.add(true)
-            list.add(BiasAlignment(1f, 0f)); equityList.add(true)
-            list.add(BiasAlignment(0.8f, 1f)); equityList.add(true)
-        }
-        else -> return Pair(listOf(), listOf())
+fun calculatePlayerPositionLandscape(playersCount: Int): List<NormalizedPosition> {
+    return when(playersCount) {
+        1 -> listOf(
+            NormalizedPosition(0.5f, 1f, isLeftEquity = true)
+        )
+        2 -> listOf(
+            NormalizedPosition(0.5f, 1f, isLeftEquity = true),
+            NormalizedPosition(0.5f, 0f, isLeftEquity = false)
+        )
+        3 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.5f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.5f, isLeftEquity = true)
+        )
+        4 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.0f, 0.5f, isLeftEquity = false),
+            NormalizedPosition(0.5f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(1.0f, 0.5f, isLeftEquity = true)
+        )
+        5 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.1f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.1f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.9f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 1.0f, isLeftEquity = true)
+        )
+        6 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.1f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.1f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.5f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.9f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 1.0f, isLeftEquity = true)
+        )
+        7 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.1f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.1f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.65f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 1.0f, isLeftEquity = true)
+        )
+        8 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.1f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.5f, isLeftEquity = false),
+            NormalizedPosition(0.1f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.5f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.9f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.5f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 1.0f, isLeftEquity = true)
+        )
+        9 -> listOf(
+            NormalizedPosition(0.5f, 1.0f, isLeftEquity = true),
+            NormalizedPosition(0.1f, 1.0f, isLeftEquity = false),
+            NormalizedPosition(0.0f, 0.5f, isLeftEquity = false),
+            NormalizedPosition(0.1f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.35f, 0.0f, isLeftEquity = false),
+            NormalizedPosition(0.65f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 0.0f, isLeftEquity = true),
+            NormalizedPosition(1.0f, 0.5f, isLeftEquity = true),
+            NormalizedPosition(0.9f, 1.0f, isLeftEquity = true)
+        )
+        else -> emptyList()
     }
-    return list to equityList
-}
-
-fun calculateOffset(
-    startAlignment: Alignment,
-    endAlignment: Alignment,
-    parentWidthPx: Float,
-    parentHeightPx: Float
-) : Pair<IntOffset, IntOffset> {
-    val startOffset = startAlignment.align(IntSize.Zero, IntSize(parentWidthPx.toInt(), parentHeightPx.toInt()), LayoutDirection.Ltr)
-    val endOffset = endAlignment.align(IntSize.Zero, IntSize(parentWidthPx.toInt(), parentHeightPx.toInt()), LayoutDirection.Ltr)
-    return startOffset to endOffset
 }
 
 fun getCardName(rank: Rank): String {
@@ -345,5 +344,28 @@ fun getThrowItemResource(stickerId: String, isSecondStage: Boolean): Int {
             "poop" -> R.drawable.throw_poop1
             else -> R.drawable.throw_tomato1
         }
+    }
+}
+
+fun formatBet(chips: Long, mode: StackDisplayMode, bb: Long): String {
+    return if (mode == StackDisplayMode.BIG_BLINDS) chips.toBB(bb) else chips.toString()
+}
+
+fun parseBet(text: String, mode: StackDisplayMode, bb: Long): Long? {
+    return if (mode == StackDisplayMode.BIG_BLINDS) {
+        text.trim().toDoubleOrNull()?.let { (it * bb).toLong() }
+    } else {
+        text.trim().toLongOrNull()
+    }
+}
+
+fun Modifier.centerAt(centerX: Float, centerY: Float) = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    // Устанавливаем размер компонента таким, какой он есть
+    layout(placeable.width, placeable.height) {
+        // Сдвигаем его на заданные координаты, вычитая половину ширины и высоты
+        val x = centerX.roundToInt() - (placeable.width / 2)
+        val y = centerY.roundToInt() - (placeable.height / 2)
+        placeable.placeRelative(x, y)
     }
 }
