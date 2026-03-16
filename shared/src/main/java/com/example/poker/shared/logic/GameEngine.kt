@@ -407,7 +407,7 @@ class GameEngine(
                 gameRoomService.updatePlayerStatesInRoom(roomId, gameState.playerStates)
                 gameState = gameState.copy(activePlayerPosition = -1, turnExpiresAt = null)
                 broadcastGameState()
-                delay(3000L) // Пауза для просмотра результата
+                delay(6500L) // Пауза для просмотра результата
                 startNewHand()
             }
             println("Players folded, start new game")
@@ -579,7 +579,7 @@ class GameEngine(
             gameRoomService.updatePlayerStatesInRoom(roomId, gameState.playerStates)
             checkForSpectators()
             broadcastGameState()
-            delay(5000L) // задержка перед следующей раздачей
+            delay(6500L) // задержка перед следующей раздачей
             startNewHand()
         }
     }
@@ -793,7 +793,7 @@ class GameEngine(
                 if(isFirst) isFirst = false
                 else {
                     calculateAndBroadcastEquity(currentRunCommunityCards, allDealtCards, run)
-                    delay(4000)
+                    delay(4000L)
                 }
 
                 // Раздаем карты для следующей улицы
@@ -815,13 +815,13 @@ class GameEngine(
             // Определяем победителя для этой доски
             val hands = contenders.map { ps -> ps.player.userId to HandEvaluator.evaluate(ps.cards + currentRunCommunityCards) }
             calculateWinners(hands, gameState.playerStates, runCount)
-            delay(4000)
+            delay(5500L)
         }
 
         // После распределения всех банков проверяем, не выбыл ли кто-то
         gameRoomService.updatePlayerStatesInRoom(roomId, gameState.playerStates)
         checkForSpectators()
-        delay(5000L)
+        delay(2500L)
         startNewHand()
     }
 

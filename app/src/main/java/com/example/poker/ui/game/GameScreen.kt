@@ -444,6 +444,15 @@ fun AnimatedCommunityCards(
                         launch { cardOffsetsX[2].animateTo(targets.flopTarget3X, spring(stiffness = Spring.StiffnessLow)) }
                     }
                     4 -> { // Терн
+                        // Если резко все прожали ход, то прерываем предыдущие анимации
+                        (0..2).forEach { i ->
+                            cardAlphas[i].snapTo(1f)
+                            cardOffsetsY[i].snapTo(0f)
+                        }
+                        cardOffsetsX[0].snapTo(targets.flopTarget1X)
+                        cardOffsetsX[1].snapTo(targets.flopTarget2X)
+                        cardOffsetsX[2].snapTo(targets.flopTarget3X)
+
                         cardOffsetsX[3].snapTo(targets.turnTargetX)
                         cardOffsetsY[3].snapTo(targets.startY)
                         launch { cardAlphas[3].animateTo(1f, tween(200)) }
@@ -451,6 +460,12 @@ fun AnimatedCommunityCards(
                         cardOffsetsY[3].animateTo(0f, tween(500))
                     }
                     5 -> { // Ривер
+                        // Если резко все прожали ход, то прерываем предыдущие анимации
+                        cardAlphas[3].snapTo(1f)
+                        cardOffsetsX[3].snapTo(targets.turnTargetX)
+                        cardOffsetsY[3].snapTo(0f)
+                        cardRotations[3].snapTo(360f)
+
                         cardOffsetsX[4].snapTo(targets.riverTargetX)
                         cardOffsetsY[4].snapTo(targets.startY)
                         launch { cardAlphas[4].animateTo(1f, tween(200)) }
@@ -1148,31 +1163,11 @@ fun PlayerStatusOverlays(
         }
 
         // Анимация победителя
-        AnimatedVisibility(
-            visible = isWinner,
-            enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(animationSpec = tween(1000), initialOffsetY = { -it }),
-            exit = fadeOut(animationSpec = tween(300)),
+        WinnerAnimationOverlay(
+            isWinner = isWinner,
+            scaleMultiplier = scaleMultiplier,
             modifier = Modifier.fillMaxSize()
-        ) {
-            Box {
-                RadiantGlowEffectEnhanced(
-                    modifier = Modifier
-                        .size(40.dp * scaleMultiplier)
-                        .align(Alignment.Center),
-                    color = Color(0xFFFDFFD8),
-                    rayCount = 32,
-                    innerRadiusRatio = 0.2f
-                )
-                Image(
-                    painter = painterResource(R.drawable.winner_cup),
-                    contentDescription = "Winner",
-                    modifier = Modifier
-                        .width(20.dp * scaleMultiplier)
-                        .height(30.dp * scaleMultiplier)
-                        .align(Alignment.Center)
-                )
-            }
-        }
+        )
     }
 }
 

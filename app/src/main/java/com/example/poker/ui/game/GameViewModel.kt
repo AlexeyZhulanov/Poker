@@ -380,9 +380,9 @@ class GameViewModel @Inject constructor(
                                         winnerDisplayJob?.cancel()
                                         // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
                                         winnerDisplayJob = viewModelScope.launch {
-                                            delay(750L)
+                                            delay(500L)
                                             _boardResult.value = message.payments.toImmutableList()
-                                            delay(3000L)
+                                            delay(5000L)
                                             _boardResult.value = null
                                         }
                                     }
