@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,6 +53,7 @@ fun WinnerAnimationOverlay(
 ) {
     val density = LocalDensity.current
     val strokeWidthPx = 3.dp.value * scaleMultiplier * LocalDensity.current.density
+    val targetOffset = with(density) { 40.dp.toPx() } * scaleMultiplier
     val goldColor = Color(0xFFFFD700)
 
     // === СОСТОЯНИЯ АНИМАЦИИ ===
@@ -61,7 +61,7 @@ fun WinnerAnimationOverlay(
     val rotZ = remember { Animatable(-90f) }
     val rotX1 = remember { Animatable(-35f) }
     val rotX2 = remember { Animatable(35f) }
-    var ringsOffset by remember { mutableFloatStateOf(0f) }
+    val ringsOffset = remember { Animatable(0f) }
     var isTextVisible by remember { mutableStateOf(false) }
 
     // === ОРКЕСТРАТОР (ХОРЕОГРАФИЯ ЭТАПОВ) ===
@@ -72,18 +72,20 @@ fun WinnerAnimationOverlay(
             rotZ.snapTo(-90f)
             rotX1.snapTo(-35f)
             rotX2.snapTo(35f)
-            ringsOffset = 0f
+            ringsOffset.snapTo(0f)
             isTextVisible = false
 
             // ЭТАП 1: Вырастают половинки колец (до 120 градусов)
             sweepAngle.animateTo(120f, tween(600, easing = FastOutSlowInEasing))
 
             // ЭТАП 2: Кольца бешенно вращаются по Z (5 оборотов = 1800 градусов)
-            rotZ.animateTo(-180f + 1800f, tween(1500, easing = LinearOutSlowInEasing))
+            coroutineScope {
+                launch { rotZ.animateTo(-180f + 1800f, tween(1500, easing = LinearOutSlowInEasing)) }
+                launch { ringsOffset.animateTo(targetOffset, tween(750, easing = LinearOutSlowInEasing, delayMillis = 750)) }
+            }
 
             // ЭТАП 3: Поворот по X, доращивание колец до 360, старт текста, размер колец через offset
             isTextVisible = true
-            ringsOffset = with(density) { 40.dp.toPx() } * scaleMultiplier
             coroutineScope {
                 launch { rotX1.animateTo(-100f, tween(800, easing = FastOutSlowInEasing)) }
                 launch { rotX2.animateTo(100f, tween(800, easing = FastOutSlowInEasing)) }
@@ -95,7 +97,7 @@ fun WinnerAnimationOverlay(
             rotZ.snapTo(-90f)
             rotX1.snapTo(-35f)
             rotX2.snapTo(35f)
-            ringsOffset = 0f
+            ringsOffset.snapTo(0f)
             isTextVisible = false
         }
     }
@@ -115,7 +117,7 @@ fun WinnerAnimationOverlay(
                 startAngle = 0f, // Стартует справа
                 color = goldColor,
                 strokeWidth = strokeWidthPx,
-                ringOffset = ringsOffset
+                ringOffset = ringsOffset.value
             )
         }
 
@@ -133,7 +135,7 @@ fun WinnerAnimationOverlay(
                 startAngle = 180f, // Стартует слева
                 color = goldColor,
                 strokeWidth = strokeWidthPx,
-                ringOffset = -ringsOffset
+                ringOffset = -ringsOffset.value
             )
         }
 

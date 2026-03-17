@@ -325,6 +325,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     onDecreaseScale = { viewModel.changeScale(-0.05f) }
                 )
             }
+            // todo передвинуть к TopBar, когда будет переделан gameState
             BottomLayout(
                 viewModel = viewModel,
                 isPerformanceMode = isPerformanceMode,
@@ -2583,6 +2584,7 @@ fun BottomLayout(
     isLandscape: Boolean,
     timeOffset: Long
 ) {
+    // todo УБРАТЬ ОТСЮДА gameState
     val roomInfo by viewModel.roomInfo.collectAsStateWithLifecycle()
     val gameState by viewModel.gameState.collectAsStateWithLifecycle()
     val runItState by viewModel.runItUiState.collectAsStateWithLifecycle()
@@ -2661,6 +2663,7 @@ fun BoardLayout(
     singleBoardModifier: Modifier,
     waitingModifier: Modifier
 ) {
+    // todo УБРАТЬ ОТСЮДА gameState
     val gameState by viewModel.gameState.collectAsStateWithLifecycle()
     val boardRunouts by viewModel.boardRunouts.collectAsStateWithLifecycle()
     val staticCards by viewModel.staticCommunityCards.collectAsStateWithLifecycle()

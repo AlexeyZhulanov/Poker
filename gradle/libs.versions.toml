@@ -22,7 +22,8 @@ jwt = "4.5.1"
 iconsCore = "1.7.8"
 ksp = "2.3.4"
 metadata-jvm = "2.3.0"
-shadow = "9.3.2"
+shadow = "9.4.0"
+splashScreen = "1.2.0"
 
 [libraries]
 # --- SERVER ---
@@ -84,6 +85,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "iconsCore" }
 kotlinx-collections-immutable = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "ktxImmutable" }
 jetbrains-metadata-jwm = { group = "org.jetbrains.kotlin", name = "kotlin-metadata-jvm", version.ref = "metadata-jvm" }
+androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashScreen" }
 
 [plugins]
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

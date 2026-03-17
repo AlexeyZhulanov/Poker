@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.androidx.icons.core)
+    implementation(libs.androidx.splashscreen)
 
     // Для оффлайн-режима
     implementation(libs.ktor.server.core)
