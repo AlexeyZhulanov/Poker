@@ -72,7 +72,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -122,9 +121,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.poker.R
 import com.example.poker.shared.dto.GameMode
-import com.example.poker.shared.dto.GameStage
 import com.example.poker.shared.dto.OutsInfo
-import com.example.poker.shared.dto.Player
 import com.example.poker.shared.dto.PlayerAction
 import com.example.poker.shared.dto.PlayerStatus
 import com.example.poker.shared.model.Card
@@ -191,7 +188,7 @@ sealed interface GameScreenLayoutParams {
         override val boxModifier3: Modifier = Modifier.padding(bottom = 50.dp).background(Color(0xFF004D40)).fillMaxSize()
         override val settingsModifier: Modifier = Modifier.size(50.dp).clip(CircleShape)
         override val settingsAlignment: Alignment = Alignment.BottomStart
-        override val bottomModifier: Modifier = Modifier.fillMaxWidth(fraction = 0.4f).background(Color(0xFF003D33), RoundedCornerShape(4.dp))
+        override val bottomModifier: Modifier = Modifier.fillMaxWidth(fraction = 0.4f)
         override val bottomAlignment: Alignment = Alignment.BottomEnd
         override val bottomDp: Dp = 60.dp
         override val boxModifier2: Modifier = Modifier.fillMaxSize()
@@ -325,7 +322,6 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     onDecreaseScale = { viewModel.changeScale(-0.05f) }
                 )
             }
-            // todo передвинуть к TopBar, когда будет переделан gameState
             BottomLayout(
                 viewModel = viewModel,
                 isPerformanceMode = isPerformanceMode,
@@ -338,7 +334,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
             )
             winnerId?.let {
                 TournamentWinnerDialog(
-                    playerStatesProvider = { viewModel.gameState.value?.playerStates },
+                    playerStatesProvider = { viewModel.reorderedPlayers.value },
                     winnerId = it,
                     lastBoardResult = lastBoardResult,
                     onReturnToLobby = onNavigateToLobby
@@ -638,16 +634,17 @@ fun MultiBoardLayout(
 
 @Composable
 fun ActionPanel(
-    myPlayer: Player?,
-    myUserId: String?,
-    isActionPanelLocked: Boolean,
-    allInEquity: AllInEquity?,
-    gameState: GameState?,
+    myPlayerState: PlayerState?,
     displayMode: StackDisplayMode,
+    bigBlindAmount: Long,
+    amountToCall: Long,
+    lastRaiseAmount: Long,
     modifier: Modifier,
     isTournament: Boolean,
     bottomDp: Dp,
     isLandscape: Boolean,
+    isGameStarted: Boolean,
+    isMyTurn: Boolean,
     onSitAtTableClick: () -> Unit,
     onReadyClick: (Boolean) -> Unit,
     onFold: () -> Unit,
@@ -658,13 +655,9 @@ fun ActionPanel(
     // Состояние для отображения/скрытия ползунка
     var showBetSlider by remember { mutableStateOf(false) }
 
-    val playerState = remember(gameState?.playerStates, myUserId) {
-        gameState?.playerStates?.find { it.player.userId == myUserId }
-    }
-    val boxModifier = remember(modifier) {
-        modifier
-            .height(bottomDp)
-            .fillMaxWidth()
+    val boxModifier = remember(isLandscape, modifier) {
+        if(isLandscape) modifier.background(Color(0xFF003D33), RoundedCornerShape(4.dp)).height(bottomDp).fillMaxWidth()
+        else modifier.height(bottomDp).fillMaxWidth()
     }
     val weightMiddle = remember(isLandscape) {
         if(isLandscape) 1.1f else 1f
@@ -672,25 +665,21 @@ fun ActionPanel(
     // Используем Box для наложения ползунка поверх панели
     Box(contentAlignment = Alignment.TopCenter, modifier = boxModifier) {
         when {
-            myPlayer?.status == PlayerStatus.SPECTATING && (!isTournament || gameState == null)  -> {
+            myPlayerState?.player?.status == PlayerStatus.SPECTATING && (!isTournament || !isGameStarted)  -> {
                 BottomButton(onClick = { onSitAtTableClick() }, text = "Sit at Table", modifier = Modifier
                     .fillMaxWidth()
                     .height(bottomDp - 3.dp))
             }
-            gameState == null -> {
-                if (myPlayer != null) {
-                    val text = if (myPlayer.isReady) "Cancel Ready" else "I'm Ready"
-                    BottomButton(onClick = { onReadyClick(!myPlayer.isReady) }, text = text, modifier = Modifier
+            !isGameStarted -> {
+                if (myPlayerState?.player != null) {
+                    val text = if (myPlayerState.player.isReady) "Cancel Ready" else "I'm Ready"
+                    BottomButton(onClick = { onReadyClick(!myPlayerState.player.isReady) }, text = text, modifier = Modifier
                         .fillMaxWidth()
                         .height(bottomDp - 3.dp))
                 }
             }
             else -> {
                 // --- ОСНОВНАЯ ПАНЕЛЬ С ТРЕМЯ КНОПКАМИ ---
-                val activeId = remember(gameState.activePlayerPosition) {
-                    gameState.playerStates.getOrNull(gameState.activePlayerPosition)?.player?.userId
-                }
-                val isMyTurn = activeId == myUserId && !isActionPanelLocked && allInEquity == null && gameState.stage != GameStage.SHOWDOWN
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -702,8 +691,7 @@ fun ActionPanel(
                         .height(bottomDp - 3.dp))
 
                     // 2. Динамическая кнопка CHECK / CALL
-                    val amountToCall = gameState.amountToCall
-                    val myCurrentBet = playerState?.currentBet ?: 0L
+                    val myCurrentBet = myPlayerState?.currentBet ?: 0L
 
                     if (amountToCall == 0L || amountToCall == myCurrentBet) {
                         // Если ставить не нужно, показываем CHECK
@@ -712,10 +700,10 @@ fun ActionPanel(
                             .height(bottomDp - 3.dp))
                     } else {
                         // Если нужно коллировать, показываем CALL с суммой
-                        val callValue = minOf(playerState?.player?.stack ?: 0L, amountToCall - myCurrentBet)
-                        val callText = remember(displayMode, callValue, gameState.bigBlindAmount) {
+                        val callValue = minOf(myPlayerState?.player?.stack ?: 0L, amountToCall - myCurrentBet)
+                        val callText = remember(displayMode, callValue, bigBlindAmount) {
                             if (displayMode == StackDisplayMode.BIG_BLINDS) {
-                                "Call ${callValue.toBB(gameState.bigBlindAmount)} BB"
+                                "Call ${callValue.toBB(bigBlindAmount)} BB"
                             } else "Call $callValue"
                         }
                         BottomButton(onClick = { onCall() }, enabled = isMyTurn, text = callText, modifier = Modifier
@@ -724,7 +712,7 @@ fun ActionPanel(
                     }
 
                     // 3. Кнопка BET / RAISE
-                    val canRaise = (playerState?.player?.stack ?: 0L) > amountToCall
+                    val canRaise = (myPlayerState?.player?.stack ?: 0L) > amountToCall
                     BottomButton(onClick = { showBetSlider = true }, enabled = isMyTurn && canRaise, text = "Bet", modifier = Modifier
                         .weight(1f)
                         .height(bottomDp - 3.dp))
@@ -733,7 +721,7 @@ fun ActionPanel(
         }
     }
     // --- ПОЛЗУНОК ДЛЯ СТАВКИ (появляется по условию) ---
-    if (showBetSlider && playerState != null && gameState != null) {
+    if (showBetSlider && myPlayerState != null && isGameStarted) {
         val imeInsets = WindowInsets.ime
         val bottomPadding by animateDpAsState(
             targetValue = with(LocalDensity.current) {
@@ -744,16 +732,14 @@ fun ActionPanel(
         val totalPadding = if(bottomPadding > 100.dp) bottomPadding - 100.dp else bottomPadding
         Box(
             contentAlignment = Alignment.TopCenter,
-            modifier = modifier
-                .padding(bottom = totalPadding)
-                .fillMaxWidth()
+            modifier = modifier.padding(bottom = totalPadding).fillMaxWidth()
         ) {
             BetControls(
-                minBet = minOf(gameState.amountToCall + gameState.lastRaiseAmount, playerState.player.stack),
-                maxBet = playerState.player.stack + playerState.currentBet,
-                amountToCall = gameState.amountToCall,
+                minBet = minOf(amountToCall + lastRaiseAmount, myPlayerState.player.stack),
+                maxBet = myPlayerState.player.stack + myPlayerState.currentBet,
+                amountToCall = amountToCall,
                 displayMode = displayMode,
-                bigBlind = gameState.bigBlindAmount,
+                bigBlind = bigBlindAmount,
                 onBetConfirmed = { betAmount ->
                     onBet(betAmount)
                     showBetSlider = false // Скрываем ползунок после подтверждения
@@ -942,16 +928,16 @@ private fun BetInputRow(
 @Composable
 fun BottomButton(onClick: () -> Unit, enabled: Boolean = true, text: String, modifier: Modifier) {
     val border = remember(enabled) {
-        val color1 = if (enabled) Color.Red else Color(0xFF640D14)
-        val color2 = if (enabled) Color(0xFF640D14) else Color.Black
+        val color1 = if (enabled) Color.Red else Color(0xFF640D14).copy(alpha = 0.3f)
+        val color2 = if (enabled) Color(0xFF640D14) else Color.Black.copy(alpha = 0.3f)
         BorderStroke(5.dp, Brush.radialGradient(listOf(color1, color2), radius = 170f))
     }
     val buttonColors = remember {
         ButtonColors(
             containerColor = Color.Red.copy(alpha = 0.7f),
             contentColor = Color.White.copy(alpha = 0.8f),
-            disabledContainerColor = Color(0xFF38070B),
-            disabledContentColor = Color.Black
+            disabledContainerColor = Color(0xFF38070B).copy(alpha = 0.3f),
+            disabledContentColor = Color.Black.copy(alpha = 0.7f)
         )
     }
     FilledTonalButton(
@@ -2584,37 +2570,29 @@ fun BottomLayout(
     isLandscape: Boolean,
     timeOffset: Long
 ) {
-    // todo УБРАТЬ ОТСЮДА gameState
-    val roomInfo by viewModel.roomInfo.collectAsStateWithLifecycle()
-    val gameState by viewModel.gameState.collectAsStateWithLifecycle()
     val runItState by viewModel.runItUiState.collectAsStateWithLifecycle()
-    val myUserId by viewModel.myUserId.collectAsStateWithLifecycle()
-    val isActionPanelLocked by viewModel.isActionPanelLocked.collectAsStateWithLifecycle()
-    val allInEquity by viewModel.allInEquity.collectAsStateWithLifecycle()
+    val myPlayerState by viewModel.myPlayerState.collectAsStateWithLifecycle()
+    val reorderedPlayers by viewModel.reorderedPlayers.collectAsStateWithLifecycle()
+    val isGameStarted by viewModel.isGameStarted.collectAsStateWithLifecycle()
+    val bigBlindAmount by viewModel.bigBlindAmount.collectAsStateWithLifecycle()
+    val amountToCall by viewModel.amountToCall.collectAsStateWithLifecycle()
+    val lastRaiseAmount by viewModel.lastRaiseAmount.collectAsStateWithLifecycle()
+    val isMyTurn by viewModel.isMyTurn.collectAsStateWithLifecycle()
 
     when (val state = runItState) {
         is RunItUiState.Hidden -> {
-            val myPlayer by remember {
-                derivedStateOf {
-                    if(gameState != null) {
-                        gameState?.playerStates?.find { it.player.userId == myUserId }?.player
-                            ?: roomInfo?.players?.find { it.userId == myUserId }
-                    } else {
-                        roomInfo?.players?.find { it.userId == myUserId }
-                    }
-                }
-            }
             ActionPanel(
-                myPlayer = myPlayer,
-                myUserId = myUserId,
-                gameState = gameState,
-                isActionPanelLocked = isActionPanelLocked,
-                allInEquity = allInEquity,
+                myPlayerState = myPlayerState,
                 displayMode = stackDisplayMode,
+                bigBlindAmount = bigBlindAmount,
+                amountToCall = amountToCall,
+                lastRaiseAmount = lastRaiseAmount,
                 modifier = modifier,
                 isTournament = gameMode == GameMode.TOURNAMENT,
                 bottomDp = bottomDp,
                 isLandscape = isLandscape,
+                isGameStarted = isGameStarted,
+                isMyTurn = isMyTurn,
                 onSitAtTableClick = { viewModel.onSitAtTableClick() },
                 onReadyClick = { viewModel.onReadyClick(it) },
                 onFold = { viewModel.onFold() },
@@ -2635,7 +2613,7 @@ fun BottomLayout(
             )
         }
         is RunItUiState.AwaitingFavoriteConfirmation -> {
-            val underdogName = gameState?.playerStates?.find { it.player.userId == state.underdogId }?.player?.username
+            val underdogName = reorderedPlayers.find { it.player.userId == state.underdogId }?.player?.username
             FavoriteConfirmationUi(
                 underdogName = underdogName ?: state.underdogId,
                 isPerformanceMode = isPerformanceMode,
@@ -2663,21 +2641,24 @@ fun BoardLayout(
     singleBoardModifier: Modifier,
     waitingModifier: Modifier
 ) {
-    // todo УБРАТЬ ОТСЮДА gameState
-    val gameState by viewModel.gameState.collectAsStateWithLifecycle()
     val boardRunouts by viewModel.boardRunouts.collectAsStateWithLifecycle()
     val staticCards by viewModel.staticCommunityCards.collectAsStateWithLifecycle()
     val runsCount by viewModel.runsCount.collectAsStateWithLifecycle()
-    gameState?.let {
+    val isGameStarted by viewModel.isGameStarted.collectAsStateWithLifecycle()
+    val bigBlindAmount by viewModel.bigBlindAmount.collectAsStateWithLifecycle()
+    val pot by viewModel.pot.collectAsStateWithLifecycle()
+    val communityCards by viewModel.communityCards.collectAsStateWithLifecycle()
+
+    if(isGameStarted) {
         if(boardRunouts.isNotEmpty()) {
-            MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = it.pot,
-                displayMode = stackDisplayMode, isClassicCardsEnabled = isClassicCardsEnabled, bigBlind = it.bigBlindAmount,
+            MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = pot,
+                displayMode = stackDisplayMode, isClassicCardsEnabled = isClassicCardsEnabled, bigBlind = bigBlindAmount,
                 modifier = multiboardModifier, isFourColorMode = isFourColorMode, isLandscape = isLandscape)
         } else {
             SingleBoardLayout(
-                pot = it.pot,
-                bigBlindAmount = it.bigBlindAmount,
-                communityCards = it.communityCards,
+                pot = pot,
+                bigBlindAmount = bigBlindAmount,
+                communityCards = communityCards,
                 displayMode = stackDisplayMode,
                 isClassicCardsEnabled = isClassicCardsEnabled,
                 isFourColorMode = isFourColorMode,
@@ -2685,7 +2666,7 @@ fun BoardLayout(
                 modifier = singleBoardModifier
             )
         }
-    } ?: WaitingPlayersLayout(modifier = waitingModifier, specsCount = specsCount)
+    } else WaitingPlayersLayout(modifier = waitingModifier, specsCount = specsCount)
 }
 
 @Composable

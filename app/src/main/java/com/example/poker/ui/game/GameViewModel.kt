@@ -14,6 +14,7 @@ import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
 import com.example.poker.domain.model.OfflineHostManager
 import com.example.poker.shared.dto.GameMode
+import com.example.poker.shared.dto.GameStage
 import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.dto.OutsInfo
@@ -103,19 +104,16 @@ class GameViewModel @Inject constructor(
     private val roomId: String = if(isOffline) ROOM_ID else gameUrl.substringAfterLast('/')
 
     private val _gameState = MutableStateFlow<GameState?>(null)
-    val gameState: StateFlow<GameState?> = _gameState.asStateFlow()
 
     private val _myUserId = MutableStateFlow<String?>(null)
     val myUserId: StateFlow<String?> = _myUserId.asStateFlow()
 
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
-    val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
 
     private val _runItUiState = MutableStateFlow<RunItUiState>(Hidden)
     val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
 
     private val _isActionPanelLocked = MutableStateFlow(false)
-    val isActionPanelLocked: StateFlow<Boolean> = _isActionPanelLocked.asStateFlow()
     private var lockJob: Job? = null
 
     private val _allInEquity = MutableStateFlow<AllInEquity?>(null)
@@ -217,6 +215,52 @@ class GameViewModel @Inject constructor(
     val isGameStarted: StateFlow<Boolean> = _gameState
         .map { it != null }
         .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Для BoardLayout
+    val pot: StateFlow<Long> = _gameState
+        .map { it?.pot ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val communityCards: StateFlow<ImmutableList<Card>> = _gameState
+        .map { it?.communityCards ?: persistentListOf() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
+
+    // Для BottomLayout
+    val myPlayerState: StateFlow<PlayerState?> = combine(playersOnTable, _myUserId) { players, myId ->
+        val myPlayerIndex = players.indexOfFirst { it.player.userId == myId }
+        if (myPlayerIndex != -1) {
+            players[myPlayerIndex]
+        } else null
+    }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val amountToCall: StateFlow<Long> = _gameState
+        .map { it?.amountToCall ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val lastRaiseAmount: StateFlow<Long> = _gameState
+        .map { it?.lastRaiseAmount ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    private val gameStage: StateFlow<GameStage> = _gameState
+        .map { it?.stage ?: GameStage.PRE_FLOP }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GameStage.PRE_FLOP)
+
+    val isMyTurn: StateFlow<Boolean> = combine(
+        activePlayerId,
+        _myUserId,
+        _isActionPanelLocked,
+        _allInEquity,
+        gameStage
+    ) { activeId, myId, isLocked, equity, stage ->
+        activeId == myId && !isLocked && equity == null && stage != GameStage.SHOWDOWN
+    }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     // ----------
 
