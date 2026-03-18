@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -172,7 +173,7 @@ sealed interface GameScreenLayoutParams {
         override val topBarModifier: Modifier = Modifier.height(30.dp).fillMaxWidth()
         override val topBarAlignment: Alignment = Alignment.TopCenter
         override val boxModifier3: Modifier = Modifier.padding(top = 30.dp, bottom = 63.dp).background(Color(0xFF004D40)).fillMaxSize()
-        override val settingsModifier: Modifier = Modifier.size(50.dp).clip(CircleShape).padding(end = 5.dp, bottom = 5.dp)
+        override val settingsModifier: Modifier = Modifier.padding(end = 5.dp, bottom = 5.dp).size(50.dp).clip(CircleShape)
         override val settingsAlignment: Alignment = Alignment.BottomEnd
         override val bottomModifier: Modifier = Modifier
         override val bottomAlignment: Alignment = Alignment.BottomCenter
@@ -211,6 +212,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
     val isClassicCardsEnabled by viewModel.isClassicCardsEnabled.collectAsStateWithLifecycle()
     val isFourColorMode by viewModel.isFourColorMode.collectAsStateWithLifecycle()
     val timeOffset by viewModel.timeOffset.collectAsStateWithLifecycle()
+    val isNeedMoveSettings by viewModel.isNeedMoveSettings.collectAsStateWithLifecycle()
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var lastBoardResult by remember { mutableLongStateOf(0L) }
@@ -270,8 +272,13 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                     PokerTableBackground(Modifier.padding(top = 50.dp))
                 }
                 // Кнопка настроек
+                val iconModifier = remember(isNeedMoveSettings, isLandscape) {
+                    if(isNeedMoveSettings && !isLandscape) {
+                        Modifier.padding(bottom = 10.dp).size(50.dp).clip(CircleShape).align(Alignment.BottomCenter)
+                    } else layoutConfig.settingsModifier.align(layoutConfig.settingsAlignment)
+                }
                 Icon(painter = painterResource(R.drawable.ic_settings), contentDescription = "Settings",
-                    tint = Color.Black, modifier = layoutConfig.settingsModifier.align(layoutConfig.settingsAlignment).clickable(onClick = { showSettingsMenu = !showSettingsMenu }))
+                    tint = Color.Black, modifier = iconModifier.clickable(onClick = { showSettingsMenu = !showSettingsMenu }))
 
                 val waitingModifier = remember {
                     Modifier
@@ -287,6 +294,7 @@ fun GameScreen(viewModel: GameViewModel, onNavigateToLobby: () -> Unit) {
                         specsCount = specsCount,
                         isClassicCardsEnabled = isClassicCardsEnabled,
                         isFourColorMode = isFourColorMode,
+                        isPerformanceMode = isPerformanceMode,
                         multiboardModifier = layoutConfig.boardModifier2.align(Alignment.CenterStart),
                         singleBoardModifier = layoutConfig.boardModifier2.align(Alignment.Center),
                         waitingModifier = waitingModifier,
@@ -351,7 +359,8 @@ fun AnimatedCommunityCards(
     staticCardsSize: Int = 0,
     isMultiboard: Boolean = false,
     isClassicCardsEnabled: Boolean = false,
-    isFourColorMode: Boolean = true
+    isFourColorMode: Boolean = true,
+    isPerformanceMode: Boolean = false
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val density = LocalDensity.current
@@ -367,6 +376,7 @@ fun AnimatedCommunityCards(
                     val startX = (maxWidth * 0.5f).toPx()
                     val startY = (maxHeight * 0.75f).toPx()
                     // Рассчитываем целевые X-позиции для карт
+                    val flopTarget0X = -cardWidthPx + offsetPx
                     val flopTarget1X = offsetPx // 0f + offsetPx
                     val flopTarget2X = cardWidthPx + offsetPx
                     val flopTarget3X = cardWidthPx * 2 + offsetPx
@@ -389,7 +399,7 @@ fun AnimatedCommunityCards(
         }
 
         // 2. LaunchedEffect - "мозг" анимации. Запускается, когда меняется список карт
-        LaunchedEffect(cards) {
+        LaunchedEffect(cards, isPerformanceMode) {
             val prevCards = previousCards
             if(cards.isEmpty()) {
                 // Перед началом новой анимации сбрасываем все значения в 0
@@ -425,20 +435,53 @@ fun AnimatedCommunityCards(
                 // Сценарий 2: Пошаговая анимация (обычный ход игры)
                 when(cards.size) {
                     3 -> { // Флоп
-                        (0..2).forEach { i ->
-                            cardOffsetsX[i].snapTo(targets.startX)
-                            cardOffsetsY[i].snapTo(targets.startY)
-                            cardAlphas[i].snapTo(0f)
-                        }
-                        // Теперь, когда все карты на стартовых позициях, разрешаем их показать
-                        isReadyForAnimation = true
+                        if (isPerformanceMode) {
+                            // Каскадный выезд по X
+                            // Карта 1: Просто появляется на своем месте
+                            cardOffsetsX[0].snapTo(targets.flopTarget0X)
+                            // Карта 2: Прячется под Картой 1
+                            cardOffsetsX[1].snapTo(targets.flopTarget1X)
+                            // Карта 3: Прячется под финальной позицией Карты 2
+                            cardOffsetsX[2].snapTo(targets.flopTarget2X)
 
-                        (0..2).forEach { i -> launch { cardAlphas[i].animateTo(1f, tween(100)) } }
-                        (0..2).forEach { i -> launch { cardOffsetsX[i].animateTo(targets.flopTarget1X, tween((i + 1) * 300)) } }
-                        (0..2).forEach { i -> launch { cardOffsetsY[i].animateTo(0f, tween((i + 1) * 300)) } }
-                        delay(950)
-                        launch { cardOffsetsX[1].animateTo(targets.flopTarget2X, spring(stiffness = Spring.StiffnessLow)) }
-                        launch { cardOffsetsX[2].animateTo(targets.flopTarget3X, spring(stiffness = Spring.StiffnessLow)) }
+                            (0..2).forEach { i ->
+                                cardOffsetsY[i].snapTo(0f)
+                                cardAlphas[i].snapTo(0f)
+                            }
+
+                            isReadyForAnimation = true
+
+                            // Анимируем с небольшими задержками для эффекта "раздачи"
+                            launch { cardAlphas[0].animateTo(1f, tween(150)) }
+                            launch { cardOffsetsX[0].animateTo(targets.flopTarget1X, tween(250, easing = FastOutSlowInEasing)) }
+
+                            launch {
+                                delay(100) // Ждем пока появится первая
+                                launch { cardAlphas[1].animateTo(1f, tween(150)) }
+                                launch { cardOffsetsX[1].animateTo(targets.flopTarget2X, tween(250, easing = FastOutSlowInEasing)) }
+                            }
+
+                            launch {
+                                delay(200) // Ждем пока поедет вторая
+                                launch { cardAlphas[2].animateTo(1f, tween(150)) }
+                                launch { cardOffsetsX[2].animateTo(targets.flopTarget3X, tween(250, easing = FastOutSlowInEasing)) }
+                            }
+                        } else {
+                            (0..2).forEach { i ->
+                                cardOffsetsX[i].snapTo(targets.startX)
+                                cardOffsetsY[i].snapTo(targets.startY)
+                                cardAlphas[i].snapTo(0f)
+                            }
+                            // Теперь, когда все карты на стартовых позициях, разрешаем их показать
+                            isReadyForAnimation = true
+
+                            (0..2).forEach { i -> launch { cardAlphas[i].animateTo(1f, tween(100)) } }
+                            (0..2).forEach { i -> launch { cardOffsetsX[i].animateTo(targets.flopTarget1X, tween((i + 1) * 300)) } }
+                            (0..2).forEach { i -> launch { cardOffsetsY[i].animateTo(0f, tween((i + 1) * 300)) } }
+                            delay(950)
+                            launch { cardOffsetsX[1].animateTo(targets.flopTarget2X, spring(stiffness = Spring.StiffnessLow)) }
+                            launch { cardOffsetsX[2].animateTo(targets.flopTarget3X, spring(stiffness = Spring.StiffnessLow)) }
+                        }
                     }
                     4 -> { // Терн
                         // Если резко все прожали ход, то прерываем предыдущие анимации
@@ -449,12 +492,22 @@ fun AnimatedCommunityCards(
                         cardOffsetsX[0].snapTo(targets.flopTarget1X)
                         cardOffsetsX[1].snapTo(targets.flopTarget2X)
                         cardOffsetsX[2].snapTo(targets.flopTarget3X)
+                        if(isPerformanceMode) {
+                            // Карта 4 выезжает из-под Карты 3
+                            cardOffsetsX[3].snapTo(targets.flopTarget3X)
+                            cardOffsetsY[3].snapTo(0f)
+                            cardAlphas[3].snapTo(0f)
+                            cardRotations[3].snapTo(0f)
 
-                        cardOffsetsX[3].snapTo(targets.turnTargetX)
-                        cardOffsetsY[3].snapTo(targets.startY)
-                        launch { cardAlphas[3].animateTo(1f, tween(200)) }
-                        launch { cardRotations[3].animateTo(360f, tween(600)) }
-                        cardOffsetsY[3].animateTo(0f, tween(500))
+                            launch { cardAlphas[3].animateTo(1f, tween(150)) }
+                            launch { cardOffsetsX[3].animateTo(targets.turnTargetX, tween(250, easing = FastOutSlowInEasing)) }
+                        } else {
+                            cardOffsetsX[3].snapTo(targets.turnTargetX)
+                            cardOffsetsY[3].snapTo(targets.startY)
+                            launch { cardAlphas[3].animateTo(1f, tween(200)) }
+                            launch { cardRotations[3].animateTo(360f, tween(600)) }
+                            cardOffsetsY[3].animateTo(0f, tween(500))
+                        }
                     }
                     5 -> { // Ривер
                         // Если резко все прожали ход, то прерываем предыдущие анимации
@@ -462,12 +515,22 @@ fun AnimatedCommunityCards(
                         cardOffsetsX[3].snapTo(targets.turnTargetX)
                         cardOffsetsY[3].snapTo(0f)
                         cardRotations[3].snapTo(360f)
+                        if(isPerformanceMode) {
+                            // Карта 5 выезжает из-под Карты 4
+                            cardOffsetsX[4].snapTo(targets.turnTargetX)
+                            cardOffsetsY[4].snapTo(0f)
+                            cardAlphas[4].snapTo(0f)
+                            cardRotations[4].snapTo(0f)
 
-                        cardOffsetsX[4].snapTo(targets.riverTargetX)
-                        cardOffsetsY[4].snapTo(targets.startY)
-                        launch { cardAlphas[4].animateTo(1f, tween(200)) }
-                        launch { cardRotations[4].animateTo(360f, tween(600)) }
-                        cardOffsetsY[4].animateTo(0f, tween(500))
+                            launch { cardAlphas[4].animateTo(1f, tween(150)) }
+                            launch { cardOffsetsX[4].animateTo(targets.riverTargetX, tween(250, easing = FastOutSlowInEasing)) }
+                        } else {
+                            cardOffsetsX[4].snapTo(targets.riverTargetX)
+                            cardOffsetsY[4].snapTo(targets.startY)
+                            launch { cardAlphas[4].animateTo(1f, tween(200)) }
+                            launch { cardRotations[4].animateTo(360f, tween(600)) }
+                            cardOffsetsY[4].animateTo(0f, tween(500))
+                        }
                     }
                 }
             }
@@ -509,6 +572,7 @@ fun SingleBoardLayout(
     isClassicCardsEnabled: Boolean,
     isFourColorMode: Boolean,
     isLandscape: Boolean,
+    isPerformanceMode: Boolean,
     modifier: Modifier) {
     val (heightPot, fontSize) = remember(isLandscape) { if(isLandscape) 2.dp to 13.sp else 8.dp to TextUnit.Unspecified }
     Column(
@@ -518,7 +582,7 @@ fun SingleBoardLayout(
         val text = if(displayMode == StackDisplayMode.CHIPS) pot.toString() else pot.toBB(bigBlindAmount) + " BB"
         Text("Pot: $text", color = Color.White, fontSize = fontSize)
         Spacer(modifier = Modifier.height(heightPot))
-        AnimatedCommunityCards(cards = communityCards, isClassicCardsEnabled = isClassicCardsEnabled, isFourColorMode = isFourColorMode)
+        AnimatedCommunityCards(cards = communityCards, isClassicCardsEnabled = isClassicCardsEnabled, isFourColorMode = isFourColorMode, isPerformanceMode = isPerformanceMode)
     }
 }
 
@@ -533,6 +597,7 @@ fun MultiBoardLayout(
     isFourColorMode: Boolean,
     bigBlind: Long,
     isLandscape: Boolean,
+    isPerformanceMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier) {
@@ -622,7 +687,8 @@ fun MultiBoardLayout(
                                 staticCardsSize = staticCards.size,
                                 isMultiboard = true,
                                 isClassicCardsEnabled = isClassicCardsEnabled,
-                                isFourColorMode = isFourColorMode
+                                isFourColorMode = isFourColorMode,
+                                isPerformanceMode = isPerformanceMode
                             )
                         }
                     }
@@ -1095,13 +1161,20 @@ fun PlayerCardsView(
         val arrangement2 = if(isPerformanceMode) Arrangement.Center else Arrangement.spacedBy((-20).dp * scaleMultiplier)
         Row(horizontalArrangement = arrangement2) {
             if (isPerformanceMode) {
-                if (isClassicCardsEnabled) {
-                    ClassicPlayerPokerCard(card1, isFourColorMode, scaleMultiplier)
-                    ClassicPlayerPokerCard(card2, isFourColorMode, scaleMultiplier)
-                } else {
-                    SimplePokerCard(card1, scaleMultiplier)
-                    SimplePokerCard(card2, scaleMultiplier)
-                }
+                PerformanceAnimatedPocketCard(
+                    card = card1,
+                    index = 0,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode,
+                    scaleMultiplier = scaleMultiplier
+                )
+                PerformanceAnimatedPocketCard(
+                    card = card2,
+                    index = 1,
+                    isClassicCardsEnabled = isClassicCardsEnabled,
+                    isFourColorMode = isFourColorMode,
+                    scaleMultiplier = scaleMultiplier
+                )
             } else {
                 FlippingPokerCard(
                     card = card1,
@@ -2309,6 +2382,20 @@ fun PlayerNode(
     val vectorXPx = playerCenterX - tableCenterX
     val vectorYPx = playerCenterY - tableCenterY - yCorrection
 
+    // Для ThrowItemSelectionMenu
+    val menuWidthPx = with(density) { (150.dp).toPx() }
+    val menuHeightPx = with(density) { (78.dp).toPx() }
+
+    val menuTopLeftX = normalizedX * (parentWidthPx - menuWidthPx)
+    val menuTopLeftY = normalizedY * (parentHeightPx - menuHeightPx)
+
+    val menuCenterX = menuTopLeftX + (menuWidthPx / 2)
+    val menuCenterY = remember(isMyBottomPlayer, menuTopLeftY, menuHeightPx, isLandscape) {
+        val baseY = menuTopLeftY + (menuHeightPx / 2)
+        val yCorrect = if (isMyBottomPlayer && isLandscape) with(density) { 50.dp.toPx() } else 0f
+        baseY + yCorrect
+    }
+
     if (playerState.currentBet > 0) {
         val (bet, textBet) = remember(playerState.currentBet, stackDisplayMode, bigBlindAmount) {
             if (stackDisplayMode == StackDisplayMode.CHIPS) {
@@ -2519,7 +2606,7 @@ fun PlayerNode(
                 onHideThrowStickerMenu()
             },
             onDismiss = { onHideThrowStickerMenu() },
-            modifier = Modifier.centerAt(playerCenterX, playerCenterY)
+            modifier = Modifier.centerAt(menuCenterX, menuCenterY)
         )
     }
 }
@@ -2637,6 +2724,7 @@ fun BoardLayout(
     isClassicCardsEnabled: Boolean,
     isFourColorMode: Boolean,
     isLandscape: Boolean,
+    isPerformanceMode: Boolean,
     @SuppressLint("ModifierParameter") multiboardModifier: Modifier,
     singleBoardModifier: Modifier,
     waitingModifier: Modifier
@@ -2653,7 +2741,7 @@ fun BoardLayout(
         if(boardRunouts.isNotEmpty()) {
             MultiBoardLayout(staticCards = staticCards, runouts = boardRunouts, runs = runsCount, pot = pot,
                 displayMode = stackDisplayMode, isClassicCardsEnabled = isClassicCardsEnabled, bigBlind = bigBlindAmount,
-                modifier = multiboardModifier, isFourColorMode = isFourColorMode, isLandscape = isLandscape)
+                modifier = multiboardModifier, isFourColorMode = isFourColorMode, isLandscape = isLandscape, isPerformanceMode = isPerformanceMode)
         } else {
             SingleBoardLayout(
                 pot = pot,
@@ -2663,6 +2751,7 @@ fun BoardLayout(
                 isClassicCardsEnabled = isClassicCardsEnabled,
                 isFourColorMode = isFourColorMode,
                 isLandscape = isLandscape,
+                isPerformanceMode = isPerformanceMode,
                 modifier = singleBoardModifier
             )
         }

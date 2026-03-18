@@ -1,8 +1,15 @@
 package com.example.poker.ui.game
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -111,23 +118,60 @@ fun ClassicPokerCard(card: Card?, isFourColorMode: Boolean, modifier: Modifier, 
 }
 
 @Composable
-fun ClassicPlayerPokerCard(card: Card?, isFourColorMode: Boolean, scaleMultiplier: Float) {
-    val cardModifier = remember(scaleMultiplier) {
-        Modifier.width(30.dp * scaleMultiplier).height(45.dp * scaleMultiplier)
-    }
-    card?.let {
-        CardFaceClassic(it, isFourColorMode, cardModifier, scaleMultiplier)
-    } ?: CardBack(cardModifier, scaleMultiplier, minMultiplier = 0.6f)
-}
+fun PerformanceAnimatedPocketCard(
+    card: Card?,
+    index: Int, // 0 - левая карта, 1 - правая
+    isClassicCardsEnabled: Boolean,
+    isFourColorMode: Boolean,
+    scaleMultiplier: Float
+) {
+    // Дистанция выезда
+    val slideDistance = with(LocalDensity.current) { (30.dp * scaleMultiplier).roundToPx() }
 
-@Composable
-fun SimplePokerCard(card: Card?, scaleMultiplier: Float) {
-    val cardModifier = remember(scaleMultiplier) {
-        Modifier.width(30.dp * scaleMultiplier).height(45.dp * scaleMultiplier)
+    val directionMultiplier = if (index == 0) 1 else -1
+
+    // Задержка: первая (0) срабатывает сразу, вторая (1) ждет 120мс
+    val animDelay = index * 120
+
+    // Движок анимации
+    AnimatedContent(
+        targetState = card != null,
+        transitionSpec = {
+            if (targetState) {
+                // Сценарий А: Открываем карты (Рубашка -> Лицо)
+                // Новая карта плавно проявляется и выезжает со стороны
+                (fadeIn(tween(200, delayMillis = animDelay)) +
+                        slideInHorizontally(tween(200, delayMillis = animDelay, easing = FastOutSlowInEasing)) { slideDistance * directionMultiplier })
+                    .togetherWith(
+                        // Старая (рубашка) просто затухает
+                        fadeOut(tween(200, delayMillis = animDelay))
+                    )
+            } else {
+                // Сценарий Б: Сбрасываем/Прячем карты (Лицо -> Рубашка)
+                fadeIn(tween(200, delayMillis = animDelay))
+                    .togetherWith(
+                        // Лицевая сторона затухает и уезжает в сторону
+                        fadeOut(tween(200, delayMillis = animDelay)) +
+                                slideOutHorizontally(tween(200, delayMillis = animDelay, easing = FastOutSlowInEasing)) { slideDistance * directionMultiplier }
+                    )
+            }
+        },
+        label = "perf_pocket_card_$index"
+    ) { isFaceUp ->
+
+        // Отрисовка нужного состояния
+        val cardModifier = Modifier.width(30.dp * scaleMultiplier).height(45.dp * scaleMultiplier)
+
+        if (isFaceUp && card != null) {
+            if (isClassicCardsEnabled) {
+                CardFaceClassic(card, isFourColorMode, cardModifier, scaleMultiplier)
+            } else {
+                CardFaceSimple(card, cardModifier, scaleMultiplier, true)
+            }
+        } else {
+            CardBack(cardModifier, scaleMultiplier, minMultiplier = 0.6f)
+        }
     }
-    card?.let {
-        CardFaceSimple(it, cardModifier, scaleMultiplier, true)
-    } ?: CardBack(cardModifier, scaleMultiplier, minMultiplier = 0.6f)
 }
 
 enum class FlipDirection {

@@ -217,6 +217,11 @@ class GameViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isNeedMoveSettings: StateFlow<Boolean> = reorderedPlayers
+        .map { it.size == 4 }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // Для BoardLayout
     val pot: StateFlow<Long> = _gameState
         .map { it?.pot ?: 0L }
@@ -229,11 +234,14 @@ class GameViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
 
     // Для BottomLayout
-    val myPlayerState: StateFlow<PlayerState?> = combine(playersOnTable, _myUserId) { players, myId ->
+    val myPlayerState: StateFlow<PlayerState?> = combine(playersOnTable, _roomInfo, _myUserId) { players, room, myId ->
         val myPlayerIndex = players.indexOfFirst { it.player.userId == myId }
         if (myPlayerIndex != -1) {
             players[myPlayerIndex]
-        } else null
+        } else {
+            val player = room?.players?.find { it.userId == myId }
+            player?.let { PlayerState(player = it) }
+        }
     }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -352,7 +360,18 @@ class GameViewModel @Inject constructor(
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = currentState.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[runIndex - 1] = runoutCards.toPersistentList()
+                                                    val index = runIndex - 1
+                                                    val list = runoutCards.toPersistentList()
+                                                    if(index in 0 until mutableList.size) {
+                                                        mutableList[index] = list
+                                                    } else if(index == mutableList.size) {
+                                                        mutableList.add(list)
+                                                    } else if(index > mutableList.size) {
+                                                        repeat(index - mutableList.size) {
+                                                            mutableList.add(persistentListOf())
+                                                        }
+                                                        mutableList.add(list)
+                                                    }
                                                 }.toPersistentList()
                                             }
                                         } else {
@@ -652,7 +671,7 @@ class GameViewModel @Inject constructor(
     }
 
     fun changeScale(change: Float) {
-        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
+        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 2.5f) // Ограничиваем 50%-250%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
     }
