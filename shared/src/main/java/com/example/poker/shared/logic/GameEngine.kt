@@ -48,13 +48,22 @@ class GameEngine(
     private var lastBigBlindAmount: Long = 0L
     private var runItTimerJob: Job? = null
     private var isProcessingAction = false
+    private val foldAutoQueue: MutableList<String> = mutableListOf()
 
     fun handlePlayerDisconnect(userId: String) {
         // Если игрок был в раздаче, просто считаем, что он сделал фолд
         val playerState = getPlayerState(userId)
         if (playerState != null && !playerState.hasFolded) {
-            processFold(userId)
+            if(isValidProcess(userId)) processFold(userId)
+            else {
+                foldAutoQueue.add(userId)
+                println("Player $userId added to fold queue")
+            }
         }
+    }
+
+    fun handlePlayerConnect(userId: String) {
+        foldAutoQueue.remove(userId)
     }
 
     private fun startBlindTimer(blindStructureType: BlindStructureType, room: GameRoom) {
@@ -464,6 +473,15 @@ class GameEngine(
     private fun handlePlayerTimeout() {
         val timedOutPlayerState = gameState.playerStates.getOrNull(gameState.activePlayerPosition) ?: return
         val userId = timedOutPlayerState.player.userId
+
+        if(foldAutoQueue.isNotEmpty()) {
+            if(userId in foldAutoQueue) {
+                println("Player $userId auto queue fold")
+                processFold(timedOutPlayerState.player.userId)
+                foldAutoQueue.remove(timedOutPlayerState.player.userId)
+                return
+            }
+        }
 
         // Увеличиваем счетчик пропущенных ходов
         gameRoomService.incrementMissedTurns(roomId, userId)
