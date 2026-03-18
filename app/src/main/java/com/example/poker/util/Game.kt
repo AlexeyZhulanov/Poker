@@ -250,9 +250,20 @@ fun prepareOutDisplayItems(outs: List<Card>): List<OutDisplayItem> {
     return displayItems
 }
 
-val CardListSaver = Saver<ImmutableList<Card>, List<Card>>(
-    save = { it.toList() },
-    restore = { it.toImmutableList() }
+// Парсим в String, чтобы не делать parcelable общие классы с сервером
+val CardListSaver = Saver<ImmutableList<Card>, List<String>>(
+    save = { cardList ->
+        cardList.map { "${it.rank.name}_${it.suit.name}" }
+    },
+    restore = { stringList ->
+        stringList.map { str ->
+            val parts = str.split("_")
+            Card(
+                rank = Rank.valueOf(parts[0]),
+                suit = Suit.valueOf(parts[1])
+            )
+        }.toImmutableList()
+    }
 )
 
 @DrawableRes

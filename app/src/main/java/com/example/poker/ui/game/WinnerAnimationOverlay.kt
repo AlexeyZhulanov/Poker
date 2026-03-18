@@ -53,7 +53,7 @@ fun WinnerAnimationOverlay(
 ) {
     val density = LocalDensity.current
     val strokeWidthPx = 3.dp.value * scaleMultiplier * LocalDensity.current.density
-    val targetOffset = with(density) { 40.dp.toPx() } * scaleMultiplier
+    val targetOffset = with(density) { 33.dp.toPx() } * scaleMultiplier
     val goldColor = Color(0xFFFFD700)
 
     // === СОСТОЯНИЯ АНИМАЦИИ ===
@@ -78,10 +78,10 @@ fun WinnerAnimationOverlay(
             // ЭТАП 1: Вырастают половинки колец (до 120 градусов)
             sweepAngle.animateTo(120f, tween(600, easing = FastOutSlowInEasing))
 
-            // ЭТАП 2: Кольца бешенно вращаются по Z (5 оборотов = 1800 градусов)
+            // ЭТАП 2: Кольца бешенно вращаются по Z (4 оборота = 1440 градусов)
             coroutineScope {
-                launch { rotZ.animateTo(-180f + 1800f, tween(1500, easing = LinearOutSlowInEasing)) }
-                launch { ringsOffset.animateTo(targetOffset, tween(750, easing = LinearOutSlowInEasing, delayMillis = 750)) }
+                launch { rotZ.animateTo(-180f + 1440f, tween(1200, easing = LinearOutSlowInEasing)) }
+                launch { ringsOffset.animateTo(targetOffset, tween(600, easing = LinearOutSlowInEasing, delayMillis = 600)) }
             }
 
             // ЭТАП 3: Поворот по X, доращивание колец до 360, старт текста, размер колец через offset
@@ -90,6 +90,11 @@ fun WinnerAnimationOverlay(
                 launch { rotX1.animateTo(-100f, tween(800, easing = FastOutSlowInEasing)) }
                 launch { rotX2.animateTo(100f, tween(800, easing = FastOutSlowInEasing)) }
                 launch { sweepAngle.animateTo(360f, tween(800, easing = FastOutSlowInEasing, delayMillis = 900)) }
+            }
+            // ЭТАП 4: Скрытие колец
+            coroutineScope {
+                launch { rotX1.animateTo(-90f, tween(400, easing = FastOutSlowInEasing)) }
+                launch { rotX2.animateTo(90f, tween(400, easing = FastOutSlowInEasing)) }
             }
         } else {
             // Сброс
@@ -102,7 +107,7 @@ fun WinnerAnimationOverlay(
         }
     }
 
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.offset(y = 8.dp * scaleMultiplier), contentAlignment = Alignment.Center) {
         // === КОЛЬЦО 1 ===
         Canvas(
             modifier = Modifier
@@ -260,7 +265,7 @@ fun VolumetricText(
     volumeOffsetY: Dp = 0.dp,
     isBidirectional: Boolean = false
 ) {
-    val fontSize = 28.sp * scaleMultiplier
+    val fontSize = 25.sp * scaleMultiplier
     val fontWeight = FontWeight.Black
 
     val faceGradient = remember {
