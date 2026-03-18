@@ -99,6 +99,7 @@ class GameRoomService : CoroutineScope {
         println("Player $userId joined")
         reconnectionTimers[userId]?.cancel()
         reconnectionTimers.remove(userId)
+        engines[roomId]?.handlePlayerConnect(userId)
         updatePlayerConnectionStatus(roomId, userId, true)
     }
 

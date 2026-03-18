@@ -3,8 +3,8 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktor)
+    alias(libs.plugins.shadow)
     application
-    id("com.gradleup.shadow") version "9.1.0"
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_22

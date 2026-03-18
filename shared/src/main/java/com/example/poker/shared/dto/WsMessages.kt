@@ -80,6 +80,9 @@ sealed interface OutgoingMessage {
     @Serializable
     @SerialName("out.game_room_offline")
     data class GameRoomUpdateOffline(val room: GameRoom?) : OutgoingMessage
+    @Serializable
+    @SerialName("out.sync_time_response")
+    data class SyncTimeResponse(val clientTime: Long, val serverTime: Long) : OutgoingMessage
 }
 
 
@@ -115,6 +118,9 @@ sealed interface IncomingMessage {
     @Serializable
     @SerialName("in.sit_at_table")
     data object SitAtTable : IncomingMessage
+    @Serializable
+    @SerialName("in.sync_time_request")
+    data class SyncTimeRequest(val clientTime: Long) : IncomingMessage
 }
 
 @Serializable

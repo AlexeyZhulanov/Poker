@@ -6,8 +6,10 @@ import com.example.poker.server.data.repository.UserRepository
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
+@OptIn(ExperimentalUuidApi::class)
 fun Application.configureSecurity() {
     val config = environment.config
     val secret = config.property("jwt.secret").getString()
@@ -31,7 +33,8 @@ fun Application.configureSecurity() {
                 if (userIdString != null) {
                     // Просто находим пользователя по ID и возвращаем его.
                     // Ktor сам сделает его Principal-ом для этого запроса.
-                    userRepository.findById(UUID.fromString(userIdString))
+                    val uuid = Uuid.parseOrNull(userIdString)
+                    uuid?.let { userRepository.findById(it) }
                 } else {
                     null
                 }

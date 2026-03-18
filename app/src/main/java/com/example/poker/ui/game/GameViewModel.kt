@@ -14,6 +14,7 @@ import com.example.poker.di.AuthEvent
 import com.example.poker.di.AuthEventBus
 import com.example.poker.domain.model.OfflineHostManager
 import com.example.poker.shared.dto.GameMode
+import com.example.poker.shared.dto.GameStage
 import com.example.poker.shared.dto.IncomingMessage
 import com.example.poker.shared.dto.OutgoingMessage
 import com.example.poker.shared.dto.OutsInfo
@@ -33,20 +34,28 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -95,19 +104,16 @@ class GameViewModel @Inject constructor(
     private val roomId: String = if(isOffline) ROOM_ID else gameUrl.substringAfterLast('/')
 
     private val _gameState = MutableStateFlow<GameState?>(null)
-    val gameState: StateFlow<GameState?> = _gameState.asStateFlow()
 
     private val _myUserId = MutableStateFlow<String?>(null)
     val myUserId: StateFlow<String?> = _myUserId.asStateFlow()
 
     private val _roomInfo = MutableStateFlow<GameRoom?>(null)
-    val roomInfo: StateFlow<GameRoom?> = _roomInfo.asStateFlow()
 
     private val _runItUiState = MutableStateFlow<RunItUiState>(Hidden)
     val runItUiState: StateFlow<RunItUiState> = _runItUiState.asStateFlow()
 
     private val _isActionPanelLocked = MutableStateFlow(false)
-    val isActionPanelLocked: StateFlow<Boolean> = _isActionPanelLocked.asStateFlow()
     private var lockJob: Job? = null
 
     private val _allInEquity = MutableStateFlow<AllInEquity?>(null)
@@ -135,8 +141,8 @@ class GameViewModel @Inject constructor(
     val showStickerActions: StateFlow<ImmutableMap<String, StickerDisplay>> = _showStickerActions.asStateFlow() // key userId, value stickerId
     private val stickerCleanupJobs = mutableMapOf<String, Job>()
 
-    private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<String, String>>>(persistentMapOf())
-    val throwItemActions: StateFlow<ImmutableMap<String, Pair<String, String>>> = _throwItemActions.asStateFlow() // key userId, value Pair<itemId, targetId>
+    private val _throwItemActions = MutableStateFlow<PersistentMap<String, Pair<StickerDisplay, String>>>(persistentMapOf())
+    val throwItemActions: StateFlow<ImmutableMap<String, Pair<StickerDisplay, String>>> = _throwItemActions.asStateFlow() // key userId, value Pair<itemId, targetId>
     private val itemCleanupJobs = mutableMapOf<String, Job>()
 
     private val _tournamentInfo = MutableStateFlow<TournamentInfo?>(null)
@@ -163,7 +169,108 @@ class GameViewModel @Inject constructor(
     private val _isFourColorMode = MutableStateFlow(true)
     val isFourColorMode: StateFlow<Boolean> = _isFourColorMode.asStateFlow()
 
+    private val _timeOffset = MutableStateFlow(0L)
+    val timeOffset: StateFlow<Long> = _timeOffset.asStateFlow()
+
     private var winnerDisplayJob: Job? = null
+
+    // Для PlayersLayout (разбиваем gameState на более мелкие части)
+    val activePlayerId: StateFlow<String?> = _gameState
+        .map { state -> state?.playerStates?.getOrNull(state.activePlayerPosition)?.player?.userId }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val bigBlindAmount: StateFlow<Long> = _gameState
+        .map { it?.bigBlindAmount ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val turnExpiresAt: StateFlow<Long?> = _gameState
+        .map { it?.turnExpiresAt }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val winnerIds: StateFlow<ImmutableSet<String>> = _boardResult
+        .map { result -> result?.map { it.first }?.toImmutableSet() ?: persistentSetOf() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentSetOf())
+
+    private val playersOnTable = combine(_gameState, _roomInfo) { state, room ->
+        state?.playerStates ?: (room?.players?.map { PlayerState(player = it) }?.toImmutableList() ?: persistentListOf())
+    }.distinctUntilChanged()
+
+    val reorderedPlayers: StateFlow<ImmutableList<PlayerState>> = combine(playersOnTable, _myUserId) { players, myId ->
+        val visiblePlayers = players.filter { it.player.status != PlayerStatus.SPECTATING }
+        val myPlayerIndex = visiblePlayers.indexOfFirst { it.player.userId == myId }
+
+        val reordered = if (myPlayerIndex != -1) {
+            visiblePlayers.subList(myPlayerIndex, visiblePlayers.size) + visiblePlayers.subList(0, myPlayerIndex)
+        } else {
+            visiblePlayers
+        }
+        reordered.toImmutableList()
+    }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
+
+    val isGameStarted: StateFlow<Boolean> = _gameState
+        .map { it != null }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isNeedMoveSettings: StateFlow<Boolean> = reorderedPlayers
+        .map { it.size == 4 }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Для BoardLayout
+    val pot: StateFlow<Long> = _gameState
+        .map { it?.pot ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val communityCards: StateFlow<ImmutableList<Card>> = _gameState
+        .map { it?.communityCards ?: persistentListOf() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
+
+    // Для BottomLayout
+    val myPlayerState: StateFlow<PlayerState?> = combine(playersOnTable, _roomInfo, _myUserId) { players, room, myId ->
+        val myPlayerIndex = players.indexOfFirst { it.player.userId == myId }
+        if (myPlayerIndex != -1) {
+            players[myPlayerIndex]
+        } else {
+            val player = room?.players?.find { it.userId == myId }
+            player?.let { PlayerState(player = it) }
+        }
+    }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val amountToCall: StateFlow<Long> = _gameState
+        .map { it?.amountToCall ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val lastRaiseAmount: StateFlow<Long> = _gameState
+        .map { it?.lastRaiseAmount ?: 0L }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    private val gameStage: StateFlow<GameStage> = _gameState
+        .map { it?.stage ?: GameStage.PRE_FLOP }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GameStage.PRE_FLOP)
+
+    val isMyTurn: StateFlow<Boolean> = combine(
+        activePlayerId,
+        _myUserId,
+        _isActionPanelLocked,
+        _allInEquity,
+        gameStage
+    ) { activeId, myId, isLocked, equity, stage ->
+        activeId == myId && !isLocked && equity == null && stage != GameStage.SHOWDOWN
+    }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    // ----------
 
     private var session: DefaultClientWebSocketSession? = null
     private var connectionJob: Job? = null
@@ -230,6 +337,7 @@ class GameViewModel @Inject constructor(
                         _isReconnecting.value = false
                         Log.d("testGameWS", "Connected.")
                         session = this
+                        syncTimeWithServer()
                         for (frame in incoming) {
                             if (frame is Frame.Text) {
                                 val messageJson = frame.readText()
@@ -252,7 +360,18 @@ class GameViewModel @Inject constructor(
                                             _boardRunouts.update { currentRunouts ->
                                                 currentRunouts.toMutableList().also { mutableList ->
                                                     val runoutCards = currentState.communityCards.drop(_staticCommunityCards.value.size)
-                                                    mutableList[runIndex - 1] = runoutCards.toPersistentList()
+                                                    val index = runIndex - 1
+                                                    val list = runoutCards.toPersistentList()
+                                                    if(index in 0 until mutableList.size) {
+                                                        mutableList[index] = list
+                                                    } else if(index == mutableList.size) {
+                                                        mutableList.add(list)
+                                                    } else if(index > mutableList.size) {
+                                                        repeat(index - mutableList.size) {
+                                                            mutableList.add(persistentListOf())
+                                                        }
+                                                        mutableList.add(list)
+                                                    }
                                                 }.toPersistentList()
                                             }
                                         } else {
@@ -324,9 +443,9 @@ class GameViewModel @Inject constructor(
                                         winnerDisplayJob?.cancel()
                                         // Запускаем новый таймер на 3 секунды, чтобы скрыть подсветку
                                         winnerDisplayJob = viewModelScope.launch {
-                                            delay(750L)
+                                            delay(500L)
                                             _boardResult.value = message.payments.toImmutableList()
-                                            delay(3000L)
+                                            delay(5000L)
                                             _boardResult.value = null
                                         }
                                     }
@@ -349,7 +468,7 @@ class GameViewModel @Inject constructor(
                                             }
                                             is SocialAction.ThrowItem -> {
                                                 val playerId = message.fromPlayerId
-                                                val itemData = action.itemId to action.targetUserId
+                                                val itemData = StickerDisplay(stickerId = action.itemId)  to action.targetUserId
                                                 itemCleanupJobs[playerId]?.cancel()
                                                 _throwItemActions.update { it.put(playerId, itemData) }
                                                 itemCleanupJobs[playerId] = viewModelScope.launch {
@@ -427,6 +546,19 @@ class GameViewModel @Inject constructor(
                                         val state = message.state
                                         _gameState.value = GameState.fromUserInput(state)
                                     }
+                                    is OutgoingMessage.SyncTimeResponse -> {
+                                        val t1 = System.currentTimeMillis() // Время возврата
+                                        // Считаем RTT (путь туда и обратно)
+                                        val rtt = t1 - message.clientTime
+                                        // Считаем путь в одну сторону
+                                        val latency = rtt / 2
+                                        // Истинное время сервера в момент T1
+                                        val trueServerTime = message.serverTime + latency
+                                        // Сохраняем разницу между истинным сервером и нашими локальными часами
+                                        val offset = trueServerTime - t1
+                                        _timeOffset.value = offset
+                                        Log.d("testTimeSync", "RTT: $rtt ms, Latency: $latency ms, Offset: $offset ms")
+                                    }
                                 }
                             }
                         }
@@ -500,6 +632,11 @@ class GameViewModel @Inject constructor(
         sendAction(IncomingMessage.SitAtTable)
     }
 
+    private fun syncTimeWithServer() {
+        val t0 = System.currentTimeMillis() // client time
+        sendAction(IncomingMessage.SyncTimeRequest(t0))
+    }
+
     private fun lockActionPanel() {
         _isActionPanelLocked.value = true
         lockJob = viewModelScope.launch {
@@ -534,7 +671,7 @@ class GameViewModel @Inject constructor(
     }
 
     fun changeScale(change: Float) {
-        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 1.5f) // Ограничиваем 50%-150%
+        val newValue = (_scaleMultiplier.value + change).coerceIn(0.5f, 2.5f) // Ограничиваем 50%-250%
         _scaleMultiplier.value = newValue
         appSettings.saveScaleMultiplier(newValue)
     }
@@ -553,6 +690,10 @@ class GameViewModel @Inject constructor(
 
     fun onStickerSelected(stickerId: String) {
         sendAction(IncomingMessage.PerformSocialAction(SocialAction.ShowSticker(stickerId)))
+    }
+
+    fun onStickerThrowSelected(stickerId: String, targetId: String) {
+        sendAction(IncomingMessage.PerformSocialAction(SocialAction.ThrowItem(stickerId, targetId)))
     }
 
     override fun onCleared() {

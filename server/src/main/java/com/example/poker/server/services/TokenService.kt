@@ -3,17 +3,20 @@ package com.example.poker.server.services
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.server.config.ApplicationConfig
+import kotlinx.serialization.Contextual
 import java.util.Date
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
-class TokenService(private val config: ApplicationConfig) {
+class TokenService(config: ApplicationConfig) {
     private val secret = config.property("jwt.secret").getString()
     private val issuer = config.property("jwt.issuer").getString()
     private val audience = config.property("jwt.audience").getString()
     private val accessTokenExpiresIn = config.property("jwt.accessTokenExpiresIn").getString().toLong()
     private val refreshTokenExpiresIn = config.property("jwt.refreshTokenExpiresIn").getString().toLong()
 
-    fun generateTokens(userId: UUID): Pair<String, String> {
+    @OptIn(ExperimentalUuidApi::class)
+    fun generateTokens(userId: @Contextual Uuid): Pair<String, String> {
         val accessToken = JWT.create()
             .withAudience(audience)
             .withIssuer(issuer)

@@ -35,6 +35,7 @@ val AppJson = Json {
             subclass(OutgoingMessage.ConnectionStatusUpdate::class)
             subclass(OutgoingMessage.GameStateUpdateOffline::class)
             subclass(OutgoingMessage.GameRoomUpdateOffline::class)
+            subclass(OutgoingMessage.SyncTimeResponse::class)
         }
         // Регистрируем иерархию для IncomingMessage
         polymorphic(IncomingMessage::class) {
@@ -46,6 +47,7 @@ val AppJson = Json {
             subclass(IncomingMessage.PerformSocialAction::class)
             subclass(IncomingMessage.SetReady::class)
             subclass(IncomingMessage.SitAtTable::class)
+            subclass(IncomingMessage.SyncTimeRequest::class)
         }
 
         polymorphic(SocialAction::class) {

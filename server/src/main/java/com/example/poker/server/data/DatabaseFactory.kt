@@ -3,10 +3,11 @@ package com.example.poker.server.data
 import com.example.poker.server.data.entity.Users
 import io.ktor.server.config.ApplicationConfig
 import kotlinx.coroutines.Dispatchers
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.transaction
+import kotlinx.coroutines.withContext
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 object DatabaseFactory {
     fun init(config: ApplicationConfig) {
@@ -14,7 +15,7 @@ object DatabaseFactory {
         val jdbcURL = config.property("db.url").getString()
         val user = config.property("db.user").getString()
         val password = config.property("db.password").getString()
-        val database = Database.Companion.connect(jdbcURL, driverClassName, user, password)
+        val database = Database.connect(jdbcURL, driverClassName, user, password)
 
         // Создаем транзакцию для выполнения DDL-запросов (создание таблиц)
         transaction(database) {
@@ -29,6 +30,7 @@ object DatabaseFactory {
      * Она гарантирует, что блокирующие JDBC-вызовы будут выполняться
      * в специальном пуле потоков Dispatchers.IO, не блокируя основной поток Ktor.
      */
-    suspend fun <T> dbQuery(block: suspend () -> T): T =
-        newSuspendedTransaction(Dispatchers.IO) { block() }
+    suspend fun <T> dbQuery(block: suspend () -> T): T = withContext(Dispatchers.IO) {
+        suspendTransaction { block() }
+    }
 }
