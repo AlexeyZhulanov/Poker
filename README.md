@@ -14,9 +14,26 @@
 
 ## 🎥 Видео-демонстрация геймплея
 
-| Онлайн Кэш-игра (Сложные 3D-анимации) | Оффлайн Турнир + Кэш-игра (Performance Mode) |
-| :---: | :---: |
-| https://github.com/user-attachments/assets/afa78581-0bec-44bf-848b-5b465fe9fe8f | https://github.com/user-attachments/assets/2fa698e8-6a6a-4983-a29d-f74c015bf5b4 |
+<table>
+  <tr>
+    <td align="center">
+      <b>Онлайн Кэш-игра</b><br/>
+      (Сложные 3D-анимации)
+    </td>
+    <td align="center">
+      <b>Оффлайн Турнир + Кэш-игра</b><br/>
+      (Performance Mode)
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <video src="https://github.com/user-attachments/assets/afa78581-0bec-44bf-848b-5b465fe9fe8f" controls width="100%"></video>
+    </td>
+    <td>
+      <video src="https://github.com/user-attachments/assets/2fa698e8-6a6a-4983-a29d-f74c015bf5b4" controls width="100%"></video>
+    </td>
+  </tr>
+</table>
 
 ---
 
